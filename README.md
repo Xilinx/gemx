@@ -67,6 +67,7 @@ make GEMX_ddrWidth=32 GEMX_gemmMBlocks=8 GEMX_gemmKBlocks=8 GEMX_gemmKBlocks=8 G
 ## 6. Execution in Cloud Environments
 FPGA acceleration boards have been deployed to the cloud. For information on how to execute the example within a specific cloud, take a look at the following guides.
 * [AWS F1 Application Execution on Xilinx Virtex UltraScale Devices]
+
 First, copy host image gemx_api_gemm.exe, FPGA image gemx.xclbin and the xbinst/ folder to F1, then follow the instruction above to convert gemx.xclbin to gemx.awsxclbin, take the steps below to launch the application to measure the 4 GEMM kernel performance for accelerating 4 512x512 matrix multiplications.
 ```
 gemx_api_gemm.exe gemx.awsxclbin 512 512 512
@@ -92,11 +93,11 @@ Date | README Version | Description
 -----|----------------|------------
 Oct2017|1.0|Initial Xilinx Release
 
-[3-Clause BSD License]: ../SDAccel_Examples/blob/masterLICENSE.txt
+[3-Clause BSD License]: https://github.com/Xilinx/SDAccel_Examples/blob/master/LICENSE.txt
 [SDAccel Forums]: https://forums.xilinx.com/t5/SDAccel/bd-p/SDx
 [SDAccel User Guides]: http://www.xilinx.com/support/documentation-navigation/development-tools/software-development/sdaccel.html?resultsTablePreSelect=documenttype:SeeAll#documentation
 [Nimbix Getting Started Guide]: http://www.xilinx.com/support/documentation/sw_manuals/xilinx2016_2/ug1240-sdaccel-nimbix-getting-started.pdf
 [Walkthrough Video]: http://bcove.me/6pp0o482
-[Nimbix Application Submission README]: ../SDAccel_Examples/blob/master/utility/nimbix/README.md
-[Repository Contribution README]: ../SDAccel_Examples/blob/master/CONTRIBUTING.md
+[Nimbix Application Submission README]: https://github.com/Xilinx/SDAccel_Examples/blob/master/utility/nimbix/README.md
+[Repository Contribution README]: https://github.com/Xilinx/SDAccel_Examples/blob/master/CONTRIBUTING.md
 [AWS F1 Application Execution on Xilinx Virtex UltraScale Devices]: https://github.com/aws/aws-fpga/blob/master/SDAccel/README.md

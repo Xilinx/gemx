@@ -521,7 +521,8 @@ ifeq (${GEMX_vivadoFlow},EXP)
   XP_VIVADO_PROPS +=--xp vivado_prop:run.synth_1.STRATEGY=FLow_PerfOptimized_high
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.OPT_DESIGN.ARGS.DIRECTIVE=Explore
   XP_VIVADO_PROPS += --xp 'vivado_prop:run.impl_1.{STEPS.PLACE_DESIGN.ARGS.MORE OPTIONS}={-fanout_opt}'
-  #XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=AltSpreadLogic_high
+  #XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=SSI_BalanceSLLs
+  XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=SSI_SpreadLogic_high
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PHYS_OPT_DESIGN.IS_ENABLED=true
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE=AggressiveExplore
   #XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE=AggressiveFanoutOpt

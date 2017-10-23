@@ -34,7 +34,7 @@ As shown in Figure 1, the GEMM enigne library implementation includes 4 identica
 * gcc 6.2.0
 * local version of the repository
 
-## 3. AN USAGE EXAMPLE
+## 3. A USAGE EXAMPLE
 File src/gemx_api_GEMM.cpp gives an example of using GEMM APIs to measure the performance of the GEMM engine library.
 
 ### 3.1. COMPILING AND RUNNING THE EXAMPLE ON AWS F1

@@ -5,7 +5,7 @@ This user guide contains the following sections:
 
 1. OVERVIEW
 2. SOFTWARE TOOLS AND SYSTEM REQUIREMENTS
-3. AN USAGE EXAMPLE
+3. A USAGE EXAMPLE
 4. GEMM API LIST
 5. SUPPORT
 6. LICENSE AND CONTRIBUTING TO THE REPOSITORY
@@ -14,13 +14,21 @@ This user guide contains the following sections:
 
 
 ## 1. OVERVIEW
-THE GEMM APIs allow users to offload matrix multiplications to the Amazon cloud with GEMM accelerator FPGA cards. These APIs are designed to work with the GEMM engine library realized on an FPGA. 
+THE GEMM APIs allow users to offload matrix multiplications (also called GEMM operations here) to the Amazon cloud with GEMM FPGA accelerator cards. These APIs are designed to work with the GEMM engine library realized on an FPGA. 
 
 ![](./GEMM4_arch.png)
 *<center>Fig. 1: GEMM Accelerator Architecture</center>*
 
-As shown in Figure 1, the GEMM enigne library implementation includes 4 identical kernels, with each kernel has its dedicated global memory, in this case, a DDR bank. Inside a kernel, an *instruction decoder* and an *GEMM engine* are built to decode and execute matrix multiplication instructions given by the client or host code software. Each instruction contains the opcode (in this case, GEMM), the DDR addresses of input and output matrices and the size and lead dimension information of the matrices. Once the instruction is decoded by the *instruction decoder*, the matrices information is passed to the *GEMM engine* to trigger the engine. Once the engine is triggered, it will start to read input matrices from the DDR, carry out block-wise matrix multiplication and finally write the results block-by-block back to the DDR. This instruction decoding and execution step can be repeated again and again. In the current implementation, each kernel can execute maximum **16** instructions with the last instruction to be a specific *lastOp* instruciton to indicate the end of the kernel and to inform the host to read the results back from DDR. Given this limitation, the host code can offload maximum **15** matrix multiplications to one kernel in one shot or without any interruption, meaning no data transfer back to the host memory. This is extremely efficient if the offloaded operation is a chain of matrix multiplications, for example, C1 = A1 * B1; C2 = C1 * B2; C3 = C1 * C2. With 4 kernels, the maximum number of matrix multiplications in one shot can reach **60**. The APIs presented here cover all aspects of using this accelerator library.
+As shown in Figure 1, the GEMM enigne library implementation includes 4 identical kernels, with each kernel having its dedicated global memory, in this case, a DDR bank. Inside a kernel, an *instruction decoder* and a *GEMM engine* are built to decode and execute matrix multiplication instructions given by the client or host code software. Each instruction contains the opcode (in this case, GEMM), the DDR addresses of input and output matrices and the size and lead dimension information of the matrices. Once the instruction is decoded by the *instruction decoder*, the matrices' information is passed to the *GEMM engine* to trigger the engine. Once the engine is triggered, it will start to read input matrices from the DDR, carry out block-wise matrix multiplication and finally write the results block-by-block back to the DDR. This instruction decoding and execution step can be repeated again and again. In the current implementation, each kernel can execute a maximum of **16** instructions with the last instruction being a specific *lastOp* instruction to indicate the end of the kernel and to inform the host to read the results back from the DDR. Given this limitation, the host code can offload a maximum of **15** matrix multiplications to one kernel in one shot or without any interruption, meaning no data transfer back to the host memory. This is extremely efficient if the offloaded operation is a chain of matrix multiplications, for example, C1 = A1 * B1; C2 = C1 * B2; C3 = C1 * C2. With 4 kernels, the maximum number of matrix multiplications in one shot can reach **60**. The APIs presented here cover all aspects of using this accelerator library.
 
+### 1.1 FEATURES
+* supported operation: C = A * B, where A, B and C are matrices.
+* supported matrix element types: int16_t, uint16_t, short, unsigned short
+* supported matrix sizes: the number of rows and columns of the input matrices has to be multiple of 256. Currently, the tested maximum matrix size is 16384 x 16384. But it can support a maximum of 2^31 x 2^31 size matrices, or the maximum matrices that can be stored on the device's memory.
+
+### 1.2 LIMITATIONS
+* Floating point: currently fp32 type is not supported
+* number of kernels: maximum 4 kernels can run in parallel to offload the GEMM operations.
 ## 2. SOFTWARE AND SYSTEM REQUIREMENTS
 * AWS F1 instance that has GEMM engine library card installed
 * gcc 6.2.0
@@ -29,7 +37,7 @@ As shown in Figure 1, the GEMM enigne library implementation includes 4 identica
 ## 3. AN USAGE EXAMPLE
 File src/gemx_api_GEMM.cpp gives an example of using GEMM APIs to measure the performance of the GEMM engine library.
 
-### 3.1. COMPILING AND RUNNING THE EXAMPLE on AWS F1
+### 3.1. COMPILING AND RUNNING THE EXAMPLE ON AWS F1
  To compile this example, please follow the steps below:
 1. navigate to the gemx/ directory, and change the path of gcc to point to the location of gcc 6.2.0 installed on your local machine, and then run command:
 
@@ -38,7 +46,7 @@ make GEMX_ddrWidth=32 GEMX_GEMMMBlocks=8 GEMX_GEMMKBlocks=8 GEMX_GEMMKBlocks=8 G
 ``` 
 2. copy the generated gemx_api_GEMM.exe to the AWS F1 instance, and set up the SDAccel environment on F1 by following the steps listed on: 
 * [AWS F1 Application Execution on Xilinx Virtex UltraScale Devices]
-3. launch the application via following command:
+3. launch the application via the following command:
 ```
 gemx_api_GEMM.exe gemx.awsxclbin 512 512 512
 ```
@@ -70,11 +78,11 @@ make run_multiGemm_hw_em SDA_FLOW=hw GEMX_ddrWidth=$s GEMX_argInstrWidth=`expr 3
 ```
 
 ### 3.3. EXAMPLE CODE STRUCTURE
-The main() function of gemx_api_GEMM.cpp takes the steps bellow to offload matrix multiplications (also called GEMM operations here) to the FPGA accelerator.
-* compile user's command line GEMM operations into instructions and allocate host memory for the input and output matrices
+The main() function of gemx_api_GEMM.cpp takes the steps below to offload matrix multiplications to the FPGA accelerator.
+* compiling user's command line GEMM operations into instructions and allocate host memory for the input and output matrices
 * initialize input matrices
-* run the 4 GEMM FPGA accelerator
-* read the results returned from the accelerator, check the correctness and report the performance.
+* running the 4 GEMM FPGA accelerator
+* reading the results returned from the accelerator, checking the correctness and reporting the performance.
 
 The code for compiling GEMM operation commands, allocating host memory is listed below.
 ```
@@ -175,13 +183,13 @@ The code for running the 4 GEMM FPGA accelerator is listed below.
 ```
 ### PERFORMANCE CALCULATION
 At the end of the main() function of the gemx_api_GEMM.cpp, the following performance figures are calculated.
-1. cycle counts of each kernel's running time, meaning the time from kernel starts running to kernel has done the entire operation.
+1. cycle counts of each kernel's running time, meaning the time from when the kernel starts running until the kernel has done the entire operation.
 ```
   l_cycleCount[i] = l_instrRes[i].getDuration();
 ```
 2. each kernel's running time in ms, l_timeKernelInMs.
 ```
-The equations for calculating l_timeKernelInMs is:
+The equation for calculating l_timeKernelInMs is:
   l_timeKernelInMs = l_cycleCount / kernel_frequence
 where
   kernel_frequence is achieved kernel frequency, in this case, 246.6MHz.
@@ -200,12 +208,12 @@ where
   where
     systolic_array_size = GEMX_ddrWidth * GEMX_ddrWidth
 ``` 
-5. from the pure kernel running time point of view, kernel's efficiency, l_effKernelPct.
+5. kernel's efficiency from the pure kernel running time point of view, l_effKernelPct.
 ```
   The equation for calculating l_effKernelPct is:
     l_effKernelPct = l_timeMsAt100pcEff / l_timeKernelInMs
 ```
-6. from the api call point of view, accelerator's efficiency, l_effApiPct.
+6. accelerator's efficiency from the api call point of view, l_effApiPct.
 ```
   The equation for calculating l_effApiPct is:
     l_effApiPct = l_timeMsAt100pcEff / l_timeApiInMs
@@ -225,7 +233,7 @@ gemx_gen_bin.h | Mat | init | *unsigned int p_Rows*: number of rows;<br> *unsign
 gemx_gen_bin.h | Mat | fillMode | *T p_Max*: the maximum value of the matrix elements;<br> *T p_First*: the starting value of the matrix elements | fill the host memory used to store the matrix with random values that are equal to or greater than p_First, and smaller than p_Max.
 gemx_kargs | GemmArgs | init | *unsigned int p_Aoffset*: memory offset for input matrix A;<br> *unsigned int p_Boffset*: memory offset for input matrix B;<br> *unsigned int p_Coffset*: memory offset for input matrix C;<br> *unsigned int p_M*: number of rows in matrix A;<br> *unsigned int p_K*: number of columns in matrix A;<br> *unsigned int p_N*: number of columns in matrix B;<br> *unsigned int p_Lda*: lead dimenstion of matrix A;<br> *unsigned int p_Ldb*: lead dimension of matrix B;<br> *unsigned int p_Ldc*: lead dimension of matrix C;| instantiate a GemmArgs instance with the given parameters.
 gemx_kargs.h | Kargs | setGemmArgs | *GemmArgs p_args*: GemmArgs object that stores all required arguments for the GEMM operation. | set the arguments for GEMM operation.
-gemx_kargs.h | Kargs | store | *DdrFloatType *p_Addr*: base address of the allocated host memory for storing instructions;<br> *unsigned int p_Pc*: memory offset for storing the current instruction.
+gemx_kargs.h | Kargs | store | *DdrFloatType \*p_Addr*: base address of the allocated host memory for storing instructions;<br> *unsigned int p_Pc*: memory offset for storing the current instruction.
 gemx_kargs.h | Kargs | load | *DdrFloatType \*p_Addr*: base address of the host memory for storing instructions;<br> *unsigned int p_Pc*: memory offset of the current instruction | retrieve the instruction from the given memory address and offset and return the decoded operation.
 gemx_kargs.h | Kargs | getInstrResArgs | | retrieve the instruction exeuction results returned by the accelerator. The results including the kernel staring and finishing time in clock cycles.
 gemx_fpga.h | Fpga | loadXclbin | *std::string p_XclbinFile*: xclbin file name;<br> *std::string p_KernelName[GEMX_numKernels]*: array of kernel names | instantiate accelerator with the .xclbin file and kernel names.
@@ -241,7 +249,7 @@ For questions and to get help on this project or your own projects, visit the [S
 
 
 ## 6. LICENSE AND CONTRIBUTING TO THE REPOSITORY
-The source for this project is licensed under the [3-Clause BSD License][]
+The sources for this project is licensed under the [3-Clause BSD License][]
 
 To contribute to this project, follow the guidelines in the [Repository Contribution README][]
 

@@ -218,20 +218,20 @@ where
   The equation for calculating l_effApiPct is:
     l_effApiPct = l_timeMsAt100pcEff / l_timeApiInMs
   where
-    l_timeApiInMs includes the time to transferring data between host memory and device memory.
+    l_timeApiInMs includes the time to transfer data between host memory and device memory.
 ```
 
 ## 4. GEMM API LIST
-File | Class | Function | Arguments | Description
+File | Class | Function | Parameters | Description
 -----|-------|----------|-----------|-----------
 gemx_gen_bin.h | Program | allocPages | *std::string p_Handle*: a string used to describe the allocated pages;<br> *bool &p_NewAlloc*: a return boolean variable indicating if the allocation is successful or not;<br> *size_t p_NumElements*: number of elements with type defined by GEMX_dataType | allocate pages for the given number of elements, return the index of the first allocated page.
 gemx_gen_bin.h | Program | getPageAddr | *unsigned int p_PageIdx*: the index of the allocated page | return the pointer to the allocated paged indexed by the p_PageIdx.
 gemx_gen_bin.h | Program | addInstr | | increase the number of instructions stored by m_NumInstr in class Program and return the pointer the the last added instruction.
 gemx_gen_bin.h | Program | getMemDesc | | retrieve the MemDesc object stored in the Program instance. The MemDesc object contains a pointer to the allocated host memory and the size in terms of number of elements with type GEMX_dataType.
 gemx_gen_bin.h | Program | getBaseResAddr | | return the address of the host memory that stores the returned the results from the accelerator.
-gemx_gen_bin.h | Mat | init | *unsigned int p_Rows*: number of rows;<br> *unsigned int p_Cols*: number of columns;<br> *unsigned int p_Ld*: matrix lead dimension; <br> *T \*p_Addr*: address of allocated host memory for storing the matrix | initialize a Mat instance with the given parameters.
+gemx_gen_bin.h | Mat | init | *unsigned int p_Rows*: number of rows;<br> *unsigned int p_Cols*: number of columns;<br> *unsigned int p_Ld*: matrix lead dimension; <br> *T \*p_Addr*: address of allocated host memory for storing the matrix | initialize a Mat instance with the given argumentss.
 gemx_gen_bin.h | Mat | fillMode | *T p_Max*: the maximum value of the matrix elements;<br> *T p_First*: the starting value of the matrix elements | fill the host memory used to store the matrix with random values that are equal to or greater than p_First, and smaller than p_Max.
-gemx_kargs | GemmArgs | init | *unsigned int p_Aoffset*: memory offset for input matrix A;<br> *unsigned int p_Boffset*: memory offset for input matrix B;<br> *unsigned int p_Coffset*: memory offset for input matrix C;<br> *unsigned int p_M*: number of rows in matrix A;<br> *unsigned int p_K*: number of columns in matrix A;<br> *unsigned int p_N*: number of columns in matrix B;<br> *unsigned int p_Lda*: lead dimenstion of matrix A;<br> *unsigned int p_Ldb*: lead dimension of matrix B;<br> *unsigned int p_Ldc*: lead dimension of matrix C;| instantiate a GemmArgs instance with the given parameters.
+gemx_kargs | GemmArgs | init | *unsigned int p_Aoffset*: memory offset for input matrix A;<br> *unsigned int p_Boffset*: memory offset for input matrix B;<br> *unsigned int p_Coffset*: memory offset for input matrix C;<br> *unsigned int p_M*: number of rows in matrix A;<br> *unsigned int p_K*: number of columns in matrix A;<br> *unsigned int p_N*: number of columns in matrix B;<br> *unsigned int p_Lda*: lead dimenstion of matrix A;<br> *unsigned int p_Ldb*: lead dimension of matrix B;<br> *unsigned int p_Ldc*: lead dimension of matrix C;| instantiate a GemmArgs instance with the given arguments.
 gemx_kargs.h | Kargs | setGemmArgs | *GemmArgs p_args*: GemmArgs object that stores all required arguments for the GEMM operation. | set the arguments for GEMM operation.
 gemx_kargs.h | Kargs | store | *DdrFloatType \*p_Addr*: base address of the allocated host memory for storing instructions;<br> *unsigned int p_Pc*: memory offset for storing the current instruction.
 gemx_kargs.h | Kargs | load | *DdrFloatType \*p_Addr*: base address of the host memory for storing instructions;<br> *unsigned int p_Pc*: memory offset of the current instruction | retrieve the instruction from the given memory address and offset and return the decoded operation.

@@ -1,34 +1,35 @@
 /**********
-Copyright (c) 2017, Xilinx, Inc.
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice,
-this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice,
-this list of conditions and the following disclaimer in the documentation
-and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its contributors
-may be used to endorse or promote products derived from this software
-without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
-EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-**********/
+ * Copyright (c) 2017, Xilinx, Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ * may be used to endorse or promote products derived from this software
+ * without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * **********/
 /**
  *  @brief FPGA utilities
  *
+ *  $DateTime: 2017/10/24 03:52:34 $
  */
 
 #ifndef GEMX_FPGA_H
@@ -126,15 +127,15 @@ class Fpga
         unsigned l_k2bank[] = {GEMX_fpgaDdrBanks};
         
         cl_mem_ext_ptr_t l_bufExt;
-        l_bufExt.obj = NULL;
+        //l_bufExt.obj = NULL;
         l_bufExt.param = 0;
 		for (unsigned int kernelId=0; kernelId<GEMX_numKernels; ++kernelId){
         	l_bufExt.flags = l_k2bank[kernelId];
-        
+        	l_bufExt.obj = p_MemDesc[kernelId].data();
         	m_DataSize[kernelId] = p_MemDesc[kernelId].sizeBytes();
         	// Buffers
         	m_Buffer[kernelId] = boost::compute::buffer(m_Context, m_DataSize[kernelId],
-                      CL_MEM_READ_WRITE | CL_MEM_EXT_PTR_XILINX,
+                      CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE | CL_MEM_EXT_PTR_XILINX,
                       &l_bufExt);
 		}
 		ok = true;
@@ -143,34 +144,16 @@ class Fpga
 		
     ///////////////////////////////////////////////////////////////////////////
     bool
-    copyToFpga(MemDesc p_MemDesc[GEMX_numKernels]) {
+    copyToFpga() {
         bool ok = false;
         
-        //decltype of cl_mem_ext_ptr_t.flags
-        //unsigned l_k2bank[] = {GEMX_fpgaDdrBanks};
-        
-        //cl_mem_ext_ptr_t l_bufExt;
-        //l_bufExt.obj = NULL;
-        //l_bufExt.param = 0;
         boost::compute::event l_event;
 		for (unsigned int kernelId=0; kernelId<GEMX_numKernels; ++kernelId){
-        	//l_bufExt.flags = l_k2bank[kernelId];
-        
-        	//m_DataSize[kernelId] = p_MemDesc[kernelId].sizeBytes();
-        	// Buffers
-        	//m_Buffer[kernelId] = boost::compute::buffer(m_Context, m_DataSize[kernelId],
-            //          CL_MEM_READ_WRITE | CL_MEM_EXT_PTR_XILINX,
-            //          &l_bufExt);
 
         	// Send the input data to the accelerator
-       		l_event = m_CommandQueue.enqueue_write_buffer(m_Buffer[kernelId], 0 /* Offset */,
-                                            m_DataSize[kernelId], p_MemDesc[kernelId].data());
+			l_event = m_CommandQueue.enqueue_migrate_memory_objects(1, &(m_Buffer[kernelId].get()), 0);
 			m_waitInput[kernelId].insert(l_event);
-        	m_Kernel[kernelId].set_args(m_Buffer[kernelId], m_Buffer[kernelId]);
 		}
-//        for (int i=0; i<GEMX_numKernels; ++i) {
-//			l_writeEvents[i].wait();
-//		}
 		ok = true;
         return(ok);
       }
@@ -187,6 +170,7 @@ class Fpga
         // Launch kernels
         boost::compute::event l_event;
         for (unsigned int kernelId=0; kernelId<GEMX_numKernels; ++kernelId){
+        	m_Kernel[kernelId].set_args(m_Buffer[kernelId], m_Buffer[kernelId]);
         	l_event = m_CommandQueue.enqueue_nd_range_kernel(m_Kernel[kernelId], offset, global, local, m_waitInput[kernelId]);
 			m_waitOutput[kernelId].insert(l_event);
 		}
@@ -196,25 +180,18 @@ class Fpga
     
     ///////////////////////////////////////////////////////////////////////////
     bool
-    copyFromFpga(MemDesc p_MemDesc[GEMX_numKernels]) {
+    copyFromFpga() {
         bool ok = false;
-		bool success = true;
        
 		boost::compute::event l_readEvents[GEMX_numKernels]; 
         for (unsigned int kernelId=0; kernelId<GEMX_numKernels; ++kernelId) {
-        	assert(p_MemDesc[kernelId].sizeBytes() == m_DataSize[kernelId]);
-        	// Get the output data from the accelerator
-        	l_readEvents[kernelId] = m_CommandQueue.enqueue_read_buffer_async(m_Buffer[kernelId], 0 /* Offset */,
-                                         m_DataSize[kernelId], p_MemDesc[kernelId].data(), m_waitOutput[kernelId]);
-        	ok = (p_MemDesc[kernelId].sizePages() > 0);
-			if (!ok) {
-				success = false;
-			}
+        	l_readEvents[kernelId] = m_CommandQueue.enqueue_migrate_memory_objects(1, &(m_Buffer[kernelId].get()), CL_MIGRATE_MEM_OBJECT_HOST, m_waitOutput[kernelId]);
 		}
 		for (int i=0; i<GEMX_numKernels; ++i) {
 			l_readEvents[i].wait();
 		}
-        return(success);
+		ok=true;
+        return(ok);
       }
     ///////////////////////////////////////////////////////////////////////////
     bool

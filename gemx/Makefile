@@ -521,8 +521,8 @@ ifeq (${GEMX_vivadoFlow},EXP)
   XP_VIVADO_PROPS +=--xp vivado_prop:run.synth_1.STRATEGY=FLow_PerfOptimized_high
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.OPT_DESIGN.ARGS.DIRECTIVE=Explore
   XP_VIVADO_PROPS += --xp 'vivado_prop:run.impl_1.{STEPS.PLACE_DESIGN.ARGS.MORE OPTIONS}={-fanout_opt}'
-  #XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=SSI_BalanceSLLs
-  XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=SSI_SpreadLogic_high
+  #XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=AltSpreadLogic_high
+  XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=SSI_BalanceSLLs
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PHYS_OPT_DESIGN.IS_ENABLED=true
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE=AggressiveExplore
   #XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE=AggressiveFanoutOpt
@@ -579,6 +579,9 @@ run_cpu_em: host
 run_hw_em: host
 	+make SDA_FLOW=hw_emu run_em_int  2>&1 | tee log-run_hw_em.txt
 
+run_multiGemm_hw_em: api_gemm 
+	+make SDA_FLOW=hw_emu run_multiGemm_em_int  2>&1 | tee log-run_multGemm_hw_em.txt
+
 run_hw: host
 	+make SDA_FLOW=hw run_hw_int  2>&1 | tee log-run_hw.txt; test -f ${MAKE_EXIT_OK_HW_FILE}
 
@@ -586,6 +589,10 @@ run_em_int: xconfig host xbin
 	@echo INFO: kernel xclbin frequency is $(shell ${XCLBIN_FREQ} ${XCLBIN}) MHz
 	XCL_EMULATION_MODE=true XILINX_OPENCL=${XILINX_SDX} ${HOST_EXE} ${HOST_ARGS}
 	+make check
+
+run_multiGemm_em_int: xconfig api_gemm xbin
+	@echo INFO: kernel xclbin frequency is $(shell ${XCLBIN_FREQ} ${XCLBIN}) MHz
+	XCL_EMULATION_MODE=true XILINX_OPENCL=${XILINX_SDX} ${API_GEMM_EXE} ${XCLBIN} 512 512 512
 
 run_hw_int : host xbin xbinst_hw
 	@echo INFO: kernel xclbin frequency is $(shell ${XCLBIN_FREQ} ${XCLBIN}) MHz
@@ -596,6 +603,8 @@ check:
 	cmp -i 8192 ${APP_GOLD_BIN} ${APP_OUT_BIN} || ${GEN_BIN_EXE} -compare 1e-3 3e-6 ${APP_GOLD_BIN} ${APP_OUT_BIN}
 
 host : ${HOST_EXE} ${GEN_BIN_EXE} ${APP_GOLD_TXT} ${API_GEMM_EXE} 
+
+api_gemm : ${API_GEMM_EXE} 
 
 ${HOST_EXE} : ./src/* | ${OUT_HOST_DIR}
 	@echo "***** Compile host executable *****"

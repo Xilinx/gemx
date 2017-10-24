@@ -1,34 +1,36 @@
 /**********
-Copyright (c) 2017, Xilinx, Inc.
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice,
-this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice,
-this list of conditions and the following disclaimer in the documentation
-and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its contributors
-may be used to endorse or promote products derived from this software
-without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
-EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-**********/
+ * Copyright (c) 2017, Xilinx, Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its contributors
+ * may be used to endorse or promote products derived from this software
+ * without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * **********/
 /**
  *  @brief Simple GEMM example of C++ API client interaction with GEMMX linear algebra accelerator on Xilinx FPGA 
  *
+ *  $DateTime: 2017/08/18 08:31:34 $
+ *  $Author: jzejda $
  */
 
 // Prerequisites:
@@ -96,7 +98,7 @@ float getBoardFreqMHz(unsigned int p_BoardId) {
   }
   if (l_freq == -1) {
 	//if xbsak does not work, as happens on F1, put the XOCC achieved kernel frequcy here
-	l_freq = 224.1;
+	l_freq = 246.6;
     std::cout << "INFO: Failed to get board frequency by xbsak. This is normal for cpu and hw emulation, using -1 MHz for reporting.\n";
   }
   return(l_freq);
@@ -216,13 +218,6 @@ int main(int argc, char **argv)
   	l_memDesc[i] = l_program[i].getMemDesc();
   }
   
-  ProgramType l_programOut[GEMX_numKernels];
-  gemx::MemDesc l_memDescOut[GEMX_numKernels];
-
-  for (int i=0; i<GEMX_numKernels; ++i) {
-  	l_programOut[i].init(l_memDesc[i].sizePages());
-  	l_memDescOut[i] = l_programOut[i].getMemDesc();
-  }
   //############  Runtime reporting Infra  ############
   TimePointType l_tp[10];
   unsigned int l_tpIdx = 0;
@@ -251,7 +246,7 @@ int main(int argc, char **argv)
   showTimeData("created buffers", l_tp[l_tpIdx], l_tp[l_tpIdx+1]); l_tpIdx++;
   
   // Transfer data to FPGA
-  if (l_fpga.copyToFpga(l_memDesc)) {
+  if (l_fpga.copyToFpga()) {
     (VERBOSE > 0) && std::cout << "INFO: transferred data to FPGA" << std::endl;
   } else {
     std::cerr << "ERROR: failed to copy data to FPGA DDR\n";
@@ -273,7 +268,7 @@ int main(int argc, char **argv)
   showTimeData("callKernel", l_tp[l_tpIdx], l_tp[l_tpIdx+1]); l_tpIdx++;
 
   // Transfer data back to host - due to lazy evaluation this is generally wheer the accelerator performs the work
-  if (l_fpga.copyFromFpga(l_memDescOut)) {
+  if (l_fpga.copyFromFpga()) {
     (VERBOSE > 0) && std::cout << "INFO: Transferred data from FPGA" << std::endl;
   } else {
     std::cerr << "ERROR: failed to copy data from FPGA DDR\n";
@@ -302,7 +297,7 @@ int main(int argc, char **argv)
   double l_effApiPct;
 
   for (int i=0; i<GEMX_numKernels; ++i) {
-  	l_op[i] = l_kargsRes[i].load(l_programOut[i].getBaseResAddr(), 0);
+  	l_op[i] = l_kargsRes[i].load(l_program[i].getBaseResAddr(), 0);
   	assert(l_op[i] == KargsType::OpResult);
   	l_instrRes[i] = l_kargsRes[i].getInstrResArgs();
   	l_cycleCount[i] = l_instrRes[i].getDuration();
@@ -350,7 +345,7 @@ int main(int argc, char **argv)
   // C matrix in the DDR image received from the accelerator - l_matCfpga
   MatType l_matCfpga[GEMX_numKernels];
   for (int i=0; i<GEMX_numKernels; ++i) {
-	l_matCfpga[i].init(l_M, l_N, l_LdC, l_programOut[i].getPageAddr(l_pageC[i]));  
+	l_matCfpga[i].init(l_M, l_N, l_LdC, l_program[i].getPageAddr(l_pageC[i]));  
   }
   
   // Verbose reporting

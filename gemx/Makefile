@@ -31,7 +31,6 @@ HWEMUGUI = 0
 
 BOOST_SRC=${PWD}/../boost/src
 BOOST_LIB=${PWD}/../boost/lib
-
 export BOOST_COMPUTE_DEFAULT_VENDOR=Xilinx
 
 
@@ -546,6 +545,7 @@ OUT_HOST_DIR = out_host
 HOST_EXE = ${OUT_HOST_DIR}/gemx_host.exe
 GEN_BIN_EXE = ${OUT_HOST_DIR}/gemx_gen_bin.exe
 API_GEMM_EXE = ${OUT_HOST_DIR}/gemx_api_gemm.exe
+API_GEMM_MULTI_INSTR_EXE = ${OUT_HOST_DIR}/gemx_api_gemm_multiInstr.exe
 
 APP_BIN      = ${OUT_HOST_DIR}/app.bin
 APP_GOLD_BIN = ${OUT_HOST_DIR}/app_gold.bin
@@ -619,6 +619,11 @@ ${API_GEMM_EXE} : ./src/* | ${OUT_HOST_DIR}
 	@echo "***** Compile testcase generator executable *****"
 	@echo ${CC} ${HOST_CFLAGS} ${HOST_LFLAGS}
 	${CC} ${HOST_CFLAGS} ${HOST_LFLAGS} src/gemx_api_gemm.cpp -o $@
+
+${API_GEMM_MULTI_INSTR_EXE} : ./src/* | ${OUT_HOST_DIR}
+	@echo "***** Compile testcase generator executable *****"
+	@echo ${CC} ${HOST_CFLAGS} ${HOST_LFLAGS}
+	${CC} ${HOST_CFLAGS} ${HOST_LFLAGS} src/gemx_api_gemm_multiInstr.cpp -o $@
 
 ${APP_GOLD_TXT} : ${GEN_BIN_EXE}
 	${GEN_BIN_EXE} -write ${APP_BIN} ${GEN_BIN_PROGRAM}

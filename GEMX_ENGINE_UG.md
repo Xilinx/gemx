@@ -38,6 +38,7 @@ unsigned int t_DdrWidth | number of matrix elements in a memory word retrieved f
 unsigned int t_aColMemWords | number of memory words that form the columns of the locl block buffer for matrix A.<br> default value is 1. | configured by GEMX_gemmMBlocks
 unsigned int t_aRowMemWords | number of memory words that form the rows of the local block buffer for matrix A.<br> default value is 2. | configured by GEMX_gemmKBlocks
 unsigned int t_bColMemWord  | number of memory words that form the colums of the local block buffer for matrix B.<br> default value is 1. | configured by GEMX_gemmNBlocks
+
 The template parameters are configured at compile time and define the sizes of local block buffers used in the implementation. The matrix A local block buffer size is (t_DdrWidth * t_aRowMemWords) x (t_DdrWidth * t_aColMemWords). The matrix B local block buffer size is (t_DdrWidth * t_aColMemWords) x (t_DdrWidth * t_bColMemWords). The matrix C local block buffer size is (t_DdrWidth * t_aRowMemWords) x (t_DdrWidth * t_bColMemWords). In the matrix size representation given here, the first number always represents the height or rows in terms of matrix elements, the second number represents the width or columns in terms of matrix elements.
 
 * Functions

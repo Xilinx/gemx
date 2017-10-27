@@ -29,7 +29,7 @@
 /**
  *  @brief DDR-to-DDR matrix transposer and formatter
  *
- *  $DateTime: 2017/10/24 03:52:34 $
+ *  $DateTime: 2017/10/27 09:54:34 $
  */
 
 #ifndef GEMX_TRANSP_H
@@ -44,39 +44,38 @@ namespace gemx {
 
 
  ///////////////////////////////////////////////////////////////////////////
- // Rm to Cm flat block transposer
+ // DDR-to-DDR transposer
  //
- //   Memory being transposed at a time (square  t_BlockEdge x t_BlockEdge):
- //                 t_Blocks
- //    -------------------------------------
- //    |   t_DdrWidth    |  t_DdrWidth     |                              
- //    |                 |                 |                            
- //    |                 |      t_DdrWidth |                            
- //    |                 |                 |                            
- //    |                 |                 |                            
- //    ------------------------------------- t_Blocks
- //    |                 |                 |                            
- //    |                 |                 |                            
- //    |                 |      t_DdrWidth |                            
- //    |                 |                 |                            
- //    |                 |                 |                            
- //    -------------------------------------
+ //   DDR matrix is decomposed into the blocks:
+ //                l_colBlocks                          
+ //    ---------------------------------                                          
+ //    | Trans | Trans | Trans | Trans |                                          
+ //    | Block | Block | Block | Block|                                          
+ //    ---------------------------------  l_rowBlocks                                      
+ //    | Trans | Trans | Trans | Trans |                                          
+ //    | Block | Block | Block | Block|                                          
+ //    ---------------------------------                                          
+ //    | Trans | Trans | Trans | Trans |                                          
+ //    | Block | Block | Block | Block|                                          
+ //    ---------------------------------                                          
+ //                                                                         
  //                                                                         
  ///////////////////////////////////////////////////////////////////////////
-
 template <
 	typename t_FloatType,
 	unsigned int t_DdrWidth,
 	unsigned int t_colMemWords,
 	unsigned int t_rowMemWords
 >
-class TranspM2M
+class Transp
 {
 public:
 	typedef WideType<t_FloatType, t_DdrWidth> DdrWideType;
 	typedef hls::stream<DdrWideType> DdrStream;
 	static const unsigned short t_colBlockLength = t_DdrWidth * t_colMemWords;
 	static const unsigned short t_rowBlockLength = t_DdrWidth * t_rowMemWords;
+    typedef TranspArgs TranspArgsType;
+    typedef DdrMatrixShape::FormatType MatFormatType;
 
 public:
 
@@ -648,55 +647,7 @@ void transp_GemvA_blocks(DdrWideType *l_AddrRd, unsigned int l_srcWordLd, unsign
 	shuffle_output(shuffleStream, toMemStream, numOfBlocks);
 	store_matrixGVA(toMemStream, l_AddrWr, l_dstWordLd, l_rowBlocks, l_colBlocks); 
 }
-};
-
- ///////////////////////////////////////////////////////////////////////////
- // DDR-to-DDR transposer sample unoptimized code
- //   Slow but functionally correct implementation
- //
- //   DDR matrix is decomposed into the blocks:
- //                l_colBlocks                          
- //    ---------------------------------                                          
- //    | Trans | Trans | Trans | Trans |                                          
- //    | Square| Square| Square| Square|                                          
- //    ---------------------------------  l_rowBlocks                                      
- //    | Trans | Trans | Trans | Trans |                                          
- //    | Square| Square| Square| Square|                                          
- //    ---------------------------------                                          
- //    | Trans | Trans | Trans | Trans |                                          
- //    | Square| Square| Square| Square|                                          
- //    ---------------------------------                                          
- //                                                                         
- //                                                                         
- ///////////////////////////////////////////////////////////////////////////
-template <
-    typename t_FloatType,
-    unsigned int t_DdrWidth,  // OK to support only power of 2, range 1 to 32
-    unsigned int t_LisaArg1,  // Placehoder for the high-performace implementation
-    unsigned int t_Blocks,    // Use square buffers of t_DdrWidth * t_Blocks
-    unsigned int t_mGroups    // Groups of rows for GEM* based transpose
-  >
-class Transp
-{
-  public:
-    typedef WideType<t_FloatType, t_DdrWidth> DdrWideType;
-    typedef hls::stream<DdrWideType> DdrStream;
-    typedef TranspArgs TranspArgsType;
-    typedef DdrMatrixShape::FormatType MatFormatType;
-    
-  public:
-
     void runTransp(
-        DdrWideType *p_DdrRd,
-        DdrWideType *p_DdrWr,
-        TranspArgsType &p_Args
-      ) {
-        // Instantiate top functions or data flow at this level
-			TranspFast(p_DdrRd, p_DdrWr, p_Args);
-      }
-      
-    void
-    TranspFast(
         DdrWideType *p_DdrRd,
         DdrWideType *p_DdrWr,
         TranspArgsType &p_Args
@@ -720,11 +671,8 @@ class Transp
           //   | 4 | 5 | 6 |             | 2 | 5 |
           //   -------------             | 3 | 6 |
           //                             ---------
-          
-          TranspM2M<t_FloatType, t_DdrWidth, t_Blocks, t_Blocks> l_tr;
-          
           // Calculate sizes
-          const unsigned int t_BlockEdge = t_DdrWidth * t_Blocks;
+          const unsigned int t_BlockEdge = t_DdrWidth * t_colMemWords;
           const unsigned int l_rowBlocks = p_Args.m_Src.m_Rows / t_BlockEdge;
           const unsigned int l_colBlocks = p_Args.m_Src.m_Cols / t_BlockEdge;
 					const unsigned int numOfBlocks = l_rowBlocks * l_colBlocks;
@@ -732,7 +680,7 @@ class Transp
           assert(l_colBlocks * t_BlockEdge == p_Args.m_Src.m_Cols);
 
           // Transpose
-					l_tr.transp_matrix_blocks(l_AddrRd, l_srcWordLd, l_rowBlocks, l_AddrWr, l_dstWordLd, l_colBlocks, numOfBlocks);
+		  transp_matrix_blocks(l_AddrRd, l_srcWordLd, l_rowBlocks, l_AddrWr, l_dstWordLd, l_colBlocks, numOfBlocks);
 
         } else if (p_Args.m_Dst.m_Format == MatFormatType::GvA) {
           /////////////////  GemvA  ////////////////
@@ -748,25 +696,23 @@ class Transp
           //                   
           //                   
 
-          //TranspToGemvA<t_FloatType, t_DdrWidth, t_Blocks, t_mGroups> l_tr;
-          TranspM2M<t_FloatType, t_DdrWidth, t_Blocks, t_mGroups> l_tr;
           // Calculate sizes
-          const unsigned int l_rowBlockLength = t_DdrWidth * t_mGroups;
-          const unsigned int l_colBlockLength = t_DdrWidth * t_Blocks;
-          //const unsigned int l_colBlockLengthInDdrWords = t_Blocks;
+          const unsigned int l_rowBlockLength = t_DdrWidth * t_rowMemWords;
+          const unsigned int l_colBlockLength = t_DdrWidth * t_colMemWords;
+          //const unsigned int l_colBlockLengthInDdrWords = t_colMemWords;
           const unsigned int l_rowBlocks = p_Args.m_Src.m_Rows / l_rowBlockLength;
           const unsigned int l_colBlocks = p_Args.m_Src.m_Cols / l_colBlockLength;
 					const unsigned int numOfBlocks = l_rowBlocks * l_colBlocks;
-          assert(l_rowBlocks * t_mGroups * t_DdrWidth == p_Args.m_Src.m_Rows);
+          assert(l_rowBlocks * t_rowMemWords * t_DdrWidth == p_Args.m_Src.m_Rows);
           assert(l_colBlocks * l_colBlockLength == p_Args.m_Src.m_Cols);
 
-					l_tr.transp_GemvA_blocks(l_AddrRd, l_srcWordLd, l_rowBlocks, l_AddrWr, l_dstWordLd, l_colBlocks, numOfBlocks);
+		  transp_GemvA_blocks(l_AddrRd, l_srcWordLd, l_rowBlocks, l_AddrWr, l_dstWordLd, l_colBlocks, numOfBlocks);
         } else {
           assert(false); // Unknown output matrix format
         }
       }
-
 };
+
 
 } // namespace
 #endif

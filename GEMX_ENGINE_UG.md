@@ -175,7 +175,7 @@ GEMX_kernelHlsFreq | clock frequency in MHz that Vivado HLS is targeting at. | a
 GEMX_kernelVivadoFreq | clock frequency in MHz that Vivado is targeting at. | any reasonable frequency | DATA frequency provided by SDAccel platform
 GEMX_useURAM  | use UltraRam to implement some buffers.<br> **only supported for vu9pf1 platform** | 0: use; 1: do not use | 0
 GEMX_vivadoFlow | configure Vivado to use more timing consuming placement and routing strategies to achieve higher clock frequency for the final FPGA image.<br> **only supported for vu9pf1 platform** | "", "EXP" | ""
-GEMX_argInstrWidth | number of instructions in one 64-byte memory word | 64 / (GEMX_ddrWidth * sizeof(GEMX_dataType)) | 64 / (GEMX_ddrWidth * sizeof(GEMX_dataType))
+GEMX_argInstrWidth | number of instructions in one 64-byte memory word | 64 / (GEMX_ddrWidth * sizeof(GEMX_dataType)) | 1 
 GEMX_dataEqIntType | a type compatible with ap_uint<> of same size as t_FloatType | C, C++ fundamental types. | short 
 GEMX_gemmMeshRows<br> GEMX_gemmMeshCols<br> GEMX_gemmMeshDepth | define the systolic array size used to implement matrix multiplication | the values of these three variable should always be equal to GEMX_ddrWidth | GEMX_ddrWidth
 GEMX_dataType<br> GEMX_ddrWidth<br> GEMX_transpBlocks<br> GEMX_gemvmGroups<br> GEMX_gemvkVectorBlocks<br> GEMX_gemvmVectorBlocks<br> GEMX_gemmMBlocks<br> GEMX_gemmKBlocks<br> GEMX_gemmNBlocks<br> | refer to the **GEMX ENGINES IN DETAILS** section for their usage and default values. | |
@@ -187,7 +187,7 @@ GEMX_BIN_PROGRAM | a string of instructions that are executed on the kernel.<br>
   * building a kernel that includes one GEMM engine on ku115 platform
   
   ```
-  make run_hw GEMX_ddrWidth=32 GEMX_numKernels=1 GEMX_runGemv=0 GEMX_runGemm=1 GEMX_runTransp=0 GEMX_runSpmv=0 GEMX_part=ku115 GEN_BIN_PROGRAM="gemm 32 64 32  64 32 32  A32 B32 C32    gemm 64 64 64  64 64 64  A64 B64 C64    gemm 512 512 512  512 512 512  A512 B512 C512    "
+  make run_hw SDA_FLOW=hw GEMX_ddrWidth=32 GEMX_numKernels=1 GEMX_runGemv=0 GEMX_runGemm=1 GEMX_runTransp=0  GEMX_part=ku115 GEN_BIN_PROGRAM="gemm 32 64 32  64 32 32  A32 B32 C32    gemm 64 64 64  64 64 64  A64 B64 C64    gemm 512 512 512  512 512 512  A512 B512 C512    "
   where
      * "run_hw" can be changed to "run_cpu_em" or "run_hw_em" to run the design in SDAccel cpu or hw emulation mode. When the design is running at the hw emulation mode, user can use HWEMUGUI=1 to lunch the Vivado GUI and check the waveforms of the signals. 
      * for fast cpu emulation to check the correctness of the design, user can set GEMX_ddrWidth to small numbers, e.g. 4. 
@@ -198,14 +198,14 @@ GEMX_BIN_PROGRAM | a string of instructions that are executed on the kernel.<br>
   * building a kernel that includes one GEMM engine, one GEMV engine and one TRANSPOSER engine on vu9pf1 platform
  
  ```
-  make run_hw GEMX_ddrWidth=32 GEMX_numKernels=1 GEMX_runGemv=0 GEMX_runGemm=1 GEMX_runTransp=0 GEMX_runSpmv=0 GEMX_part=ku115
+  make run_hw SDA_FLOW=hw GEMX_ddrWidth=32 GEMX_numKernels=1 GEMX_runGemv=0 GEMX_runGemm=1 GEMX_runTransp=0 GEMX_part=ku115
  ```
  
 * building multi-kernel FPGA image
   * building a 4 kernels fpga image with each kernel only contains one GEMM engine
 
   ```
-  make run_hw SDA_FLOW=hw GEMX_ddrWidth=32 GEMX_argInstrWidth=1 GEMX_gemmMBlocks=8 GEMX_gemmKBlocks=8 GEMX_gemmNBlocks=8 GEMX_numKernels=4 GEMX_runGemv=0 GEMX_runGemm=1 GEMX_runTransp=0 GEMX_part=vu9pf1 GEMX_kernelHlsFreq=250 GEMX_kernelVivadoFreq=300 GEMX_useURAM=1 GEMX_vivadoFlow=EXP
+  make run_hw SDA_FLOW=hw GEMX_ddrWidth=32 GEMX_gemmMBlocks=8 GEMX_gemmKBlocks=8 GEMX_gemmNBlocks=8 GEMX_numKernels=4 GEMX_runGemv=0 GEMX_runGemm=1 GEMX_runTransp=0 GEMX_part=vu9pf1 GEMX_kernelHlsFreq=250 GEMX_kernelVivadoFreq=300 GEMX_useURAM=1 GEMX_vivadoFlow=EXP
   ``` 
 
 ### 3.2 Limitations

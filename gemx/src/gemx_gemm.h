@@ -29,7 +29,7 @@
 /**
  *  @brief GEMM header
  *
- *  $DateTime: 2017/10/24 03:52:34 $
+ *  $DateTime: 2017/10/27 09:54:34 $
  */
 
 #ifndef GEMX_GEMM_H
@@ -786,7 +786,7 @@ class Gemm
       #pragma HLS STREAM variable=p_CEdgeS depth=t_aMH*t_bColMemWords
 	//#pragma HLS RESOURCE variable=p_CEdgeS core=FIFO_LUTRAM
 
-	  TranspM2M<t_FloatType, t_DdrWidth, t_aColMemWords, 1> l_transp;
+	  Transp<t_FloatType, t_DdrWidth, t_aColMemWords, 1> l_transp;
 
       GemmReadAB(l_aAddr, l_bAddr, l_aColBlocks, l_aRowBlocks, l_bColBlocks, l_aLd, l_bLd, p_As0, p_Bs0);
 	  //GemmBufferA(l_aColBlocks, l_aRowBlocks, l_bColBlocks, p_As0, p_As0_1);

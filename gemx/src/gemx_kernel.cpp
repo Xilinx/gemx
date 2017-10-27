@@ -29,7 +29,7 @@
 /**
  *  @brief FPGA SGEMM accelerator kernel
  *
- *  $DateTime: 2017/10/24 03:52:34 $
+ *  $DateTime: 2017/10/27 09:54:34 $
  */
 
 #include <assert.h>
@@ -50,7 +50,7 @@ kernelOpLow(
   ) {
   #pragma HLS INLINE self off
   //GemvType l_gemv;
-  GemvM2Mtype l_gemv;
+  GemvType l_gemv;
   SpmvType l_spmv;
   GemmType l_gemm;
   TranspType l_transp;

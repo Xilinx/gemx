@@ -42,7 +42,7 @@
 //   export s= 32
 //   make GEMX_ddrWidth=$s GEMX_argInstrWidth=`expr 32/$s` GEMX_gemmMBlocks=8 GEMX_gemmKBlocks=8 GEMX_gemmNBlocks=8 GEMX_numKernels=4 out_host/gemx_api_gemm_multiInstr.exe
 //   gemx_api_gemm.exe gemx.awsxclbin 512 512 512 
-//   it will run two pairs of 512x513 matrix multiplications C=A*B E=C*D on each GEMM kernel, and calculate the performance.
+//   it will run two pairs of 512x512 matrix multiplications C=A*B E=C*D on each GEMM kernel, and calculate the performance.
  
 #include <stdio.h>
 #include <string>
@@ -108,17 +108,17 @@ int main(int argc, char **argv)
   //############  UI and GEMM problem size  ############
   if (argc < 2) {
     std::cerr << "Usage:\n"
-              <<  "  gemx_api_gemm.exe <path/gemx.xclbin> [M K N  [LdA LdB LdC] ]\n"
+              <<  "  gemx_api_gemm_multiInstr.exe <path/gemx.xclbin> [M K N  [LdA LdB LdC] ]\n"
               <<  "  Examples:\n"
-              <<  "    gemx_api_gemm.exe   out_hw/gemx.xclbin\n"
-              <<  "    gemx_api_gemm.exe   out_hw/gemx.xclbin  32 64 32\n"
-              <<  "    gemx_api_gemm.exe   out_hw/gemx.xclbin  32 128 256  256 128 128\n"
-              <<  "    gemx_api_gemm.exe   out_hw/gemx.xclbin  32 128 256  288 160 160\n";
+              <<  "    gemx_api_gemm_multiInstr.exe   out_hw/gemx.xclbin\n"
+              <<  "    gemx_api_gemm_multiInstr.exe   out_hw/gemx.xclbin  32 64 32\n"
+              <<  "    gemx_api_gemm_multiInstr.exe   out_hw/gemx.xclbin  32 128 256  256 128 128\n"
+              <<  "    gemx_api_gemm_multiInstr.exe   out_hw/gemx.xclbin  32 128 256  288 160 160\n";
     exit(2);
   }
   unsigned int l_argIdx = 1;
   std::string l_xclbinFile(argv[l_argIdx]);
-  unsigned int l_kernelId = 0;
+  //unsigned int l_kernelId = 0;
 
   // Row major  C  M rows N cols  =  A  M rows K cols  *  B  K rows N cols
   //   MatType - tensor like type to allocate/store/align memory; you can use your own type instead

@@ -29,6 +29,8 @@ GCC_VERSION=6.2.0
 
 HWEMUGUI = 0
 
+#BOOST_SRC=/public/bugcases/CR/953000-953999/953328/boost_20170627/include
+#BOOST_LIB=/public/bugcases/CR/953000-953999/953328/boost_20170627/lib
 BOOST_SRC=${PWD}/../boost/src
 BOOST_LIB=${PWD}/../boost/lib
 export BOOST_COMPUTE_DEFAULT_VENDOR=Xilinx
@@ -37,7 +39,7 @@ export BOOST_COMPUTE_DEFAULT_VENDOR=Xilinx
 KERNEL_NAME = gemxKernel
 
 ##############################
-# 4x4  16b
+# default settings 
 GEMX_dataType      = short
 GEMX_dataEqIntType = short
 GEMX_ddrWidth      =   4
@@ -48,9 +50,11 @@ GEMX_gemvkVectorBlocks  = 512
 GEMX_gemvmVectorBlocks  = 512
 GEMX_gemvmGroups   =  1
 
-GEMX_gemmMeshRows  =  4
-GEMX_gemmMeshCols  =  4
-GEMX_gemmMeshDepth =  4
+GEMX_argInstrWidth=1 
+
+GEMX_gemmMeshRows  = $(GEMX_ddrWidth) 
+GEMX_gemmMeshCols  = $(GEMX_ddrWidth)
+GEMX_gemmMeshDepth = $(GEMX_ddrWidth)
 GEMX_gemmMBlocks   = 1 
 GEMX_gemmKBlocks   = 2
 GEMX_gemmNBlocks   = 1

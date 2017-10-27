@@ -42,7 +42,7 @@ File src/gemx_api_GEMM.cpp gives an example of using GEMM APIs to measure the pe
 1. navigate to the gemx/ directory, and change the path of gcc to point to the location of gcc 6.2.0 installed on your local machine, and then run command:
 
 ```
-make GEMX_ddrWidth=32 GEMX_GEMMMBlocks=8 GEMX_GEMMKBlocks=8 GEMX_GEMMKBlocks=8 GEMX_numKernels=4 out_host/gemx_api_GEMM.exe
+make GEMX_ddrWidth=32 GEMX_GEMMMBlocks=8 GEMX_GEMMKBlocks=8 GEMX_GEMMNBlocks=8 GEMX_numKernels=4 out_host/gemx_api_GEMM.exe
 ``` 
 2. copy the generated gemx_api_GEMM.exe to the AWS F1 instance, and set up the SDAccel environment on F1 by following the steps listed on: 
 * [AWS F1 Application Execution on Xilinx Virtex UltraScale Devices]
@@ -72,8 +72,7 @@ INFO: status PASS
 ### 3.2 COMPILING AND RUNNING THE EXAMPLE IN HW_EMU MODE
 You can also run the example in the SDx HW_EMU mode with the following command.
 ```
-export s=32
-make run_multiGemm_hw_em SDA_FLOW=hw GEMX_ddrWidth=$s GEMX_argInstrWidth=`expr 32 / $s` GEMX_gemmMeshRows=$s GEMX_gemmMeshCols=$s GEMX_gemmMeshDepth=$s GEMX_gemmMBlocks=8 GEMX_gemmKBlocks=8 GEMX_gemmNBlocks=8 GEMX_numKernels=4 GEMX_runGemv=0 GEMX_runGemm=1 GEMX_runTransp=0 GEMX_runSpmv=0  GEMX_part=vu9pf1 GEMX_kernelHlsFreq=250 GEMX_kernelVivadoFreq=300 GEMX_useURAM=1
+make run_multiGemm_hw_em SDA_FLOW=hw GEMX_ddrWidth=32 GEMX_gemmMBlocks=8 GEMX_gemmKBlocks=8 GEMX_gemmNBlocks=8 GEMX_numKernels=4 GEMX_runGemv=0 GEMX_runGemm=1 GEMX_runTransp=0 GEMX_part=vu9pf1 GEMX_kernelHlsFreq=250 GEMX_kernelVivadoFreq=300 GEMX_useURAM=1
 
 ```
 

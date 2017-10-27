@@ -29,7 +29,7 @@
 /**
  *  @brief Kernel API header file
  *
- *  $DateTime: 2017/10/24 03:52:34 $
+ *  $DateTime: 2017/10/27 09:54:34 $
  */
 
 #ifndef GEMX_KERNEL_H
@@ -79,27 +79,17 @@ typedef KargsType::DdrInstrType KargsDdrInstrType;  // 512 bit wide type across 
 // Compute engine types
 typedef gemx::Gemv<
     GEMX_dataType, GEMX_ddrWidth,
-    GEMX_gemvkVectorBlocks, GEMX_gemvmVectorBlocks,
-    GEMX_gemvmGroups
-  > GemvType;
-
-typedef gemx::GemvM2M<
-    GEMX_dataType, GEMX_ddrWidth,
 	GEMX_transpBlocks,
     GEMX_gemvmGroups,  GEMX_gemvkVectorBlocks/GEMX_transpBlocks, 
-	GEMX_gemvmVectorBlocks
-  > GemvM2Mtype;
-//typedef gemx::Gemm<
-//    GEMX_dataType, GEMX_ddrWidth,
-//    GEMX_gemmMeshRows, GEMX_gemmMeshCols, GEMX_gemmMeshDepth
-//  > GemmType;
+	GEMX_gemvmVectorBlocks/GEMX_gemvmGroups
+  > GemvType;
+
 typedef gemx::Gemm<
 	GEMX_dataType, GEMX_ddrWidth, GEMX_gemmKBlocks, GEMX_gemmMBlocks, GEMX_gemmNBlocks
 > GemmType;
 
 typedef gemx::Transp<
     GEMX_dataType, GEMX_ddrWidth,
-    0,
     GEMX_transpBlocks,
     GEMX_gemvmGroups
   > TranspType;

@@ -16,7 +16,7 @@ This user guide contains the following sections:
 The GEMX engine library provides building blocks for constructing matrix operation accelerators on FPGAs. Each engine is implemented as a C++ template class and used to accelerate one type of matrix operations, e.g. matrix matrix multiplication, matrix vector multiplication and etc. To use this engine library to build an FPGA image, a SDAccel supported platform is required. The Makefile provided in gemx/ folder automates the flow for generating the FPGA image with the selected engines and SDAccel platforms.
  
 ## 2. GEMX ENGINES IN DETAILS
-Each GEMX engine applies block-wise strategy to tile the matrices into small blocks, buffer them locally and process them with fully pipelined logic. The template parameters of each engine class allow users to configure the matrix block size, hence the local buffer size. The top function of each engine has BLAS-like interfaces, which normally include memory pointers for input and output matrices and size and lead dimension information of the matrices and vectors. The architecture of each engine includes three components connected by FIFOS. They are *load*, *compute* and *store/write* functions. The load function retrieve matrices and vectores from device memory, in this case DDR, tiles them into small blocks and transmit the block data to the compute function via a FIFO. The compute function retrieves the block data from its FIFO and performs required matrix operations and passes the results to the write function via a FIFO. The store or write function reads the block data from its FIFO, assembles them if necessary and writes the results back to the device memory.  
+Each GEMX engine applies block-wise matrix computation algorithm to tile the matrices into small blocks, buffer them locally and process them with fully pipelined logic. The template parameters of each engine class allow users to configure the matrix block size, hence the local buffer size. The top function of each engine has BLAS-like interfaces, which normally include memory pointers for input and output matrices and size and lead dimension information of the matrices and vectors. The architecture of each engine normally includes three components connected by FIFOS. They are *load*, *compute* and *store/write* functions. The load function retrieve matrices and vectores from device memory, in this case DDR, tiles them into small blocks and transmit the block data to the compute function via a FIFO. The compute function retrieves the block data from its FIFO and performs required matrix operations and passes the results to the write function via a FIFO. The store or write function reads the block data from its FIFO, assembles them if necessary and writes the results back to the device memory.  
 
 ### 2.1 GEMM ENGINE
 The GEMM engine is implemented by class Gemm in file gemx_gemm.h. The top function *runGemm* implements matrix matrix multiplications on an FGPA. The items below list the supported operations, the template parameters, the functions and the features of the Gemm class
@@ -34,17 +34,17 @@ Parameter definition | Description | Configuration in Makefile
 ---------------------|-------------|--------------------------
 typedef t_FloatType | matrix element type.<br> supported types: uint16, int16, short, unsigned short. | configured by GEMX_dataType.<br> default value is short.
 unsigned int t_DdrWidth | number of matrix elements in a memory word retrieved from DDR.<br> given DDR memory word is 64 bytes, t_DdrWidth = 64/sizeof(t_FloatType). | configured by GEMX_ddrWidth.<br> default value is 4.
-unsigned int t_aColMemWords | number of memory words that form the columns of the locl block buffer for matrix A. | configured by GEMX_gemmMBlocks.<br> default value is 1.
-unsigned int t_aRowMemWords | number of memory words that form the rows of the local block buffer for matrix A. | configured by GEMX_gemmKBlocks.<br> default value is 2.
+unsigned int t_aColMemWords | number of memory words that form the columns of the local block buffer for matrix A. | configured by GEMX_gemmKBlocks.<br> default value is 1.
+unsigned int t_aRowMemWords | number of memory words that form the rows of the local block buffer for matrix A. | configured by GEMX_gemmMBlocks.<br> default value is 2.
 unsigned int t_bColMemWord  | number of memory words that form the colums of the local block buffer for matrix B. | configured by GEMX_gemmNBlocks.<br> default value is 1.
 
-The template parameters are configured at compile time and define the sizes of local block buffers used in the implementation. The matrix A local block buffer size is (t_aRowMemWords * t_DdrWidth) x (t_aColMemWords * t_DdrWidth). The matrix B local block buffer size is (t_aColMemWords * t_DdrWidth) x (t_bColMemWords * t_DdrWidth). The matrix C local block buffer size is (t_aRowMemWords * t_DdrWidth) x (t_bColMemWords * t_DdrWidth). In the matrix size representation given here, the first number always represents the height or rows in terms of matrix elements, the second number represents the width or columns in terms of matrix elements.
+The template parameters are configured at compile time and used to define the sizes of local block buffers in the implementation. The matrix A local block buffer size is (t_aRowMemWords * t_DdrWidth) x (t_aColMemWords * t_DdrWidth). The matrix B local block buffer size is (t_aColMemWords * t_DdrWidth) x (t_bColMemWords * t_DdrWidth). The matrix C local block buffer size is (t_aRowMemWords * t_DdrWidth) x (t_bColMemWords * t_DdrWidth). In the matrix size representation given here, the first number always represents the height or rows in terms of matrix elements, the second number represents the width or columns in terms of matrix elements.
 
 * Functions
 
 Function name | Parameters | Description
 --------------|------------|------------
-runGemm | *DdrWideType \*p_DdrRd*: memory pointer used to read matrices from the device memory;<br> *DdrWideType \*p_DdrWr*: memory pointer used to write result matrix C back to the device memory;<br> *GemmArgsType &p_Args*: a record that contains the matrices' sizes and lead dimensions information. | it implements the matrix matrix multiplication on an FPGA.
+runGemm | *DdrWideType \*p_DdrRd*: memory pointer used to read matrices from the device memory;<br> *DdrWideType \*p_DdrWr*: memory pointer used to write result matrix C back to the device memory;<br> *GemmArgsType &p_Args*: a record that contains the matrices' sizes and lead dimensions' information. | it implements the matrix matrix multiplication on an FPGA.
 
 * Features
   * supported matrix format
@@ -54,8 +54,8 @@ runGemm | *DdrWideType \*p_DdrRd*: memory pointer used to read matrices from the
     * A : (t_DdrWidth) x (t_DdrWidth * 2)
     * B : (t_DdrWidth * 2) x (t_DdrWidth)
   * maximum matrix size
-    * A : 2^31, or as big as the device memory can store
-    * B : 2^31, or as big as the device memory can store
+    * A : 2^31 x 2^31, or as big as the device memory can store
+    * B : 2^31 x 2^31, or as big as the device memory can store
   * minimum block buffer size
     * A : (t_DdrWidth) x (t_DdrWidth * 2)
     * B : (t_DdrWidth*2) x (t_DdrWidth)
@@ -82,10 +82,10 @@ Parameter definition | Description | Configuration in Makefile
 ---------------------|-------------|--------------------------
 typename t_FloatType | Matrix and vector element type | configured by GEMX_dataType
 unsigned int t_DdrWidth | number of matrix elements in one memory word retrieved from DDR | configured by GEMX_ddrWidth
-unsigned int t_colMemWords | number of matrix elements that form the columns of the locl block buffer for matrix A | configured by GEMX_transpBlocks.<br> default value is 1.
+unsigned int t_colMemWords | number of matrix elements that form the columns of the local block buffer for matrix A | configured by GEMX_transpBlocks.<br> default value is 1.
 unsigned int t_rowMemWords | number of matrix elements that form the rows of the local block buffer for matrix A | configured by GEMX_gemvmGroups.<br> default value is 1.
 unsigned int t_kVectorBlocks | maximum number of blocks allocated for vector B. | configured by GEMX_gemvkVectorBlocks/GEMX_transpBlocks.<br> default value for GEMX_gemvkVectorBlocks is 512. 
-unsigned int t_mVectorBlocks | maximum number of blocks allocated for ector C. | configured by GEMX_gemvmVectorBlocks/GEMX_gemvmGroups.<br> default value for GEMX_gemvmVectorBlocks is 512.
+unsigned int t_mVectorBlocks | maximum number of blocks allocated for vector C. | configured by GEMX_gemvmVectorBlocks/GEMX_gemvmGroups.<br> default value for GEMX_gemvmVectorBlocks is 512.
 
 The template parameters t_colMemWords and t_rowMemWords together define the local block buffer size for matrix A, which is (t_rowMemWords * t_DdrWidth) x (t_colMemWords * t_DdrWidth). The t_kVectorBlocks defines the maximum size of vector B, which has t_kVectorBlock * t_colMemWords * t_DdrWidth elements. The t_mVectorBlocks defines the maximum size of vector C, which has t_mVectorBlocks * t_rowMemWords * t_DdrWidth elements.
 
@@ -119,11 +119,12 @@ runGemv |*DdrWideType \*p_DdrRd*: memory pointer used to read matrices from the 
 The TRANSPOSER engine is implemented by class Transp in file gemx_transp.h. The top function *runTransp* implements matrix transposition on an FPGA. The items below list the supported operations, the template parameters, the functions and the features of the Transp class.
 
 * Supported operations
-```
+
+<code>
  B = A<sup>T</sup>
 where
  A and B are matrices.
-```  
+</code>  
 
 * Template parameters
 
@@ -158,18 +159,18 @@ runTransp | *DdrWideType \*p_DdrRd*: memory pointer used to read matrices from t
     * A: multiple of (t_rowMemWords * t_DdrWidth) x (t_colMemWords * t_DdrWidth)
 
 ## 3. BUILDING FPGA IMAGES WITH GEMX ENGINES
-The Makefile under the gemx/ directory allows users to configure the template parameters of GEMX engine classes. It also provides the flexibility for building a multi-kernel FPGA image. As shown in the image below, each kernel has a dedicated DDR bank and contains one or multiple GEMX engines.
+The Makefile under the gemx/ directory allows users to configure the template parameters of GEMX engine classes. It also provides the flexibility for building a multi-kernel FPGA image. As shown in the figure below, each kernel has a dedicated DDR bank and contains one or multiple GEMX engines.
 
 ![](./GEMX_kernel.png)
 
-Apart from GEMX engines, each kernel also includes an *instruction decoder* to decode the instruction passed from host code to the device memory and use it trigger different engines at a time. Please refer to the *OVERVIEW* section in [GEMM_API_UG] for more detailed explanation of the instruction decoder. The configuration variables used in the Makefile are summarized in the table below.
+Apart from GEMX engines, each kernel also contains an *instruction decoder* to decode the instructions passed from host code to the device memory and use them to trigger different engines, one engine at a time. Please refer to the *OVERVIEW* section in [GEMM_API_UG] for more detailed explanation of the instruction decoder. The configuration variables used in the Makefile are summarized in the table below.
 
 Variable name | Description | Allowed values |Default value
 --------------|-------------|----------------|--------------
 GEMX_numKernels | number of kernels built in the FPGA image. | 1,2,3,4 | 1
-GEMX_runGemm | whether each kernel includes a GEMM engine? | 0: not include; 1: include | 1
-GEMX_runGemv | whether each kernel includes a GEMV engine? | 0: not include; 1: include | 1
-GEMX_runTransp | whether each kernel includes a TRANSPOSER engine? | 0: not include; 1: include | 1
+GEMX_runGemm | whether each kernel contains a GEMM engine? | 0: not include; 1: include | 1
+GEMX_runGemv | whether each kernel contains a GEMV engine? | 0: not include; 1: include | 1
+GEMX_runTransp | whether each kernel contains a TRANSPOSER engine? | 0: not include; 1: include | 1
 GEMX_part | which SDAccel platform is used to build the FPGA image.<br> please refer to section 3 in [GEMX_README] for supported platforms and SDAccel versions | ku115,vu9pf1 | ku115
 GEMX_kernelHlsFreq | clock frequency in MHz that Vivado HLS is targeting at. | any reasonable frequency | DATA frequency provided by SDAccel platform 
 GEMX_kernelVivadoFreq | clock frequency in MHz that Vivado is targeting at. | any reasonable frequency | DATA frequency provided by SDAccel platform
@@ -198,7 +199,7 @@ GEMX_BIN_PROGRAM | a string of instructions that are executed on the kernel.<br>
   * building a kernel that includes one GEMM engine, one GEMV engine and one TRANSPOSER engine on vu9pf1 platform
  
  ```
-  make run_hw SDA_FLOW=hw GEMX_ddrWidth=32 GEMX_numKernels=1 GEMX_runGemv=0 GEMX_runGemm=1 GEMX_runTransp=0 GEMX_part=ku115
+  make run_hw SDA_FLOW=hw GEMX_ddrWidth=32 GEMX_numKernels=1 GEMX_runGemv=1 GEMX_runGemm=1 GEMX_runTransp=1 GEMX_part=vu9pf1
  ```
  
 * building multi-kernel FPGA image

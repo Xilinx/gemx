@@ -39,21 +39,20 @@ AWS VU9P F1|xilinx:aws-vu9p-f1:4ddr-xpr-2pr|SDAccel 2017.1
 Xilinx KU115|xilinx:xil-accel-rd-ku115:4ddr-xpr|SDAccel 2017.2
 
 ## 4. DESIGN FILE HIERARCHY
-Source code for building FPGA and host code images is located in the gemx/src directory. boost/ directory provides implementation for OpenCL functions used to instantiate an accelerator, trasmit data between the host and the accelerator and etc. Please refer to gemx_api_gemm.cpp to see its usage. gemx/Makefile is used to build FPGA and host images with different configurations. gemx/hls_config.tcl is used to configure the hls compilation options. gemx/run-hls.tcl is used to create vivado_hls project from cpu emulation results. Refer to line 36 in run-hls.tcl to see an usage example. gemx/post_opt.tcl, gemx/pre_route.tcl and gemx/post_route.tcl are used to build a 4-kernel design with each kernel containing one GEMM engine on AWS VU9P F1. gemx/data includs input sparse matrices' data.
+Source code for building FPGA and host code images is located in the gemx/src directory. boost/ directory provides implementation for OpenCL functions used to instantiate an accelerator, trasmit data between the host and the accelerator and etc. Please refer to gemx_api_gemm.cpp to see its usage. gemx/Makefile is used to build FPGA and host images with different configurations. gemx/hls_config.tcl is used to configure the hls compilation options. gemx/run-hls.tcl is used to create vivado_hls project from cpu emulation results. Refer to line 36 in run-hls.tcl to see a usage example. gemx/post_opt.tcl, gemx/pre_route.tcl and gemx/post_route.tcl are used to build a 4-kernel design with each kernel containing one GEMM engine on AWS VU9P F1. gemx/data includs input sparse matrices' data.
 
 ## 5. COMPILATION
 ### Compiling an FPGA image with 4 GEMM kernels for AWS VU9P F1
 Before compiling and building FPGA and host images, make sure SDAccel 2017.1 envioronment variales are set up properly and navigate to gemx/ directory
 * compiling and building the FPGA image
 ```
-make run_hw SDA_FLOW=hw GEMX_ddrWidth=32 GEMX_gemmMBlocks=8 GEMX_gemmKBlocks=8 GEMX_gemmNBlocks=8 GEMX_numKernels=4 GEMX_runGemv=0 GEMX_runGemm=1 GEMX_runTransp=0 GEMX_part=vu9pf1 GEMX_kernelHlsFreq=250 GEMX_kernelVivadoFreq=300 GEMX_useURAM=1 GEMX_vivadoFlow=EXP
+make run_hw SDA_FLOW=hw GEMX_ddrWidth=32 GEMX_gemmMBlocks=8 GEMX_gemmKBlocks=8 GEMX_gemmNBlocks=8 GEMX_numKernels=4 GEMX_runGemv=0 GEMX_runGemm=1 GEMX_part=vu9pf1 GEMX_kernelHlsFreq=250 GEMX_kernelVivadoFreq=300 GEMX_useURAM=1 GEMX_vivadoFlow=EXP
 ```
 where
 ```
-s and GEMX_ddrWidth: define the number of matrix elements that form one external memory word. The external memory word from DDR is always 512 bits. By default, the matrix element type is short, hence s = 512/sizeof(short) = 32.
-GEMX_argInstrWide: number of instructions in one 512-bit memory word.
+GEMX_ddrWidth: define the number of matrix elements that form one external memory word. The external memory word from DDR is always 64 bytes. By default, the matrix element type is short, hence GEMX_ddrWidth = 64/sizeof(short) = 32.
+GEMX_argInstrWide: number of instructions in one 64-byte memory word.
 GEMX_numKernels: number of kernels realized on the FPGA.
-GEMX_gemmMeshRows, GEMX_gemmMeshCols and GEMX_gemmMeshDepth: define the size of the systolic array for implementing matrix multiplication. Currently, they always have the same value as GEMX_ddrWidth.
 GEMX_gemmMBlocks, GEMX_gemmKBlocks, GEMX_gemmNBlocks: define the buffer size for matrices A, B and C. For C=A*B, the buffer size for A is GEMX_gemmMBlocks*GEMX_ddrWidth x GEMX_gemmKBlocks*GEMX_ddrWidth; the buffer size for B is GEMX_gemmKBlocks*GEMX_ddrWidth x GEMX_gemmNBlocks*GEMX_ddrWidth; the buffer size for C is GEMX_gemmMBlocks*GEMX_ddrWidth x GEMX_gemmNBlocks*GEMX_ddrWidth
 ```
 at the end of this step, out_hw directory will be created under gemx/ and gemx.xclbin and xbinst/ will be created under gemx/out_hw/.

@@ -178,7 +178,6 @@ GEMX_useURAM  | use UltraRam to implement some buffers.<br> **only supported for
 GEMX_vivadoFlow | configure Vivado to use more timing consuming placement and routing strategies to achieve higher clock frequency for the final FPGA image.<br> **only supported for vu9pf1 platform** | "", "EXP" | ""
 GEMX_argInstrWidth | number of instructions in one 64-byte memory word | 64 / (GEMX_ddrWidth * sizeof(GEMX_dataType)) | 1 
 GEMX_dataEqIntType | a type compatible with ap_uint<> of same size as t_FloatType | C, C++ fundamental types. | short 
-GEMX_gemmMeshRows<br> GEMX_gemmMeshCols<br> GEMX_gemmMeshDepth | define the systolic array size used to implement matrix multiplication | the values of these three variable should always be equal to GEMX_ddrWidth | GEMX_ddrWidth
 GEMX_dataType<br> GEMX_ddrWidth<br> GEMX_transpBlocks<br> GEMX_gemvmGroups<br> GEMX_gemvkVectorBlocks<br> GEMX_gemvmVectorBlocks<br> GEMX_gemmMBlocks<br> GEMX_gemmKBlocks<br> GEMX_gemmNBlocks<br> | refer to the **GEMX ENGINES IN DETAILS** section for their usage and default values. | |
 GEMX_BIN_PROGRAM | a string of instructions that are executed on the kernel.<br> refer to gemx_gen_bin.cpp for the example usage | |
 

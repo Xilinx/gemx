@@ -29,8 +29,6 @@ GCC_VERSION=6.2.0
 
 HWEMUGUI = 0
 
-#BOOST_SRC=/public/bugcases/CR/953000-953999/953328/boost_20170627/include
-#BOOST_LIB=/public/bugcases/CR/953000-953999/953328/boost_20170627/lib
 BOOST_SRC=${PWD}/../boost/src
 BOOST_LIB=${PWD}/../boost/lib
 export BOOST_COMPUTE_DEFAULT_VENDOR=Xilinx
@@ -58,6 +56,7 @@ GEMX_gemmMeshDepth = $(GEMX_ddrWidth)
 GEMX_gemmMBlocks   = 1 
 GEMX_gemmKBlocks   = 2
 GEMX_gemmNBlocks   = 1
+GEMX_splitMesh	   = 0
 
 GEMX_transpBlocks  =  1
 
@@ -106,7 +105,6 @@ endif
 ifeq (${GEMX_dataType}, float)
   GEMX_dataEqIntType = int
   
-  GEMX_gemvmGroups = 16
   GEMX_gemvmVectorBlocks = 43
   
   GEMX_spmvPadA = 0
@@ -123,27 +121,29 @@ ifeq (${GEMX_part},ku115)
   DSA=4_0
   XDEVICE=xilinx:xil-accel-rd-ku115:4ddr-xpr:$(subst _,.,${DSA})
   DSA_PLATFORM=xilinx_xil-accel-rd-ku115_4ddr-xpr_${DSA}
-  XDEVICE_REPO_PATH=$(XILINX_SDX)/platforms/${DSA_PLATFORM}/hw
+  XDEVICE_REPO_PATH=$(XILINX_SDX)/platforms
+  PLATFORM_REPO_PATH=$(XILINX_SDX)/platforms/${DSA_PLATFORM}
 else ifeq (${GEMX_part},vu9p)
   # When you change DSA version here you also have to edit LSF
   # selection strings in regressions/gemx_L*vu9p/testinfo.yml
-  DSA=5_0
+  DSA=4_2
   XDEVICE=xilinx:xil-accel-rd-vu9p:4ddr-xpr:$(subst _,.,${DSA})
   DSA_PLATFORM=xilinx_xil-accel-rd-vu9p_4ddr-xpr_${DSA}
   #XDEVICE_REPO_PATH=$(XILINX_SDX)/../../../../internal_platforms/${DSA_PLATFORM}/hw
-  PLATFORM_REPO_PATHS=$(XILINX_SDX)/../../../../internal_platforms
+  XDEVICE_REPO_PATH=$(XILINX_SDX)/../../../../internal_platforms
+  PLATFORM_REPO_PATH=$(XILINX_SDX)/../../../../internal_platforms/${DSA_PLATFORM}
 else ifeq (${GEMX_part},vu9pf1)
   DSA=4_0
   XDEVICE=xilinx:aws-vu9p-f1:4ddr-xpr-2pr:$(subst _,.,${DSA})
   DSA_PLATFORM=xilinx_aws-vu9p-f1_4ddr-xpr-2pr_${DSA}
   XDEVICE_REPO_PATH=$(XILINX_SDX)/platforms/${DSA_PLATFORM}/hw
-	#XDEVICE_REPO_PATH=$(XILINX_SDX)/../../../../internal_platforms/${DSA_PLATFORM}/hw
+  PLATFORM_REPO_PATH=$(XILINX_SDX)/platforms/${DSA_PLATFORM}/hw
 else
   $(error Unknown GEMX_part ${GEMX_part})
 endif
 
 ifeq ("$(wildcard $(XDEVICE_REPO_PATH))","")
-  ifeq ("$(wildcard $(PLATFORM_REPO_PATHS))","")
+  ifeq ("$(wildcard $(PLATFORM_REPO_PATH))","")
     $(error Missing DSA or platform repo)
   endif
 endif
@@ -301,6 +301,7 @@ CFLAGS_K =  $(GMEM_FLAGS) -I ./src \
            -D GEMX_argPipeline=$(GEMX_argPipeline) \
            -D GEMX_part=$(GEMX_part) \
 		   -D GEMX_useURAM=${GEMX_useURAM} \
+		   -D GEMX_splitMesh=${GEMX_splitMesh} \
 	   	   -D GEMX_runGemv=$(GEMX_runGemv) \
 	   	   -D GEMX_runGemm=$(GEMX_runGemm) \
 	       -D GEMX_runTransp=$(GEMX_runTransp) \
@@ -439,10 +440,10 @@ HOST_ARGS = ${XCLBIN} ${APP_BIN} ${APP_OUT_BIN}
 
 
 ifeq (${GEMX_part},ku115)
-  K0_DDR = 3
-  K1_DDR = 2
-  K2_DDR = 0
-  K3_DDR = 1
+  K0_DDR = 0
+  K1_DDR = 1
+  K2_DDR = 2
+  K3_DDR = 3
 else ifeq (${GEMX_part},vu9p)
   K0_DDR = 0
   K1_DDR = 3
@@ -495,14 +496,14 @@ ifeq ($(XDEVICE_REPO_PATH),)
 else
     DEVICE_REPO_OPT = --xp prop:solution.device_repo_paths=${XDEVICE_REPO_PATH} 
 endif
-ifeq ($(PLATFORM_REPO_PATHS),)
+ifeq ($(PLATFORM_REPO_PATH),)
 #no device repo path set. do nothing
-    DEVICE_REPO_OPT = 
+    PLATFORM_REPO_OPT = 
 else
-    DEVICE_REPO_OPT = --xp prop:solution.platform_repo_paths=${PLATFORM_REPO_PATHS} 
+    PLATFORM_REPO_OPT = --xp prop:solution.platform_repo_paths=${PLATFORM_REPO_PATH} 
 endif
 
-CLCC_OPT += $(CLCC_OPT_LEVEL) ${DEVICE_REPO_OPT} --platform ${XDEVICE} 
+CLCC_OPT += $(CLCC_OPT_LEVEL) ${PLATFORM_REPO_OPT} --platform ${XDEVICE} 
 CLCC_COMP_OPT =  ${CLCC_OPT} ${KERNEL_DEFS}
 CLCC_COMP_OPT += --kernel_frequency ${GEMX_kernelHlsFreq}
 
@@ -525,14 +526,13 @@ ifeq (${GEMX_vivadoFlow},EXP)
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.OPT_DESIGN.ARGS.DIRECTIVE=Explore
   XP_VIVADO_PROPS += --xp 'vivado_prop:run.impl_1.{STEPS.PLACE_DESIGN.ARGS.MORE OPTIONS}={-fanout_opt}'
   #XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=AltSpreadLogic_high
-  XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=SSI_BalanceSLLs
+  #XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=SSI_BalanceSLLs
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PHYS_OPT_DESIGN.IS_ENABLED=true
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE=AggressiveExplore
-  #XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE=AggressiveFanoutOpt
-  XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.OPT_DESIGN.TCL.POST=${PWD}/post_opt.tcl
+  #XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.OPT_DESIGN.TCL.POST=${PWD}/post_opt.tcl
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE=Explore
-  XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.TCL.PRE=${PWD}/pre_route.tcl
-  XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.TCL.POST=${PWD}/post_route.tcl
+  #XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.TCL.PRE=${PWD}/pre_route.tcl
+  #XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.TCL.POST=${PWD}/post_route.tcl
 endif
 
 
@@ -603,8 +603,22 @@ run_hw_int : host xbin xbinst_hw
 	@echo INFO: THE BOARD RUN WILL USE  ${HOST_EXE} ${HOST_ARGS}
 	@echo INFO: AFTER THE BOARD RUN CHECK CORRECTNESS BY  cmp -i 8192 -l ${APP_GOLD_BIN} ${APP_OUT_BIN}
 check: 
-	${GEN_BIN_EXE} -read ${APP_OUT_BIN} > ${APP_OUT_TXT}
-	cmp -i 8192 ${APP_GOLD_BIN} ${APP_OUT_BIN} || ${GEN_BIN_EXE} -compare 1e-3 3e-6 ${APP_GOLD_BIN} ${APP_OUT_BIN}
+ifeq ($(shell test $(GEMX_numKernels) -gt 0; echo $$?),0)
+	${GEN_BIN_EXE} -read ${OUT_DIR}/app_out0.bin  > ${OUT_DIR}/app_out0.txt
+	cmp -i 8192 ${APP_GOLD_BIN} ${OUT_DIR}/app_out0.bin || ${GEN_BIN_EXE} -compare 1e-3 3e-6 ${APP_GOLD_BIN} ${OUT_DIR}/app_out0.bin
+endif
+ifeq ($(shell test $(GEMX_numKernels) -gt 1; echo $$?),0)
+	${GEN_BIN_EXE} -read ${OUT_DIR}/app_out1.bin  > ${OUT_DIR}/app_out1.txt
+	cmp -i 8192 ${APP_GOLD_BIN} ${OUT_DIR}/app_out1.bin || ${GEN_BIN_EXE} -compare 1e-3 3e-6 ${APP_GOLD_BIN} ${OUT_DIR}/app_out1.bin
+endif
+ifeq ($(shell test $(GEMX_numKernels) -gt 2; echo $$?),0)
+	${GEN_BIN_EXE} -read ${OUT_DIR}/app_out2.bin  > ${OUT_DIR}/app_out2.txt
+	cmp -i 8192 ${APP_GOLD_BIN} ${OUT_DIR}/app_out2.bin || ${GEN_BIN_EXE} -compare 1e-3 3e-6 ${APP_GOLD_BIN} ${OUT_DIR}/app_out2.bin
+endif
+ifeq ($(shell test $(GEMX_numKernels) -gt 3; echo $$?),0)
+	${GEN_BIN_EXE} -read ${OUT_DIR}/app_out3.bin  > ${OUT_DIR}/app_out3.txt
+	cmp -i 8192 ${APP_GOLD_BIN} ${OUT_DIR}/app_out3.bin || ${GEN_BIN_EXE} -compare 1e-3 3e-6 ${APP_GOLD_BIN} ${OUT_DIR}/app_out3.bin
+endif
 
 host : ${HOST_EXE} ${GEN_BIN_EXE} ${APP_GOLD_TXT} ${API_GEMM_EXE} 
 

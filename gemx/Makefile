@@ -29,6 +29,7 @@ GCC_VERSION=6.2.0
 
 HWEMUGUI = 0
 
+GCC_PATH=${XILINX_VIVADO}/tps/lnx64
 BOOST_SRC=${PWD}/../boost/src
 BOOST_LIB=${PWD}/../boost/lib
 export BOOST_COMPUTE_DEFAULT_VENDOR=Xilinx
@@ -378,12 +379,12 @@ HOST_EXE_DIR=.
 HOST_LFLAGS = \
               -L$(BOOST_LIB) \
               -lboost_iostreams -lz \
-              -L/tools/batonroot/rodin/devkits/lnx64/gcc-${GCC_VERSION}/lib64 \
+              -L${GCC_PATH}/gcc-${GCC_VERSION}/lib64 \
               -lstdc++ \
               -L${XILINX_SDX}/runtime/lib/x86_64 -lxilinxopencl -lrt \
               -lOpenCL -pthread \
               -Wl,--rpath=$(BOOST_LIB) \
-              -Wl,--rpath=/tools/batonroot/rodin/devkits/lnx64/gcc-${GCC_VERSION}/lib64 \
+              -Wl,--rpath=${GCC_PATH}/gcc-${GCC_VERSION}/lib64 \
               -Wl,--rpath=${XILINX_SDX}/lib/lnx64.o \
               -Wl,--rpath=${XILINX_SDX}/runtime/lib/x86_64 \
               
@@ -486,7 +487,7 @@ VPATH = ${PWD}
 
 #supported flow: cpu_emu, hw_emu, hw
 #CC = $(XILINX_SDX)/lnx64/tools/gcc/bin/g++
-CC = /tools/batonroot/rodin/devkits/lnx64/gcc-${GCC_VERSION}/bin/g++
+CC = ${GCC_PATH}/gcc-${GCC_VERSION}/bin/g++
 #CC = $(XILINX_SDX)/Vivado_HLS/lnx64/tools/gcc/bin/g++
 CLCC = $(XILINX_SDX)/bin/xocc
 

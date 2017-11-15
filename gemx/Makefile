@@ -26,12 +26,9 @@ GCC_VERSION=6.2.0
 
 HWEMUGUI = 0
 
-BOOST_SRC=/public/bugcases/CR/953000-953999/953328/boost_20170627/include
-BOOST_LIB=/public/bugcases/CR/953000-953999/953328/boost_20170627/lib
-#GCC_PATH=/tools/batonroot/rodin/devkits/lnx64
 GCC_PATH=${XILINX_VIVADO}/tps/lnx64
-#BOOST_SRC=${PWD}/../boost/src
-#BOOST_LIB=${PWD}/../boost/lib
+BOOST_SRC=${PWD}/../boost/src
+BOOST_LIB=${PWD}/../boost/lib
 export BOOST_COMPUTE_DEFAULT_VENDOR=Xilinx
 
 

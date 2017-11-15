@@ -53,6 +53,7 @@ array set opt {
   ddrWidth     4
   argInstrWidth   8   
   numInstr       16
+  numKernels      1
   runGemv         1
   runGemm         1
   runTransp       1
@@ -66,6 +67,7 @@ array set opt {
   gemmMBlocks	   1
   gemmKBlocks	   2
   gemmNBlocks	   1
+  splitMesh		   0 
   transpBlocks 1
   spmvWidth            1
   spmvkVectorBlocks  512

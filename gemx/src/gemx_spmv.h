@@ -29,7 +29,7 @@
 /**
  *  @brief Sparse matrix vector multiply  C += A * B
  *
- *  $DateTime: 2017/10/24 03:52:34 $
+ *  $DateTime: 2017/11/14 09:20:31 $
  *  $Author: lingl $
  */
 
@@ -310,7 +310,10 @@ class Spmv
           t_FloatType l_Afloat = p_Val[0 + w * t_NumDdrPerSpmv];
           unsigned int l_row = float2bits(p_Val[3 + w * t_NumDdrPerSpmv]);
           unsigned int l_col = float2bits(p_Val[2 + w * t_NumDdrPerSpmv]);
-          SpmvAType l_A(l_Afloat, l_row, l_col);
+		  l_row = l_row & 0xFFFF;
+		  l_col = l_col & 0xFFFF;
+          //SpmvAType l_A(l_Afloat, l_row, l_col);
+          SpmvAdType l_A(l_Afloat, l_row, l_col);
        #else
           // Float
           assert(t_NumDdrPerSpmv == 2);

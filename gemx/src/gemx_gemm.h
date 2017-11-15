@@ -29,7 +29,7 @@
 /**
  *  @brief GEMM header
  *
- *  $DateTime: 2017/11/10 13:22:30 $
+ *  $DateTime: 2017/11/14 04:50:25 $
  */
 
 #ifndef GEMX_GEMM_H
@@ -643,20 +643,24 @@ class Gemm
 	){
 		bool l_exit=false;
 		GemmMergeDdrsLoop: do{
-		#pragma HLS PIPELINE
+		//#pragma HLS PIPELINE
 			for (int row=0; row<2; ++row){
 				DdrWideType l_out;
+				l_exit = false;
 				for (int k=0; k<t_DdrWidth/2; ++k) {
-					for (int col=0; col<2; ++col){
-					#pragma HLS UNROLL
-						HalfTaggedDdrWideType l_in = p_InS[row][col].read();
-						l_exit = l_in.getExit();
-						for (int i=0; i<t_DdrWidth/2; ++i) {
-							l_out[col*t_DdrWidth/2+i] = l_in[i];
-						}
-					}	
+				#pragma HLS PIPELINE
 					if (!l_exit) {
-						p_OutS.write(l_out);
+						for (int col=0; col<2; ++col){
+						#pragma HLS UNROLL
+							HalfTaggedDdrWideType l_in = p_InS[row][col].read();
+							l_exit = l_in.getExit();
+							for (int i=0; i<t_DdrWidth/2; ++i) {
+								l_out[col*t_DdrWidth/2+i] = l_in[i];
+							}
+						}	
+						if (!l_exit) {
+							p_OutS.write(l_out);
+						}
 					}
 				}
 			} 
@@ -876,7 +880,7 @@ class Gemm
 		
 		HalfTaggedDdrStream l_dataS[2][2];
 		#pragma HLS DATA_PACK variable=l_dataS
-		//#pragma HLS STREAM variable=l_dataS DEPTH=t_DdrWidth
+		#pragma HLS STREAM variable=l_dataS DEPTH=t_DdrWidth/2
 
 		#pragma HLS DATAFLOW
 
@@ -918,10 +922,8 @@ class Gemm
       unsigned int l_cWordLd
       ) {
 		DdrWideType l_bufferC[t_aMH*t_bColMemWords];
-		#pragma HLS ARRAY_PARTITION variable=l_bufferC dim=2
-#pragma HLS RESOURCE variable=l_bufferC core=RAM_2P_LUTRAM
-//#pragma HLS RESOURCE variable=l_bufferC core=RAM_T2P_BRAM
-//#pragma HLS DEPENDENCE variable=l_bufferC inter false
+		//#pragma HLS ARRAY_PARTITION variable=l_bufferC dim=2
+		//#pragma HLS RESOURCE variable=l_bufferC core=RAM_2P_LUTRAM
         
 		unsigned int l_rowOffset = 0;
 		unsigned int l_colOffset = 0;

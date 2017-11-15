@@ -1,12 +1,9 @@
 # Examples:
-#   make -j 2 run_cpu_em
-#   make -j 2 run_hw_em
-#   make -j 2 run_hw
 
-# Build 2-core kernels for both cpu_em, hw em, 5 cpus (1 cpu for teh host build)
-#   make -j 5  run_cpu_em  run_hw_em  GEMX_numKernels=2
-# Build and run all cpu , hw em, hw on 4-core design
-#    make -j 16 GEMX_numKernels=4
+# Build 1-core kernel that only contains 1 float type GEMM engine for cpu_em and offload 32x64 matrix multiplication to the engine
+#   make run_cpu_em  SDA_FLOW=hw GEMX_ddrWidth=16 GEMX_argInstrWidth=1 GEMX_runGemv=0 GEMX_runTransp=0 GEMX_dataType=float GEN_BIN_PROGRAM="gemm 32 64 32 64 32 32 A B C"
+# Build 1-core kernel that only contains 1 float type SPMV engine for hw_em and offload Rucci1.mtx matrix vector multiplication to the engine 
+#    make run_hw_em SDA_FLOW=hw GEMX_ddrWidth=16 GEMX_argInstrWidth=1 GEMX_runGemm=0 GEMX_runGemv=0 GEMX_runTransp=0 GEMX_runSpmv=1 GEMX_dataType=float GEN_BIN_PROGRAM="SPMV 0 0 0 data/spmv/Rucci1.mtx.gz A B C"
 
 # Build
 
@@ -29,9 +26,12 @@ GCC_VERSION=6.2.0
 
 HWEMUGUI = 0
 
+BOOST_SRC=/public/bugcases/CR/953000-953999/953328/boost_20170627/include
+BOOST_LIB=/public/bugcases/CR/953000-953999/953328/boost_20170627/lib
+#GCC_PATH=/tools/batonroot/rodin/devkits/lnx64
 GCC_PATH=${XILINX_VIVADO}/tps/lnx64
-BOOST_SRC=${PWD}/../boost/src
-BOOST_LIB=${PWD}/../boost/lib
+#BOOST_SRC=${PWD}/../boost/src
+#BOOST_LIB=${PWD}/../boost/lib
 export BOOST_COMPUTE_DEFAULT_VENDOR=Xilinx
 
 
@@ -527,13 +527,13 @@ ifeq (${GEMX_vivadoFlow},EXP)
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.OPT_DESIGN.ARGS.DIRECTIVE=Explore
   XP_VIVADO_PROPS += --xp 'vivado_prop:run.impl_1.{STEPS.PLACE_DESIGN.ARGS.MORE OPTIONS}={-fanout_opt}'
   #XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=AltSpreadLogic_high
-  #XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=SSI_BalanceSLLs
+  XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=SSI_BalanceSLLs
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PHYS_OPT_DESIGN.IS_ENABLED=true
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE=AggressiveExplore
-  #XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.OPT_DESIGN.TCL.POST=${PWD}/post_opt.tcl
+  XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.OPT_DESIGN.TCL.POST=${PWD}/post_opt.tcl
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE=Explore
-  #XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.TCL.PRE=${PWD}/pre_route.tcl
-  #XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.TCL.POST=${PWD}/post_route.tcl
+  XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.TCL.PRE=${PWD}/pre_route.tcl
+  XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.TCL.POST=${PWD}/post_route.tcl
 endif
 
 

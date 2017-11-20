@@ -24,6 +24,8 @@ GEMX is a General Matrix Operation library, which is used for accelerating BLAS-
 * The gemx_api_gemm.exe is used to measure the 4 GEMM kernel performance on F1. It also provides an example for using the GEMM accelerator from a C++ application.       
 * All functionality is supported across cpu emulation, hw emulation, and running on board, as well as debugging and analyzing in HLS GUI.
 * Code base: each engine is a separate .h file, gemx_<engine>.h. Each can be used as a standalone templatized HLS library (most depend on shared gemx_types.h, and HLS ap_*.h). The GEMX building environment far simplifies its compilation and verification.
+* [GEMM_API_UG] explains the host code development details for ofloading matrix matrix multiplications to a GEMM FPGA accelerator card in AWS cloud.
+* [GEMX_ENGINE_UG] lists the GEMX engine features, configuration parameters and example usages.    
 
 ## 2. HOW TO DOWNLOAD THE REPOSITORY
 To get a local copy of the GEMX repository, clone this repository to the local system with the following command:
@@ -91,6 +93,8 @@ Date | README Version | Description
 -----|----------------|------------
 Oct2017|1.0|Initial Xilinx Release
 
+[GEMM_API_UG]: https://github.com/Xilinx/gemx/blob/master/GEMM_API_UG.md
+[GEMX_ENGINE_UG]: https://github.com/Xilinx/gemx/blob/master/GEMX_ENGINE_UG.md
 [3-Clause BSD License]: https://github.com/Xilinx/SDAccel_Examples/blob/master/LICENSE.txt
 [SDAccel Forums]: https://forums.xilinx.com/t5/SDAccel/bd-p/SDx
 [SDAccel User Guides]: http://www.xilinx.com/support/documentation-navigation/development-tools/software-development/sdaccel.html?resultsTablePreSelect=documenttype:SeeAll#documentation

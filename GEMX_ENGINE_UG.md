@@ -244,5 +244,5 @@ Oct2017|1.0|Initial Xilinx Release
 [Nimbix Application Submission README]: https://github.com/Xilinx/SDAccel_Examples/blob/master/utility/nimbix/README.md
 [Repository Contribution README]: https://github.com/Xilinx/SDAccel_Examples/blob/master/CONTRIBUTING.md
 [AWS F1 Application Execution on Xilinx Virtex UltraScale Devices]: https://github.com/aws/aws-fpga/blob/master/SDAccel/README.md
-[GEMM_API_UG]: http://github.com/Xilinx/gemx/GEMM_API_UG.md
-[GEMX_README]: http://github.com/Xilinx/gemx/README.md
+[GEMM_API_UG]: https://github.com/Xilinx/gemx/blob/master/GEMM_API_UG.md 
+[GEMX_README]: https://github.com/Xilinx/gemx/blob/master/README.md

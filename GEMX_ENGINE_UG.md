@@ -54,8 +54,8 @@ runGemm | *DdrWideType \*p_DdrRd*: memory pointer used to read matrices from the
     * A : (t_DdrWidth) x (t_DdrWidth * 2)
     * B : (t_DdrWidth * 2) x (t_DdrWidth)
   * maximum matrix size
-    * A : 2^31 x 2^31, or as big as the device memory can store
-    * B : 2^31 x 2^31, or as big as the device memory can store
+    * A : 2^31 bytes 
+    * B : 2^31 bytes
   * minimum block buffer size
     * A : (t_DdrWidth) x (t_DdrWidth * 2)
     * B : (t_DdrWidth*2) x (t_DdrWidth)
@@ -64,7 +64,9 @@ runGemm | *DdrWideType \*p_DdrRd*: memory pointer used to read matrices from the
     * for t_DdrWidth == 32, the configuration with t_aColMemWords=8, t_aRowMemWords=8 and t_bColMemWords=8 provides enough buffering to achieve 99% compute efficiency, meaning no overhead caused by accessing the device memory.
     * the maximul block buffer size is limited by the number of BRAMs you have on an FPGA platform.
   * matrix element type
-    * only 16-bit integer type is supported
+    * 16-bit integer
+    * 8-bit integer
+    * fp32
 
 ### 2.2 GEMV ENGINE
 The GEMV engine is implemented by class Gemv in file gemx_gemv.h. The top function *runGemv* implements matrix vector multiplication on an FPGA. The items below list the supported operations, the template parameters, the functions and the features of the Gemv class.
@@ -154,7 +156,7 @@ runTransp | *DdrWideType \*p_DdrRd*: memory pointer used to read matrices from t
   * minimum matrix size
     * A: t_DdrWidth x t_DdrWidth
   * maximum matrix size
-    * A: 2^32 x 2^31
+    * A: 2^31 bytes 
   * legal matrix inputs' size
     * A: multiple of (t_rowMemWords * t_DdrWidth) x (t_colMemWords * t_DdrWidth)
 

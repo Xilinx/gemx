@@ -117,7 +117,8 @@ endif
 
 ifeq (${GEMX_part},ku115)
   DSA=4_0
-  XDEVICE=xilinx:xil-accel-rd-ku115:4ddr-xpr:$(subst _,.,${DSA})
+  //XDEVICE=xilinx:xil-accel-rd-ku115:4ddr-xpr:$(subst _,.,${DSA})
+  XDEVICE=xilinx_xil-accel-rd-ku115_4ddr-xpr_${DSA}
   DSA_PLATFORM=xilinx_xil-accel-rd-ku115_4ddr-xpr_${DSA}
   XDEVICE_REPO_PATH=$(XILINX_SDX)/platforms
   PLATFORM_REPO_PATH=$(XILINX_SDX)/platforms/${DSA_PLATFORM}
@@ -125,7 +126,8 @@ else ifeq (${GEMX_part},vu9p)
   # When you change DSA version here you also have to edit LSF
   # selection strings in regressions/gemx_L*vu9p/testinfo.yml
   DSA=4_2
-  XDEVICE=xilinx:xil-accel-rd-vu9p:4ddr-xpr:$(subst _,.,${DSA})
+  //XDEVICE=xilinx:xil-accel-rd-vu9p:4ddr-xpr:$(subst _,.,${DSA})
+  XDEVICE=xilinx_xil-accel-rd-vu9p_4ddr-xpr_${DSA}
   DSA_PLATFORM=xilinx_xil-accel-rd-vu9p_4ddr-xpr_${DSA}
   #XDEVICE_REPO_PATH=$(XILINX_SDX)/../../../../internal_platforms/${DSA_PLATFORM}/hw
   XDEVICE_REPO_PATH=$(XILINX_SDX)/../../../../internal_platforms
@@ -234,7 +236,7 @@ else ifeq (${GEMX_dataType}, float)
   endif
   ifeq (${GEMX_runSpmv}, 1)
     GEN_BIN_PROGRAM += \
-      spmv 96 128 256 none A0 B0 C0  spmv  \
+      spmv 96 128 256 none A0 B0 C0  \
       spmv 0 0 0 data/spmv/diag16k.mtx.gz A7 B7 C7
   endif
 endif
@@ -501,7 +503,7 @@ else
     PLATFORM_REPO_OPT = --xp prop:solution.platform_repo_paths=${PLATFORM_REPO_PATH} 
 endif
 
-CLCC_OPT += $(CLCC_OPT_LEVEL) ${PLATFORM_REPO_OPT} --platform ${XDEVICE} 
+CLCC_OPT += $(CLCC_OPT_LEVEL) ${PLATFORM_REPO_OPT} --platform ${DSA_PLATFORM} 
 CLCC_COMP_OPT =  ${CLCC_OPT} ${KERNEL_DEFS}
 CLCC_COMP_OPT += --kernel_frequency ${GEMX_kernelHlsFreq}
 
@@ -524,13 +526,14 @@ ifeq (${GEMX_vivadoFlow},EXP)
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.OPT_DESIGN.ARGS.DIRECTIVE=Explore
   XP_VIVADO_PROPS += --xp 'vivado_prop:run.impl_1.{STEPS.PLACE_DESIGN.ARGS.MORE OPTIONS}={-fanout_opt}'
   #XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=AltSpreadLogic_high
-  XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=SSI_BalanceSLLs
+  #XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=SSI_BalanceSLLs
+  XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=Explore
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PHYS_OPT_DESIGN.IS_ENABLED=true
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE=AggressiveExplore
-  XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.OPT_DESIGN.TCL.POST=${PWD}/post_opt.tcl
+  #XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.OPT_DESIGN.TCL.POST=${PWD}/post_opt.tcl
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE=Explore
-  XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.TCL.PRE=${PWD}/pre_route.tcl
-  XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.TCL.POST=${PWD}/post_route.tcl
+  #XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.TCL.PRE=${PWD}/pre_route.tcl
+  #XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.TCL.POST=${PWD}/post_route.tcl
 endif
 
 
@@ -547,6 +550,7 @@ OUT_HOST_DIR = out_host
 HOST_EXE = ${OUT_HOST_DIR}/gemx_host.exe
 GEN_BIN_EXE = ${OUT_HOST_DIR}/gemx_gen_bin.exe
 API_GEMM_EXE = ${OUT_HOST_DIR}/gemx_api_gemm.exe
+API_SPMV_EXE = ${OUT_HOST_DIR}/gemx_api_spmv.exe
 API_GEMM_MULTI_INSTR_EXE = ${OUT_HOST_DIR}/gemx_api_gemm_multiInstr.exe
 
 APP_BIN      = ${OUT_HOST_DIR}/app.bin
@@ -618,7 +622,7 @@ ifeq ($(shell test $(GEMX_numKernels) -gt 3; echo $$?),0)
 	cmp -i 8192 ${APP_GOLD_BIN} ${OUT_DIR}/app_out3.bin || ${GEN_BIN_EXE} -compare 1e-3 3e-6 ${APP_GOLD_BIN} ${OUT_DIR}/app_out3.bin
 endif
 
-host : ${HOST_EXE} ${GEN_BIN_EXE} ${APP_GOLD_TXT} ${API_GEMM_EXE} 
+host : ${HOST_EXE} ${GEN_BIN_EXE} ${APP_GOLD_TXT} ${API_GEMM_EXE} ${API_SPMV_EXE}
 
 api_gemm : ${API_GEMM_EXE} 
 
@@ -640,6 +644,11 @@ ${API_GEMM_MULTI_INSTR_EXE} : ./src/* | ${OUT_HOST_DIR}
 	@echo "***** Compile testcase generator executable *****"
 	@echo ${CC} ${HOST_CFLAGS} ${HOST_LFLAGS}
 	${CC} ${HOST_CFLAGS} ${HOST_LFLAGS} src/gemx_api_gemm_multiInstr.cpp -o $@
+	
+${API_SPMV_EXE} : ./src/* | ${OUT_HOST_DIR}
+	@echo "***** Compile testcase generator executable *****"
+	@echo ${CC} ${HOST_CFLAGS} ${HOST_LFLAGS}
+	${CC} ${HOST_CFLAGS} ${HOST_LFLAGS} src/gemx_api_spmv.cpp -o $@
 
 ${APP_GOLD_TXT} : ${GEN_BIN_EXE}
 	${GEN_BIN_EXE} -write ${APP_BIN} ${GEN_BIN_PROGRAM}
@@ -649,7 +658,7 @@ ${APP_GOLD_TXT} : ${GEN_BIN_EXE}
 xconfig : ${OUT_HOST_DIR}/emconfig.json | ${OUT_HOST_DIR}
 
 ${OUT_HOST_DIR}/emconfig.json :
-	$(XILINX_SDX)/bin/emconfigutil --xdevice ${XDEVICE} ${DEVICE_REPO_OPT} --od ${OUT_HOST_DIR}
+	$(XILINX_SDX)/bin/emconfigutil --platform ${XDEVICE} ${DEVICE_REPO_OPT} --od ${OUT_HOST_DIR}
 
 xbin: ${XCLBIN}
 

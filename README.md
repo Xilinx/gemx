@@ -37,8 +37,9 @@ This command needs to be executed only once. The only required software is a loc
 ## 3. SOFTWARE AND SYSTEM REQUIREMENTS
 Board | Device Name | Software Version
 ------|-------------|-----------------
-AWS VU9P F1|xilinx:aws-vu9p-f1:4ddr-xpr-2pr|SDAccel 2017.1
-Xilinx KU115|xilinx:xil-accel-rd-ku115:4ddr-xpr|SDAccel 2017.2
+AWS VU9P F1|xilinx:aws-vu9p-f1:4ddr-xpr-2pr|SDx 2017.1
+Xilinx KU115|xilinx:xil-accel-rd-ku115:4ddr-xpr:4.0|SDx 2017.4
+Xilinx VU9P|xilinx:xil-accel-rd-vu9p:4ddr-xpr:4.2|SDx 2017.4
 
 ## 4. DESIGN FILE HIERARCHY
 Source code for building FPGA and host code images is located in the gemx/src directory. boost/ directory provides implementation for OpenCL functions used to instantiate an accelerator, trasmit data between the host and the accelerator and etc. Please refer to gemx_api_gemm.cpp to see its usage. gemx/Makefile is used to build FPGA and host images with different configurations. gemx/hls_config.tcl is used to configure the hls compilation options. gemx/run-hls.tcl is used to create vivado_hls project from cpu emulation results. Refer to line 36 in run-hls.tcl to see a usage example. gemx/post_opt.tcl, gemx/pre_route.tcl and gemx/post_route.tcl are used to build a 4-kernel design with each kernel containing one GEMM engine on AWS VU9P F1. gemx/data includs input sparse matrices' data.

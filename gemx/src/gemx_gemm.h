@@ -29,7 +29,7 @@
 /**
  *  @brief GEMM header
  *
- *  $DateTime: 2017/11/17 07:07:56 $
+ *  $DateTime: 2017/11/22 08:38:59 $
  */
 
 #ifndef GEMX_GEMM_H
@@ -166,8 +166,8 @@ class Gemm
 
 		DdrWideType l_bufferB[t_bKD][t_bColMemWords];
 #if GEMX_useURAM
-#pragma HLS ARRAY_RESHAPE variable=l_bufferB block factor=8/sizeof(t_FloatType) dim=3 //factor=4 dim=3
-#pragma HLS ARRAY_PARTITION variable=l_bufferB block factor=t_uramParFactor dim=3 //factor=8 dim=3
+#pragma HLS ARRAY_RESHAPE variable=l_bufferB block factor=4 dim=3 //factor=8/sizeof(t_FloatType) dim=3 //factor=4 dim=3
+#pragma HLS ARRAY_PARTITION variable=l_bufferB block factor=8 dim=3 //factor=t_uramParFactor dim=3 //factor=8 dim=3
 #pragma HLS RESOURCE variable=l_bufferB core=XPM_MEMORY uram
 #endif
 		DdrWideType l_bufferA[t_aMH][t_aColMemWords];
@@ -201,8 +201,8 @@ class Gemm
 					#pragma HLS PIPELINE
 						DdrWideType l_word = l_aAddr[l_aSrcOffset+j];
 #if GEMX_useURAM
-#pragma HLS ARRAY_RESHAPE variable=l_word block factor=8/sizeof(t_FloatType) //factor=4
-#pragma HLS ARRAY_PARTITION variable=l_word block factor=t_uramParFactor //factor=8
+#pragma HLS ARRAY_RESHAPE variable=l_word block factor=4 //factor=8/sizeof(t_FloatType) //factor=4
+#pragma HLS ARRAY_PARTITION variable=l_word block factor=8 //factor=t_uramParFactor //factor=8
 #endif
 						l_bufferA[i][j] = l_word;
 					}
@@ -215,8 +215,8 @@ class Gemm
 					#pragma HLS PIPELINE
 						DdrWideType l_word = l_bAddr[l_bSrcOffset+j];
 #if GEMX_useURAM
-#pragma HLS ARRAY_RESHAPE variable=l_word block factor=8/sizeof(t_FloatType) //factor=4
-#pragma HLS ARRAY_PARTITION variable=l_word block factor=t_uramParFactor //factor=8
+#pragma HLS ARRAY_RESHAPE variable=l_word block factor=4 //factor=8/sizeof(t_FloatType) //factor=4
+#pragma HLS ARRAY_PARTITION variable=l_word block factor=8 //factor=t_uramParFactor //factor=8
 #endif
 						l_bufferB[i][j] = l_word;
 					}
@@ -228,8 +228,8 @@ class Gemm
 					#pragma HLS PIPELINE
 						DdrWideType l_word;
 #if GEMX_useURAM
-#pragma HLS ARRAY_RESHAPE variable=l_word block factor=8/sizeof(t_FloatType) //factor=4
-#pragma HLS ARRAY_PARTITION variable=l_word block factor=t_uramParFactor //factor=8
+#pragma HLS ARRAY_RESHAPE variable=l_word block factor=4 //factor=8/sizeof(t_FloatType) //factor=4
+#pragma HLS ARRAY_PARTITION variable=l_word block factor=8 //factor=t_uramParFactor //factor=8
 #endif
 						l_word = l_bufferA[i][j];
 						p_As.write(l_word);
@@ -243,8 +243,8 @@ class Gemm
 					#pragma HLS PIPELINE
 						DdrWideType l_word;
 #if GEMX_useURAM
-#pragma HLS ARRAY_RESHAPE variable=l_word block factor=8/sizeof(t_FloatType) //factor=4
-#pragma HLS ARRAY_PARTITION variable=l_word block factor=t_uramParFactor //factor=8
+#pragma HLS ARRAY_RESHAPE variable=l_word block factor=4 //factor=8/sizeof(t_FloatType) //factor=4
+#pragma HLS ARRAY_PARTITION variable=l_word block factor=8 //factor=t_uramParFactor //factor=8
 #endif
 						l_word = l_bufferB[i][j];
 						p_Bs.write(l_word);
@@ -297,8 +297,8 @@ class Gemm
 	
 		DdrWideType l_bufferB[t_bKD][t_bColMemWords];
 #if GEMX_useURAM
-#pragma HLS ARRAY_RESHAPE variable=l_bufferB block factor=8/sizeof(t_FloatType) dim=3 //factor=4 dim=3
-#pragma HLS ARRAY_PARTITION variable=l_bufferB block factor=t_uramParFactor dim=3 //factor=8 dim=3
+#pragma HLS ARRAY_RESHAPE variable=l_bufferB block factor=4 dim=3 //factor=8/sizeof(t_FloatType) dim=3 //factor=4 dim=3
+#pragma HLS ARRAY_PARTITION variable=l_bufferB block factor=8 dim=3 //factor=t_uramParFactor dim=3 //factor=8 dim=3
 #pragma HLS RESOURCE variable=l_bufferB core=XPM_MEMORY uram
 #endif
 

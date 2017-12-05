@@ -29,7 +29,7 @@
 /**
  *  @brief GEMV testcase generator
  *
- *  $DateTime: 2017/11/09 04:46:37 $
+ *  $DateTime: 2017/11/22 14:19:13 $
  */
 
 #ifndef GEMX_GEN_BIN_H
@@ -342,6 +342,8 @@ class SpMat
       SpmvAdescType *Desc;
     } m_Addr;
   public:
+    	SpMat()
+	{}
     SpMat(unsigned int p_Rows, unsigned int p_Cols, unsigned int p_Nnz, unsigned int p_Cblocks, Tddr *p_Addr)
       : m_Rows(p_Rows), m_Cols(p_Cols), m_Nnz(p_Nnz), m_Cblocks(p_Cblocks) {
         m_Addr.Ddr = p_Addr;
@@ -376,6 +378,16 @@ class SpMat
         //assert(p_Idx < nnz());
         return m_Addr.Mat[m_AstartIdx + p_Idx];
       }
+    void 
+    init(unsigned int p_Rows, unsigned int p_Cols, unsigned int p_Nnz, unsigned int p_Cblocks, Tddr *p_Addr){
+		m_Rows = p_Rows;
+		m_Cols = p_Cols;
+		m_Nnz = p_Nnz;
+		m_Cblocks = p_Cblocks;
+		m_Addr.Ddr = p_Addr;
+    
+    }
+    
     void
     fillMod(Tddr p_Max) {
         std::vector<MtxRow> l_rows;
@@ -400,6 +412,9 @@ class SpMat
             col = 0;
           }
           col += colStep;
+	  if (row >= rows()) {
+	    row--;
+	  }
         }
         fillFromVector(l_rows);
       }

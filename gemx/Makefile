@@ -23,6 +23,7 @@ GCC_VERSION=6.2.0
 
 HWEMUGUI = 0
 
+DSA_PATH=/proj/xbuilds/2017.2_sdx_daily_latest/installs/lin64/SDx/2017.2/platforms/
 GCC_PATH=${XILINX_VIVADO}/tps/lnx64
 BOOST_SRC=${PWD}/../boost/src
 BOOST_LIB=${PWD}/../boost/lib
@@ -127,9 +128,9 @@ ifeq (${GEMX_part},ku115)
   DSA_PLATFORM=xilinx_xil-accel-rd-ku115_4ddr-xpr_${DSA}
   #XDEVICE_REPO_PATH=$(XILINX_SDX)/platforms
   #PLATFORM_REPO_PATH=$(XILINX_SDX)/platforms/${DSA_PLATFORM}
-  XDEVICE_REPO_PATH=$(XILINX_SDX)/../../../../internal_platforms
-  PLATFORM_REPO_PATH=$(XILINX_SDX)/../../../../internal_platforms/${DSA_PLATFORM}
-	XOPENCL_LIB_PATH=${PLATFORM_REPO_PATH}/sw/lib/x86_64
+  XDEVICE_REPO_PATH=$(DSA_PATH)
+  PLATFORM_REPO_PATH=$(DSA_PATH)/${DSA_PLATFORM}
+  XOPENCL_LIB_PATH=${PLATFORM_REPO_PATH}/sw/lib/x86_64
 else ifeq (${GEMX_part},vu9p)
   # When you change DSA version here you also have to edit LSF
   # selection strings in regressions/gemx_L*vu9p/testinfo.yml

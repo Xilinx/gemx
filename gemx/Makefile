@@ -23,7 +23,7 @@ GCC_VERSION=6.2.0
 
 HWEMUGUI = 0
 
-DSA_PATH=/proj/xbuilds/2017.2_sdx_daily_latest/installs/lin64/SDx/2017.2/platforms/
+DSA_PATH=/proj/xbuilds/2017.2_sdx_released/installs/lin64/SDx/2017.2/platforms
 GCC_PATH=${XILINX_VIVADO}/tps/lnx64
 BOOST_SRC=${PWD}/../boost/src
 BOOST_LIB=${PWD}/../boost/lib
@@ -130,7 +130,8 @@ ifeq (${GEMX_part},ku115)
   #PLATFORM_REPO_PATH=$(XILINX_SDX)/platforms/${DSA_PLATFORM}
   XDEVICE_REPO_PATH=$(DSA_PATH)
   PLATFORM_REPO_PATH=$(DSA_PATH)/${DSA_PLATFORM}
-  XOPENCL_LIB_PATH=${PLATFORM_REPO_PATH}/sw/lib/x86_64
+  //XOPENCL_LIB_PATH=${PLATFORM_REPO_PATH}/sw/lib/x86_64
+  XOPENCL_LIB_PATH=${DSA_PATH}/../runtime/lib/x86_64
 else ifeq (${GEMX_part},vu9p)
   # When you change DSA version here you also have to edit LSF
   # selection strings in regressions/gemx_L*vu9p/testinfo.yml
@@ -704,7 +705,7 @@ endif
 
 xbinst_hw:  host
 	@echo 'Running xbinst...'
-	$(XILINX_SDX)/bin/xbinst --platform_repo_paths=${PLATFORM_REPO_PATH} --platform $(XDEVICE) -d ${OUT_DIR}
+	$(DSA_PATH)/../bin/xbinst --platform_repo_paths=${PLATFORM_REPO_PATH} --platform $(XDEVICE) -d ${OUT_DIR}
 	#cp ${XILINX_SDX}/runtime/lib/x86_64/libOpenCL.so ${OUT_DIR}/xbinst/runtime/lib
 
 clean :

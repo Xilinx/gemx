@@ -298,12 +298,12 @@ CFLAGS_K = $(GMEM_FLAGS) -I ./src \
           -D GEMX_gemvkVectorBlocks=$(GEMX_gemvkVectorBlocks) \
           -D GEMX_gemvmVectorBlocks=$(GEMX_gemvmVectorBlocks) \
           -D GEMX_gemvmGroups=$(GEMX_gemvmGroups) \
-	   			-D GEMX_gemmMBlocks=${GEMX_gemmMBlocks} \
-	   			-D GEMX_gemmKBlocks=${GEMX_gemmKBlocks} \
-	   			-D GEMX_gemmNBlocks=${GEMX_gemmNBlocks} \
-					-D GEMX_fracBitsIn=${GEMX_fracBitsIn} \
-					-D GEMX_fracBitsOut=${GEMX_fracBitsOut} \
-					-D GEMX_macBits=${GEMX_macBits} \
+	  -D GEMX_gemmMBlocks=${GEMX_gemmMBlocks} \
+	  -D GEMX_gemmKBlocks=${GEMX_gemmKBlocks} \
+	  -D GEMX_gemmNBlocks=${GEMX_gemmNBlocks} \
+	  -D GEMX_fracBitsIn=${GEMX_fracBitsIn} \
+	  -D GEMX_fracBitsOut=${GEMX_fracBitsOut} \
+	  -D GEMX_macBits=${GEMX_macBits} \
           -D GEMX_transpBlocks=$(GEMX_transpBlocks) \
           -D GEMX_spmvWidth=$(GEMX_spmvWidth) \
           -D GEMX_spmvkVectorBlocks=$(GEMX_spmvkVectorBlocks) \
@@ -312,19 +312,19 @@ CFLAGS_K = $(GMEM_FLAGS) -I ./src \
           -D GEMX_spmvPadA=$(GEMX_spmvPadA) \
           -D GEMX_spmvNumCblocks=$(GEMX_spmvNumCblocks) \
           -D GEMX_spmvFloatPerDesc=$(GEMX_spmvFloatPerDesc) \
-					-D GEMX_idxType=${GEMX_idxType} \
-					-D GEMX_nnzBlocks=${GEMX_nnzBlocks} \
-					-D GEMX_spmvKmaxBlocks=${GEMX_spmvKmaxBlocks} \
-					-D GEMX_spmvMmaxBlocks=${GEMX_spmvMmaxBlocks} \
+	  -D GEMX_idxType=${GEMX_idxType} \
+	  -D GEMX_nnzBlocks=${GEMX_nnzBlocks} \
+	  -D GEMX_spmvKmaxBlocks=${GEMX_spmvKmaxBlocks} \
+	  -D GEMX_spmvMmaxBlocks=${GEMX_spmvMmaxBlocks} \
           -D GEMX_argPipeline=$(GEMX_argPipeline) \
           -D GEMX_part=$(GEMX_part) \
-		   		-D GEMX_useURAM=${GEMX_useURAM} \
-		   		-D GEMX_splitMesh=${GEMX_splitMesh} \
-	   	   	-D GEMX_runGemv=$(GEMX_runGemv) \
-	   	   	-D GEMX_runGemm=$(GEMX_runGemm) \
-	       	-D GEMX_runTransp=$(GEMX_runTransp) \
-	   	   	-D GEMX_runSpmv=$(GEMX_runSpmv) \
-		   		-D GEMX_numKernels=${GEMX_numKernels} \
+	  -D GEMX_useURAM=${GEMX_useURAM} \
+	  -D GEMX_splitMesh=${GEMX_splitMesh} \
+	  -D GEMX_runGemv=$(GEMX_runGemv) \
+	  -D GEMX_runGemm=$(GEMX_runGemm) \
+	  -D GEMX_runTransp=$(GEMX_runTransp) \
+	  -D GEMX_runSpmv=$(GEMX_runSpmv) \
+	  -D GEMX_numKernels=${GEMX_numKernels} \
           -Wno-ignored-attributes \
            
 KERNEL_DEFS += $(CFLAGS_K)
@@ -378,13 +378,14 @@ CLCC_LINK_OPT += --kernel_frequency ${GEMX_kernelVivadoFreq}
 # CR 974833
 CLCC_OPT += --xp prop:solution.hls_pre_tcl=hls_config.tcl
 #-D_GLIBCXX_USE_CXX11_ABI=0
-HOST_CFLAGS = -g -O2 -std=c++11 \
+HOST_CFLAGS = -g -O0 -std=c++11 \
               -I $(BOOST_SRC) \
-               -DCL_USE_DEPRECATED_OPENCL_1_1_APIS \
-               -DBOOST_COMPUTE_DEBUG_KERNEL_COMPILATION \
+              -DCL_USE_DEPRECATED_OPENCL_1_1_APIS \
+              -DBOOST_COMPUTE_DEBUG_KERNEL_COMPILATION \
 	      -DBOOST_COMPUTE_HAVE_THREAD_LOCAL \
 	      -DBOOST_COMPUTE_THREAD_SAFE \
               -D FLOW_HLS_CSIM $(CFLAGS_K) \
+	      -D HLS_NO_XIL_FPO_LIB=1 \
               -I$(XILINX_SDX)/Vivado_HLS/include \
               -I$(XILINX_VIVADO)/include \
               -I${XILINX_SDX}/runtime/include/1_2 
@@ -602,8 +603,11 @@ run_cpu_em: host
 run_hw_em: host
 	+make SDA_FLOW=hw_emu run_em_int  2>&1 | tee log-run_hw_em.txt
 
-run_multiGemm_hw_em: api_gemm 
-	+make SDA_FLOW=hw_emu run_multiGemm_em_int  2>&1 | tee log-run_multGemm_hw_em.txt
+run_apiGemm_cpu_em: api_gemm 
+	+make SDA_FLOW=cpu_emu run_apiGemm_em_int  2>&1 | tee log-run_apiGemm_cpu_em.txt
+
+run_apiGemm_hw_em: api_gemm 
+	+make SDA_FLOW=hw_emu run_apiGemm_em_int  2>&1 | tee log-run_apiGemm_hw_em.txt
 
 run_hw: host
 	+make SDA_FLOW=hw run_hw_int  2>&1 | tee log-run_hw.txt; test -f ${MAKE_EXIT_OK_HW_FILE}
@@ -613,9 +617,9 @@ run_em_int: xconfig host xbin
 	XCL_EMULATION_MODE=true XILINX_OPENCL=${XILINX_SDX} ${HOST_EXE} ${HOST_ARGS}
 	+make check
 
-run_multiGemm_em_int: xconfig api_gemm xbin
+run_apiGemm_em_int: xconfig api_gemm xbin
 	@echo INFO: kernel xclbin frequency is $(shell ${XCLBIN_FREQ} ${XCLBIN}) MHz
-	XCL_EMULATION_MODE=true XILINX_OPENCL=${XILINX_SDX} ${API_GEMM_EXE} ${XCLBIN} 512 512 512
+	XCL_EMULATION_MODE=true XILINX_OPENCL=${XILINX_SDX} ${API_GEMM_EXE} ${XCLBIN} ${GEN_BIN_PROGRAM} 
 
 run_hw_int : host xbin xbinst_hw
 	@echo INFO: kernel xclbin frequency is $(shell ${XCLBIN_FREQ} ${XCLBIN}) MHz

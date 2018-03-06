@@ -1,25 +1,19 @@
 # Examples:
-#   make -j 2 run_cpu_em
-#   make -j 2 run_hw_em
-#   make -j 2 run_hw
 
-# Build 2-core kernels for both cpu_em, hw em, 5 cpus (1 cpu for teh host build)
-#   make -j 5  run_cpu_em  run_hw_em  GEMX_numKernels=2
-# Build and run all cpu , hw em, hw on 4-core design
-#    make -j 16 GEMX_numKernels=4
+# Build 1-core kernel that only contains 1 float type GEMM engine for cpu_em and offload 32x64 matrix multiplication to the engine
+#   make run_cpu_em  SDA_FLOW=hw GEMX_ddrWidth=16 GEMX_argInstrWidth=1 GEMX_runGemv=0 GEMX_runTransp=0 GEMX_dataType=float GEN_BIN_PROGRAM="gemm 32 64 32 64 32 32 A B C"
+# Build 1-core kernel that only contains 1 float type SPMV engine for hw_em and offload Rucci1.mtx matrix vector multiplication to the engine 
+#    make run_hw_em SDA_FLOW=hw GEMX_ddrWidth=16 GEMX_argInstrWidth=1 GEMX_runGemm=0 GEMX_runGemv=0 GEMX_runTransp=0 GEMX_runSpmv=1 GEMX_dataType=float GEN_BIN_PROGRAM="SPMV 0 0 0 data/spmv/Rucci1.mtx.gz A B C"
 
 # Build
 
 # Sample HW runs for widths 4, 8, 16, 32
 ifeq (0, 1) 
-  set s = 4;   \
+  set s = 32;   \
   make clean;  \
   make run_hw  \
   GEMX_ddrWidth=$s  \
   GEMX_argInstrWidth=`expr 32 / $s`  \
-  GEMX_gemmMeshRows=$s  \
-  GEMX_gemmMeshCols=$s  \
-  GEMX_gemmMeshDepth=$s \
   GEMX_transpBlocks=1 \
   GEMX_numKernels=1 >& log &
 endif
@@ -29,8 +23,8 @@ GCC_VERSION=6.2.0
 
 HWEMUGUI = 0
 
-#BOOST_SRC=/public/bugcases/CR/953000-953999/953328/boost_20170627/include
-#BOOST_LIB=/public/bugcases/CR/953000-953999/953328/boost_20170627/lib
+DSA_PATH=/proj/xbuilds/2017.2_sdx_released/installs/lin64/SDx/2017.2/platforms
+GCC_PATH=${XILINX_VIVADO}/tps/lnx64
 BOOST_SRC=${PWD}/../boost/src
 BOOST_LIB=${PWD}/../boost/lib
 export BOOST_COMPUTE_DEFAULT_VENDOR=Xilinx
@@ -48,45 +42,53 @@ GEMX_numInstr      =  16
 
 GEMX_gemvkVectorBlocks  = 512
 GEMX_gemvmVectorBlocks  = 512
-GEMX_gemvmGroups   =  1
+GEMX_gemvmGroups   			=  1
 
-GEMX_argInstrWidth=1 
+GEMX_argInstrWidth			= 1 
 
-GEMX_gemmMeshRows  = $(GEMX_ddrWidth) 
-GEMX_gemmMeshCols  = $(GEMX_ddrWidth)
-GEMX_gemmMeshDepth = $(GEMX_ddrWidth)
-GEMX_gemmMBlocks   = 1 
-GEMX_gemmKBlocks   = 2
-GEMX_gemmNBlocks   = 1
+GEMX_gemmMBlocks   			= 1 
+GEMX_gemmKBlocks   			= 2
+GEMX_gemmNBlocks   			= 1
+GEMX_splitMesh	   			= 0
 
-GEMX_transpBlocks  =  1
+GEMX_fracBitsIn					= 0
+GEMX_fracBitsOut 				= 0
+GEMX_macBits						= 32
 
-GEMX_spmvWidth   =  1
+GEMX_transpBlocks  			= 1
+
+GEMX_spmvWidth   				= 1
 GEMX_spmvkVectorBlocks  = 2048
 GEMX_spmvMacGroups      =   4
-GEMX_spmvPadA       = 1
-GEMX_spmvNumCblocks = 1024
-GEMX_spmvFloatPerDesc = 4
+GEMX_spmvPadA       		= 1
+GEMX_spmvNumCblocks 		= 1024
+GEMX_spmvFloatPerDesc 	= 4
+
+#spmv definitions used for URAM-based SPMV implementation
+GEMX_idxType 						= int32_t
+GEMX_nnzBlocks 					= 8
+GEMX_spmvKmaxBlocks 		= 32768
+GEMX_spmvMmaxBlocks 		= 32768
 
 # Correlated for IdxBits 2 => row idx < 2**14 so blocks 10 (2**14 / ddrw / spmvw / groups
-GEMX_spmvColAddIdxBits  =    2
+GEMX_spmvColAddIdxBits  = 2
 #GEMX_spmvmVectorBlocks  =  256
 
 
-GEMX_argPipeline   =  2
-GEMX_part          = ku115
-GEMX_kernelHlsFreq	   = 250 
-GEMX_kernelVivadoFreq  = 250
+GEMX_argPipeline   			= 2
+GEMX_part          			= ku115
+GEMX_kernelHlsFreq	   	= 250 
+GEMX_kernelVivadoFreq  	= 250
 # How many kernels to replicate in the accelerator (use 1 to 4)
-GEMX_numKernels    = 1
-GEMX_useURAM	   = 0
+GEMX_numKernels    			= 1
+GEMX_useURAM	   				= 0
 # What engines get included in each accelerator kernel (use 0 or 1)
 # The more engines you include the more catability you get but P&R
 # P&R becomes more difficult thus you get lower Fmax
-GEMX_runGemv = 1
-GEMX_runGemm = 1
-GEMX_runTransp = 1
-GEMX_runSpmv = 0
+GEMX_runGemv 						= 1
+GEMX_runGemm 						= 1
+GEMX_runTransp 					= 1
+GEMX_runSpmv 						= 0
 
 # Explorer mode off - Placer failed in 2017.3_sdx on 2 sample designs
 #   ERROR: [Common 17-49] Internal Data Exception: Error on line 13 of file placementStrategies.cfg: syntax error
@@ -95,25 +97,24 @@ GEMX_runSpmv = 0
 ##############################
 
 ifeq (${GEMX_ddrWidth}, 4)
-  GEMX_gemvVectorBlocks  = 512
+  GEMX_gemvVectorBlocks = 512
 endif
 
 # Defauts for SPMV 32-wide
 ifeq (${GEMX_ddrWidth}, 32)
-  GEMX_spmvWidth   =  8
+  GEMX_spmvWidth   			=  8
 endif
 
 ifeq (${GEMX_dataType}, float)
-  GEMX_dataEqIntType = int
+  GEMX_dataEqIntType 		= int
   
-  GEMX_gemvmGroups = 16
   GEMX_gemvmVectorBlocks = 43
   
-  GEMX_spmvPadA = 0
+  GEMX_spmvPadA 				= 0
   GEMX_spmvFloatPerDesc = 2
   GEMX_spmvMacGroups    =   12
   ifeq (${GEMX_ddrWidth}, 16)
-    GEMX_spmvWidth   =  8
+    GEMX_spmvWidth   		=  8
     #GEMX_spmvmVectorBlocks  =  10
   endif
   
@@ -121,29 +122,42 @@ endif
 
 ifeq (${GEMX_part},ku115)
   DSA=4_0
-  XDEVICE=xilinx:xil-accel-rd-ku115:4ddr-xpr:$(subst _,.,${DSA})
+  //XDEVICE=xilinx:xil-accel-rd-ku115:4ddr-xpr:$(subst _,.,${DSA})
+  XDEVICE_COLON=xilinx:xil-accel-rd-ku115:4ddr-xpr:$(subst _,.,${DSA})
+  XDEVICE=xilinx_xil-accel-rd-ku115_4ddr-xpr_${DSA}
   DSA_PLATFORM=xilinx_xil-accel-rd-ku115_4ddr-xpr_${DSA}
-  XDEVICE_REPO_PATH=$(XILINX_SDX)/platforms/${DSA_PLATFORM}/hw
+  #XDEVICE_REPO_PATH=$(XILINX_SDX)/platforms
+  #PLATFORM_REPO_PATH=$(XILINX_SDX)/platforms/${DSA_PLATFORM}
+  XDEVICE_REPO_PATH=$(DSA_PATH)
+  PLATFORM_REPO_PATH=$(DSA_PATH)/${DSA_PLATFORM}
+  //XOPENCL_LIB_PATH=${PLATFORM_REPO_PATH}/sw/lib/x86_64
+  XOPENCL_LIB_PATH=${DSA_PATH}/../runtime/lib/x86_64
 else ifeq (${GEMX_part},vu9p)
   # When you change DSA version here you also have to edit LSF
   # selection strings in regressions/gemx_L*vu9p/testinfo.yml
-  DSA=5_0
-  XDEVICE=xilinx:xil-accel-rd-vu9p:4ddr-xpr:$(subst _,.,${DSA})
+  DSA=4_2
+  //XDEVICE=xilinx:xil-accel-rd-vu9p:4ddr-xpr:$(subst _,.,${DSA})
+  XDEVICE_COLON=xilinx:xil-accel-rd-vu9p:4ddr-xpr:$(subst _,.,${DSA})
+  XDEVICE=xilinx_xil-accel-rd-vu9p_4ddr-xpr_${DSA}
   DSA_PLATFORM=xilinx_xil-accel-rd-vu9p_4ddr-xpr_${DSA}
   #XDEVICE_REPO_PATH=$(XILINX_SDX)/../../../../internal_platforms/${DSA_PLATFORM}/hw
-  PLATFORM_REPO_PATHS=$(XILINX_SDX)/../../../../internal_platforms
+  XDEVICE_REPO_PATH=$(XILINX_SDX)/../../../../internal_platforms
+  PLATFORM_REPO_PATH=$(XILINX_SDX)/../../../../internal_platforms/${DSA_PLATFORM}
+	XOPENCL_LIB_PATH=${PLATFORM_REPO_PATH}/sw/lib/x86_64
 else ifeq (${GEMX_part},vu9pf1)
   DSA=4_0
+  XDEVICE_COLON=xilinx:aws-vu9p-f1:4ddr-xpr-2pr:$(subst _,.,${DSA})
   XDEVICE=xilinx:aws-vu9p-f1:4ddr-xpr-2pr:$(subst _,.,${DSA})
   DSA_PLATFORM=xilinx_aws-vu9p-f1_4ddr-xpr-2pr_${DSA}
   XDEVICE_REPO_PATH=$(XILINX_SDX)/platforms/${DSA_PLATFORM}/hw
-	#XDEVICE_REPO_PATH=$(XILINX_SDX)/../../../../internal_platforms/${DSA_PLATFORM}/hw
+  PLATFORM_REPO_PATH=$(XILINX_SDX)/platforms/${DSA_PLATFORM}/hw
+	XOPENCL_LIB_PATH=${XILINX_SDX}/runtime/lib/x86_64
 else
   $(error Unknown GEMX_part ${GEMX_part})
 endif
 
 ifeq ("$(wildcard $(XDEVICE_REPO_PATH))","")
-  ifeq ("$(wildcard $(PLATFORM_REPO_PATHS))","")
+  ifeq ("$(wildcard $(PLATFORM_REPO_PATH))","")
     $(error Missing DSA or platform repo)
   endif
 endif
@@ -236,7 +250,7 @@ else ifeq (${GEMX_dataType}, float)
   endif
   ifeq (${GEMX_runSpmv}, 1)
     GEN_BIN_PROGRAM += \
-      spmv 96 128 256 none A0 B0 C0  spmv  \
+      spmv 96 128 256 none A0 B0 C0  \
       spmv 0 0 0 data/spmv/diag16k.mtx.gz A7 B7 C7
   endif
 endif
@@ -274,43 +288,46 @@ KERNEL_SRCS = src/gemx_kernel.cpp
 
 GMEM_FLAGS = -D GMEM_M=$(GMEM0_M) 
 
-CFLAGS_K =  $(GMEM_FLAGS) -I ./src \
-           -D TEST_SDX=1 \
-           -D GEMX_dataType=$(GEMX_dataType) \
-           -D GEMX_dataEqIntType=$(GEMX_dataEqIntType) \
-           -D GEMX_ddrWidth=$(GEMX_ddrWidth) \
-           -D GEMX_argInstrWidth=$(GEMX_argInstrWidth) \
-           -D GEMX_numInstr=$(GEMX_numInstr) \
-           -D GEMX_gemvkVectorBlocks=$(GEMX_gemvkVectorBlocks) \
-           -D GEMX_gemvmVectorBlocks=$(GEMX_gemvmVectorBlocks) \
-           -D GEMX_gemvmGroups=$(GEMX_gemvmGroups) \
-           -D GEMX_gemmMeshRows=$(GEMX_gemmMeshRows) \
-           -D GEMX_gemmMeshCols=$(GEMX_gemmMeshCols) \
-           -D GEMX_gemmMeshDepth=$(GEMX_gemmMeshDepth) \
-		   -D GEMX_gemmMBlocks=${GEMX_gemmMBlocks} \
-		   -D GEMX_gemmKBlocks=${GEMX_gemmKBlocks} \
-		   -D GEMX_gemmNBlocks=${GEMX_gemmNBlocks} \
-           -D GEMX_transpBlocks=$(GEMX_transpBlocks) \
-           -D GEMX_spmvWidth=$(GEMX_spmvWidth) \
-           -D GEMX_spmvkVectorBlocks=$(GEMX_spmvkVectorBlocks) \
-           -D GEMX_spmvMacGroups=$(GEMX_spmvMacGroups) \
-           -D GEMX_spmvColAddIdxBits=$(GEMX_spmvColAddIdxBits) \
-           -D GEMX_spmvPadA=$(GEMX_spmvPadA) \
-           -D GEMX_spmvNumCblocks=$(GEMX_spmvNumCblocks) \
-           -D GEMX_spmvFloatPerDesc=$(GEMX_spmvFloatPerDesc) \
-           -D GEMX_argPipeline=$(GEMX_argPipeline) \
-           -D GEMX_part=$(GEMX_part) \
-		   -D GEMX_useURAM=${GEMX_useURAM} \
-	   	   -D GEMX_runGemv=$(GEMX_runGemv) \
-	   	   -D GEMX_runGemm=$(GEMX_runGemm) \
-	       -D GEMX_runTransp=$(GEMX_runTransp) \
-	   	   -D GEMX_runSpmv=$(GEMX_runSpmv) \
-		   -D GEMX_numKernels=${GEMX_numKernels} \
-           -Wno-ignored-attributes \
+CFLAGS_K = $(GMEM_FLAGS) -I ./src \
+          -D TEST_SDX=1 \
+          -D GEMX_dataType=$(GEMX_dataType) \
+          -D GEMX_dataEqIntType=$(GEMX_dataEqIntType) \
+          -D GEMX_ddrWidth=$(GEMX_ddrWidth) \
+          -D GEMX_argInstrWidth=$(GEMX_argInstrWidth) \
+          -D GEMX_numInstr=$(GEMX_numInstr) \
+          -D GEMX_gemvkVectorBlocks=$(GEMX_gemvkVectorBlocks) \
+          -D GEMX_gemvmVectorBlocks=$(GEMX_gemvmVectorBlocks) \
+          -D GEMX_gemvmGroups=$(GEMX_gemvmGroups) \
+	  -D GEMX_gemmMBlocks=${GEMX_gemmMBlocks} \
+	  -D GEMX_gemmKBlocks=${GEMX_gemmKBlocks} \
+	  -D GEMX_gemmNBlocks=${GEMX_gemmNBlocks} \
+	  -D GEMX_fracBitsIn=${GEMX_fracBitsIn} \
+	  -D GEMX_fracBitsOut=${GEMX_fracBitsOut} \
+	  -D GEMX_macBits=${GEMX_macBits} \
+          -D GEMX_transpBlocks=$(GEMX_transpBlocks) \
+          -D GEMX_spmvWidth=$(GEMX_spmvWidth) \
+          -D GEMX_spmvkVectorBlocks=$(GEMX_spmvkVectorBlocks) \
+          -D GEMX_spmvMacGroups=$(GEMX_spmvMacGroups) \
+          -D GEMX_spmvColAddIdxBits=$(GEMX_spmvColAddIdxBits) \
+          -D GEMX_spmvPadA=$(GEMX_spmvPadA) \
+          -D GEMX_spmvNumCblocks=$(GEMX_spmvNumCblocks) \
+          -D GEMX_spmvFloatPerDesc=$(GEMX_spmvFloatPerDesc) \
+	  -D GEMX_idxType=${GEMX_idxType} \
+	  -D GEMX_nnzBlocks=${GEMX_nnzBlocks} \
+	  -D GEMX_spmvKmaxBlocks=${GEMX_spmvKmaxBlocks} \
+	  -D GEMX_spmvMmaxBlocks=${GEMX_spmvMmaxBlocks} \
+          -D GEMX_argPipeline=$(GEMX_argPipeline) \
+          -D GEMX_part=$(GEMX_part) \
+	  -D GEMX_useURAM=${GEMX_useURAM} \
+	  -D GEMX_splitMesh=${GEMX_splitMesh} \
+	  -D GEMX_runGemv=$(GEMX_runGemv) \
+	  -D GEMX_runGemm=$(GEMX_runGemm) \
+	  -D GEMX_runTransp=$(GEMX_runTransp) \
+	  -D GEMX_runSpmv=$(GEMX_runSpmv) \
+	  -D GEMX_numKernels=${GEMX_numKernels} \
+          -Wno-ignored-attributes \
            
-
 KERNEL_DEFS += $(CFLAGS_K)
-
 
 KEEP_TEMP=1
 KERNEL_DEBUG=1
@@ -361,13 +378,14 @@ CLCC_LINK_OPT += --kernel_frequency ${GEMX_kernelVivadoFreq}
 # CR 974833
 CLCC_OPT += --xp prop:solution.hls_pre_tcl=hls_config.tcl
 #-D_GLIBCXX_USE_CXX11_ABI=0
-HOST_CFLAGS = -g -O2 -std=c++11 \
+HOST_CFLAGS = -g -O0 -std=c++11 \
               -I $(BOOST_SRC) \
-               -DCL_USE_DEPRECATED_OPENCL_1_1_APIS \
-               -DBOOST_COMPUTE_DEBUG_KERNEL_COMPILATION \
+              -DCL_USE_DEPRECATED_OPENCL_1_1_APIS \
+              -DBOOST_COMPUTE_DEBUG_KERNEL_COMPILATION \
 	      -DBOOST_COMPUTE_HAVE_THREAD_LOCAL \
 	      -DBOOST_COMPUTE_THREAD_SAFE \
               -D FLOW_HLS_CSIM $(CFLAGS_K) \
+	      -D HLS_NO_XIL_FPO_LIB=1 \
               -I$(XILINX_SDX)/Vivado_HLS/include \
               -I$(XILINX_VIVADO)/include \
               -I${XILINX_SDX}/runtime/include/1_2 
@@ -377,14 +395,15 @@ HOST_EXE_DIR=.
 HOST_LFLAGS = \
               -L$(BOOST_LIB) \
               -lboost_iostreams -lz \
-              -L/tools/batonroot/rodin/devkits/lnx64/gcc-${GCC_VERSION}/lib64 \
-              -lstdc++ \
-              -L${XILINX_SDX}/runtime/lib/x86_64 -lxilinxopencl -lrt \
-              -lOpenCL -pthread \
+              -L${GCC_PATH}/gcc-${GCC_VERSION}/lib64 \
+							-lxilinxopencl \
+							-lstdc++ \
+							-L${XOPENCL_LIB_PATH} \
+              -lrt \
+              -pthread \
+							-Wl,--rpath=${XOPENCL_LIB_PATH} \
               -Wl,--rpath=$(BOOST_LIB) \
-              -Wl,--rpath=/tools/batonroot/rodin/devkits/lnx64/gcc-${GCC_VERSION}/lib64 \
-              -Wl,--rpath=${XILINX_SDX}/lib/lnx64.o \
-              -Wl,--rpath=${XILINX_SDX}/runtime/lib/x86_64 \
+              -Wl,--rpath=${GCC_PATH}/gcc-${GCC_VERSION}/lib64 \
               
 
 #HOST_EXE_LDPATH = ${XILINX_SDX}/runtime/lib/x86_64:${XILINX_SDX}/lib/lnx64.o
@@ -439,10 +458,10 @@ HOST_ARGS = ${XCLBIN} ${APP_BIN} ${APP_OUT_BIN}
 
 
 ifeq (${GEMX_part},ku115)
-  K0_DDR = 3
-  K1_DDR = 2
-  K2_DDR = 0
-  K3_DDR = 1
+  K0_DDR = 0
+  K1_DDR = 1
+  K2_DDR = 2
+  K3_DDR = 3
 else ifeq (${GEMX_part},vu9p)
   K0_DDR = 0
   K1_DDR = 3
@@ -485,7 +504,7 @@ VPATH = ${PWD}
 
 #supported flow: cpu_emu, hw_emu, hw
 #CC = $(XILINX_SDX)/lnx64/tools/gcc/bin/g++
-CC = /tools/batonroot/rodin/devkits/lnx64/gcc-${GCC_VERSION}/bin/g++
+CC = ${GCC_PATH}/gcc-${GCC_VERSION}/bin/g++
 #CC = $(XILINX_SDX)/Vivado_HLS/lnx64/tools/gcc/bin/g++
 CLCC = $(XILINX_SDX)/bin/xocc
 
@@ -495,14 +514,14 @@ ifeq ($(XDEVICE_REPO_PATH),)
 else
     DEVICE_REPO_OPT = --xp prop:solution.device_repo_paths=${XDEVICE_REPO_PATH} 
 endif
-ifeq ($(PLATFORM_REPO_PATHS),)
+ifeq ($(PLATFORM_REPO_PATH),)
 #no device repo path set. do nothing
-    DEVICE_REPO_OPT = 
+    PLATFORM_REPO_OPT = 
 else
-    DEVICE_REPO_OPT = --xp prop:solution.platform_repo_paths=${PLATFORM_REPO_PATHS} 
+    PLATFORM_REPO_OPT = --xp prop:solution.platform_repo_paths=${PLATFORM_REPO_PATH} 
 endif
 
-CLCC_OPT += $(CLCC_OPT_LEVEL) ${DEVICE_REPO_OPT} --platform ${XDEVICE} 
+CLCC_OPT += $(CLCC_OPT_LEVEL) ${PLATFORM_REPO_OPT} --platform ${DSA_PLATFORM} 
 CLCC_COMP_OPT =  ${CLCC_OPT} ${KERNEL_DEFS}
 CLCC_COMP_OPT += --kernel_frequency ${GEMX_kernelHlsFreq}
 
@@ -525,14 +544,14 @@ ifeq (${GEMX_vivadoFlow},EXP)
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.OPT_DESIGN.ARGS.DIRECTIVE=Explore
   XP_VIVADO_PROPS += --xp 'vivado_prop:run.impl_1.{STEPS.PLACE_DESIGN.ARGS.MORE OPTIONS}={-fanout_opt}'
   #XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=AltSpreadLogic_high
-  XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=SSI_BalanceSLLs
+  #XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=SSI_BalanceSLLs
+  XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PLACE_DESIGN.ARGS.DIRECTIVE=Explore
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PHYS_OPT_DESIGN.IS_ENABLED=true
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE=AggressiveExplore
-  #XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE=AggressiveFanoutOpt
-  XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.OPT_DESIGN.TCL.POST=${PWD}/post_opt.tcl
+  #XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.OPT_DESIGN.TCL.POST=${PWD}/post_opt.tcl
   XP_VIVADO_PROPS +=--xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE=Explore
-  XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.TCL.PRE=${PWD}/pre_route.tcl
-  XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.TCL.POST=${PWD}/post_route.tcl
+  #XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.TCL.PRE=${PWD}/pre_route.tcl
+  #XP_VIVADO_PROPS += --xp vivado_prop:run.impl_1.STEPS.ROUTE_DESIGN.TCL.POST=${PWD}/post_route.tcl
 endif
 
 
@@ -549,6 +568,7 @@ OUT_HOST_DIR = out_host
 HOST_EXE = ${OUT_HOST_DIR}/gemx_host.exe
 GEN_BIN_EXE = ${OUT_HOST_DIR}/gemx_gen_bin.exe
 API_GEMM_EXE = ${OUT_HOST_DIR}/gemx_api_gemm.exe
+API_SPMV_EXE = ${OUT_HOST_DIR}/gemx_api_spmv.exe
 API_GEMM_MULTI_INSTR_EXE = ${OUT_HOST_DIR}/gemx_api_gemm_multiInstr.exe
 
 APP_BIN      = ${OUT_HOST_DIR}/app.bin
@@ -583,8 +603,11 @@ run_cpu_em: host
 run_hw_em: host
 	+make SDA_FLOW=hw_emu run_em_int  2>&1 | tee log-run_hw_em.txt
 
-run_multiGemm_hw_em: api_gemm 
-	+make SDA_FLOW=hw_emu run_multiGemm_em_int  2>&1 | tee log-run_multGemm_hw_em.txt
+run_apiGemm_cpu_em: api_gemm 
+	+make SDA_FLOW=cpu_emu run_apiGemm_em_int  2>&1 | tee log-run_apiGemm_cpu_em.txt
+
+run_apiGemm_hw_em: api_gemm 
+	+make SDA_FLOW=hw_emu run_apiGemm_em_int  2>&1 | tee log-run_apiGemm_hw_em.txt
 
 run_hw: host
 	+make SDA_FLOW=hw run_hw_int  2>&1 | tee log-run_hw.txt; test -f ${MAKE_EXIT_OK_HW_FILE}
@@ -594,21 +617,40 @@ run_em_int: xconfig host xbin
 	XCL_EMULATION_MODE=true XILINX_OPENCL=${XILINX_SDX} ${HOST_EXE} ${HOST_ARGS}
 	+make check
 
-run_multiGemm_em_int: xconfig api_gemm xbin
+run_apiGemm_em_int: xconfig api_gemm xbin
 	@echo INFO: kernel xclbin frequency is $(shell ${XCLBIN_FREQ} ${XCLBIN}) MHz
-	XCL_EMULATION_MODE=true XILINX_OPENCL=${XILINX_SDX} ${API_GEMM_EXE} ${XCLBIN} 512 512 512
+	XCL_EMULATION_MODE=true XILINX_OPENCL=${XILINX_SDX} ${API_GEMM_EXE} ${XCLBIN} ${GEN_BIN_PROGRAM} 
 
 run_hw_int : host xbin xbinst_hw
 	@echo INFO: kernel xclbin frequency is $(shell ${XCLBIN_FREQ} ${XCLBIN}) MHz
 	@echo INFO: THE BOARD RUN WILL USE  ${HOST_EXE} ${HOST_ARGS}
 	@echo INFO: AFTER THE BOARD RUN CHECK CORRECTNESS BY  cmp -i 8192 -l ${APP_GOLD_BIN} ${APP_OUT_BIN}
 check: 
-	${GEN_BIN_EXE} -read ${APP_OUT_BIN} > ${APP_OUT_TXT}
-	cmp -i 8192 ${APP_GOLD_BIN} ${APP_OUT_BIN} || ${GEN_BIN_EXE} -compare 1e-3 3e-6 ${APP_GOLD_BIN} ${APP_OUT_BIN}
+ifeq ($(shell test $(GEMX_numKernels) -gt 0; echo $$?),0)
+	${GEN_BIN_EXE} -read ${OUT_DIR}/app_out0.bin  > ${OUT_DIR}/app_out0.txt
+	cmp -i 8192 ${APP_GOLD_BIN} ${OUT_DIR}/app_out0.bin || ${GEN_BIN_EXE} -compare 1e-3 3e-6 ${APP_GOLD_BIN} ${OUT_DIR}/app_out0.bin
+endif
+ifeq ($(shell test $(GEMX_numKernels) -gt 1; echo $$?),0)
+	${GEN_BIN_EXE} -read ${OUT_DIR}/app_out1.bin  > ${OUT_DIR}/app_out1.txt
+	cmp -i 8192 ${APP_GOLD_BIN} ${OUT_DIR}/app_out1.bin || ${GEN_BIN_EXE} -compare 1e-3 3e-6 ${APP_GOLD_BIN} ${OUT_DIR}/app_out1.bin
+endif
+ifeq ($(shell test $(GEMX_numKernels) -gt 2; echo $$?),0)
+	${GEN_BIN_EXE} -read ${OUT_DIR}/app_out2.bin  > ${OUT_DIR}/app_out2.txt
+	cmp -i 8192 ${APP_GOLD_BIN} ${OUT_DIR}/app_out2.bin || ${GEN_BIN_EXE} -compare 1e-3 3e-6 ${APP_GOLD_BIN} ${OUT_DIR}/app_out2.bin
+endif
+ifeq ($(shell test $(GEMX_numKernels) -gt 3; echo $$?),0)
+	
+	cmp -i 8192 ${APP_GOLD_BIN} ${OUT_DIR}/app_out3.bin || ${GEN_BIN_EXE} -compare 1e-3 3e-6 ${APP_GOLD_BIN} ${OUT_DIR}/app_out3.bin
+endif
 
-host : ${HOST_EXE} ${GEN_BIN_EXE} ${APP_GOLD_TXT} ${API_GEMM_EXE} 
+ifeq (${GEMX_useURAM},0)
+host : ${HOST_EXE} ${GEN_BIN_EXE} ${APP_GOLD_TXT} ${API_GEMM_EXE} ${API_SPMV_EXE}
+else
+host : ${HOST_EXE} ${GEN_BIN_EXE} ${APP_GOLD_TXT} ${API_GEMM_EXE}
+endif 
 
 api_gemm : ${API_GEMM_EXE} 
+api_gemm_multi: ${API_GEMM_MULTI_INSTR_EXE}
 
 ${HOST_EXE} : ./src/* | ${OUT_HOST_DIR}
 	@echo "***** Compile host executable *****"
@@ -628,8 +670,13 @@ ${API_GEMM_MULTI_INSTR_EXE} : ./src/* | ${OUT_HOST_DIR}
 	@echo "***** Compile testcase generator executable *****"
 	@echo ${CC} ${HOST_CFLAGS} ${HOST_LFLAGS}
 	${CC} ${HOST_CFLAGS} ${HOST_LFLAGS} src/gemx_api_gemm_multiInstr.cpp -o $@
+	
+${API_SPMV_EXE} : ./src/* | ${OUT_HOST_DIR}
+	@echo "***** Compile testcase generator executable *****"
+	@echo ${CC} ${HOST_CFLAGS} ${HOST_LFLAGS}
+	${CC} ${HOST_CFLAGS} ${HOST_LFLAGS} src/gemx_api_spmv.cpp -o $@
 
-${APP_GOLD_TXT} : ${GEN_BIN_EXE}
+${APP_GOLD_TXT} : ${GEN_BIN_EXE} 
 	${GEN_BIN_EXE} -write ${APP_BIN} ${GEN_BIN_PROGRAM}
 	${GEN_BIN_EXE} -read ${APP_BIN} > ${APP_TXT}
 	${GEN_BIN_EXE} -read ${APP_GOLD_BIN} > ${APP_GOLD_TXT}
@@ -637,7 +684,7 @@ ${APP_GOLD_TXT} : ${GEN_BIN_EXE}
 xconfig : ${OUT_HOST_DIR}/emconfig.json | ${OUT_HOST_DIR}
 
 ${OUT_HOST_DIR}/emconfig.json :
-	$(XILINX_SDX)/bin/emconfigutil --xdevice ${XDEVICE} ${DEVICE_REPO_OPT} --od ${OUT_HOST_DIR}
+	$(XILINX_SDX)/bin/emconfigutil --xdevice ${XDEVICE_COLON} ${DEVICE_REPO_OPT} --od ${OUT_HOST_DIR}
 
 xbin: ${XCLBIN}
 
@@ -662,7 +709,7 @@ endif
 
 xbinst_hw:  host
 	@echo 'Running xbinst...'
-	$(XILINX_SDX)/bin/xbinst --platform $(XDEVICE) -d ${OUT_DIR}
+	$(DSA_PATH)/../bin/xbinst --platform_repo_paths=${PLATFORM_REPO_PATH} --platform $(XDEVICE) -d ${OUT_DIR}
 	#cp ${XILINX_SDX}/runtime/lib/x86_64/libOpenCL.so ${OUT_DIR}/xbinst/runtime/lib
 
 clean :

@@ -29,7 +29,7 @@
 /**
  *  @brief GEMM header
  *
- *  $DateTime: 2017/10/27 09:54:34 $
+ *  $DateTime: 2017/11/22 08:38:59 $
  */
 
 #ifndef GEMX_GEMM_H
@@ -110,23 +110,22 @@ class Gemm
 {
   public:
 	static const unsigned int t_aMH = t_DdrWidth * t_aRowMemWords;
-	static const unsigned int t_bKD = t_DdrWidth * t_aColMemWords; 
+	static const unsigned int t_bKD = t_DdrWidth * t_aColMemWords;
+	static const unsigned int t_uramParFactor = ((t_DdrWidth * sizeof(t_FloatType))/8); 
 
     typedef WideType<t_FloatType, t_DdrWidth> DdrWideType;
     typedef TaggedFloat<t_FloatType> TaggedFloatType;
     typedef TaggedWideType<t_FloatType, t_DdrWidth> TaggedWideFloat;
     typedef WideType<TaggedFloatType, t_DdrWidth> TaggedFloatArray; 
     typedef hls::stream<DdrWideType> DdrStream;
-    typedef hls::stream<unsigned int> ParamStream;
     typedef hls::stream<TaggedWideFloat> EdgeStream;
 
-    // Mesh types
-    typedef ControlFloat<t_FloatType, 16> ControlFloatType;  // sizeof(t_FloatType) * 8
-    typedef hls::stream<ControlFloatType> ControlFloatStream;
-    typedef hls::stream<t_FloatType> FloatStream;
-    // Workaround for HLS DATA flow
-    typedef typename ControlFloatType::ControlFloatBitsType ControlFloatBitsType;
-    typedef hls::stream<ControlFloatBitsType> ControlFloatBitsStream;
+    typedef WideType<t_FloatType, t_DdrWidth/2> HalfDdrWideType;
+    typedef ExitTaggedWideType<t_FloatType, t_DdrWidth/2> HalfTaggedDdrWideType;
+    typedef TaggedWideType<t_FloatType, t_DdrWidth/2> HalfTaggedWideFloat;
+    typedef WideType<TaggedFloatType, t_DdrWidth/2> HalfTaggedFloatArray; 
+    typedef hls::stream<HalfTaggedDdrWideType> HalfTaggedDdrStream;
+    typedef hls::stream<HalfTaggedWideFloat> HalfEdgeStream;
 
     typedef GemmArgs GemmArgsType;
   private:
@@ -149,60 +148,6 @@ class Gemm
           p_C = p_A * p_B + (p_Flush ? 0 : p_C);
         }
       
-    class MeshNode {
-      private:
-        t_FloatType m_C;
-        bool m_Exit, m_PassC;
-      public:
-        
-        void
-        runMeshNode(
-              ControlFloatBitsStream &p_Ain, ControlFloatBitsStream &p_Aout,
-              ControlFloatBitsStream &p_Bin, ControlFloatBitsStream &p_Bout,
-              FloatStream &p_CresIn,   FloatStream &p_CresOut,
-              bool p_PassA, bool p_PassB, bool p_PassC
-            ) {
-              #pragma HLS function_instantiate variable=p_PassA
-              #pragma HLS function_instantiate variable=p_PassB
-              #pragma HLS function_instantiate variable=p_PassC
-              
-              do {
-                #pragma HLS pipeline
-                ControlFloatBitsType l_aBits = p_Ain.read();
-                ControlFloatBitsType l_bBits = p_Bin.read();
-                ControlFloatType l_a(l_aBits);
-                ControlFloatType l_b(l_bBits);
-                                                
-                bool l_flush = l_a.getFlush();
-                m_Exit = l_a.getExit();
-                
-                if ((p_PassC && m_PassC) || l_flush) {
-                  t_FloatType l_cout = m_PassC ? p_CresIn.read() : m_C;
-                  p_CresOut.write(l_cout);
-                }
-
-                m_C = l_a() * l_b() + (l_flush ? 0 : m_C);
-                #ifndef __SYNTHESIS__
-                  //std::cout << "  ######### runMeshNode "
-                  //  << "  a=" << l_a()
-                  //  << "  b=" << l_b()
-                  //  << "  m_C=" << m_C << "\n";
-                #endif
-                
-                if (p_PassA) {
-                  p_Aout.write(l_aBits);
-                }
-                if (p_PassB) {
-                  p_Bout.write(l_bBits);
-                }
-                
-                m_PassC = l_a.getPass();;
-                
-              } while (!m_Exit);
-            }
-    };
-
-
     ///////////////////////////////////////////////////////////////////////////
     // GEMM AB loader
     ///////////////////////////////////////////////////////////////////////////
@@ -221,8 +166,8 @@ class Gemm
 
 		DdrWideType l_bufferB[t_bKD][t_bColMemWords];
 #if GEMX_useURAM
-#pragma HLS ARRAY_RESHAPE variable=l_bufferB block factor=4 dim=3
-#pragma HLS ARRAY_PARTITION variable=l_bufferB block factor=8 dim=3
+#pragma HLS ARRAY_RESHAPE variable=l_bufferB block factor=4 dim=3 //factor=8/sizeof(t_FloatType) dim=3 //factor=4 dim=3
+#pragma HLS ARRAY_PARTITION variable=l_bufferB block factor=8 dim=3 //factor=t_uramParFactor dim=3 //factor=8 dim=3
 #pragma HLS RESOURCE variable=l_bufferB core=XPM_MEMORY uram
 #endif
 		DdrWideType l_bufferA[t_aMH][t_aColMemWords];
@@ -256,8 +201,8 @@ class Gemm
 					#pragma HLS PIPELINE
 						DdrWideType l_word = l_aAddr[l_aSrcOffset+j];
 #if GEMX_useURAM
-#pragma HLS ARRAY_RESHAPE variable=l_word block factor=4
-#pragma HLS ARRAY_PARTITION variable=l_word block factor=8
+#pragma HLS ARRAY_RESHAPE variable=l_word block factor=4 //factor=8/sizeof(t_FloatType) //factor=4
+#pragma HLS ARRAY_PARTITION variable=l_word block factor=8 //factor=t_uramParFactor //factor=8
 #endif
 						l_bufferA[i][j] = l_word;
 					}
@@ -270,8 +215,8 @@ class Gemm
 					#pragma HLS PIPELINE
 						DdrWideType l_word = l_bAddr[l_bSrcOffset+j];
 #if GEMX_useURAM
-#pragma HLS ARRAY_RESHAPE variable=l_word block factor=4
-#pragma HLS ARRAY_PARTITION variable=l_word block factor=8
+#pragma HLS ARRAY_RESHAPE variable=l_word block factor=4 //factor=8/sizeof(t_FloatType) //factor=4
+#pragma HLS ARRAY_PARTITION variable=l_word block factor=8 //factor=t_uramParFactor //factor=8
 #endif
 						l_bufferB[i][j] = l_word;
 					}
@@ -283,8 +228,8 @@ class Gemm
 					#pragma HLS PIPELINE
 						DdrWideType l_word;
 #if GEMX_useURAM
-#pragma HLS ARRAY_RESHAPE variable=l_word block factor=4
-#pragma HLS ARRAY_PARTITION variable=l_word block factor=8
+#pragma HLS ARRAY_RESHAPE variable=l_word block factor=4 //factor=8/sizeof(t_FloatType) //factor=4
+#pragma HLS ARRAY_PARTITION variable=l_word block factor=8 //factor=t_uramParFactor //factor=8
 #endif
 						l_word = l_bufferA[i][j];
 						p_As.write(l_word);
@@ -298,8 +243,8 @@ class Gemm
 					#pragma HLS PIPELINE
 						DdrWideType l_word;
 #if GEMX_useURAM
-#pragma HLS ARRAY_RESHAPE variable=l_word block factor=4
-#pragma HLS ARRAY_PARTITION variable=l_word block factor=8
+#pragma HLS ARRAY_RESHAPE variable=l_word block factor=4 //factor=8/sizeof(t_FloatType) //factor=4
+#pragma HLS ARRAY_PARTITION variable=l_word block factor=8 //factor=t_uramParFactor //factor=8
 #endif
 						l_word = l_bufferB[i][j];
 						p_Bs.write(l_word);
@@ -352,8 +297,8 @@ class Gemm
 	
 		DdrWideType l_bufferB[t_bKD][t_bColMemWords];
 #if GEMX_useURAM
-#pragma HLS ARRAY_RESHAPE variable=l_bufferB block factor=4 dim=3
-#pragma HLS ARRAY_PARTITION variable=l_bufferB block factor=8 dim=3
+#pragma HLS ARRAY_RESHAPE variable=l_bufferB block factor=4 dim=3 //factor=8/sizeof(t_FloatType) dim=3 //factor=4 dim=3
+#pragma HLS ARRAY_PARTITION variable=l_bufferB block factor=8 dim=3 //factor=t_uramParFactor dim=3 //factor=8 dim=3
 #pragma HLS RESOURCE variable=l_bufferB core=XPM_MEMORY uram
 #endif
 
@@ -459,8 +404,7 @@ class Gemm
     GemmCalc(
         EdgeStream &p_As,
         EdgeStream &p_Bs,
-        DdrStream &p_Cs,
-        unsigned int p_Kdepth
+        DdrStream &p_Cs
       ) {
       //#pragma HLS inline region off
       bool l_exit;
@@ -625,6 +569,347 @@ class Gemm
    }
 
     ///////////////////////////////////////////////////////////////////////////
+    //GemmSplitEdges
+    // Gemm split t_DdrWidth Edge stream into two half size edge stream
+    ///////////////////////////////////////////////////////////////////////////
+    void
+	GemmSplitEdges(
+		EdgeStream &p_InS,
+		HalfEdgeStream &p_Out0S,
+		HalfEdgeStream &p_Out1S
+	){
+		TaggedWideFloat l_in;
+		HalfDdrWideType l_val0, l_val1;
+		bool l_exit=false;
+		bool l_flush=false;
+		
+		GemmSplitLoop: do{
+		#pragma HLS PIPELINE
+			l_in = p_InS.read();
+			l_flush = l_in.getFlush();
+			l_exit = l_in.getExit();
+			for (int i=0; i<t_DdrWidth/2; ++i) {
+			#pragma HLS UNROLL
+				l_val0[i] = l_in[i];
+			}
+			for (int i=t_DdrWidth/2; i<t_DdrWidth; ++i){
+			#pragma HLS UNROLL
+				l_val1[i-t_DdrWidth/2] = l_in[i];
+			}
+			HalfTaggedWideFloat l_out0(l_val0, l_flush, l_exit);
+			HalfTaggedWideFloat l_out1(l_val1, l_flush, l_exit);
+			#ifndef __SYNTHESIS__
+				(t_debug>2) && std::cout << "GemmSplitEdges input: " << l_in << std::endl;
+				(t_debug>2) && std::cout << "GemmSplitEdges out0: " << l_out0 << std::endl;
+				(t_debug>2) && std::cout << "GemmSplitEdges out1: " << l_out1 << std::endl;
+			#endif
+			p_Out0S.write(l_out0);
+			p_Out1S.write(l_out1);			
+		} while(!l_exit);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//GemmDupEdges	
+	// Gemm duplicate HalfEdgeStream
+	///////////////////////////////////////////////////////////////////////////	
+	void
+	GemmDupEdges(
+		HalfEdgeStream &p_InS,
+		HalfEdgeStream &p_Out0S,
+		HalfEdgeStream &p_Out1S
+	) {
+		bool l_exit=false;
+		GemmDupEdgesLoop: do{
+		#pragma HLS PIPELINE
+			HalfTaggedWideFloat l_in = p_InS.read();
+			l_exit = l_in.getExit();
+			
+			#ifndef __SYNTHESIS__
+				(t_debug>2) && std::cout << "GemmDupEdges out0: " << l_in << std::endl;
+				(t_debug>2) && std::cout << "GemmDupEdges out1: " << l_in << std::endl;
+			#endif
+			p_Out0S.write(l_in);
+			p_Out1S.write(l_in);
+		}while(!l_exit);
+	}
+
+	///////////////////////////////////////////////////////////////////////////	
+	//GemmMergeDdrS
+	// Gemm merge 4 HalfTaggedDdrStream into one DdrStream
+	///////////////////////////////////////////////////////////////////////////	
+   	void
+	GemmMergeDdrS(
+		HalfTaggedDdrStream p_InS[2][2],
+		DdrStream			&p_OutS
+	){
+		bool l_exit=false;
+		GemmMergeDdrsLoop: do{
+		//#pragma HLS PIPELINE
+			for (int row=0; row<2; ++row){
+				DdrWideType l_out;
+				l_exit = false;
+				for (int k=0; k<t_DdrWidth/2; ++k) {
+				#pragma HLS PIPELINE
+					if (!l_exit) {
+						for (int col=0; col<2; ++col){
+						#pragma HLS UNROLL
+							HalfTaggedDdrWideType l_in = p_InS[row][col].read();
+							l_exit = l_in.getExit();
+							for (int i=0; i<t_DdrWidth/2; ++i) {
+								l_out[col*t_DdrWidth/2+i] = l_in[i];
+							}
+						}	
+						if (!l_exit) {
+							p_OutS.write(l_out);
+						}
+					}
+				}
+			} 
+		} while(!l_exit);
+	} 
+	///////////////////////////////////////////////////////////////////////////
+    // GemmCalcHalf
+    //  GEMM register meshes, triangular queues, flow of data of t_DdrWidth/2
+    //                            
+    //              B             
+    //              |  b            
+    //              V bb           
+    //               bbb          
+    //              bbbb         C 
+    //               |           ^
+    //               V           |
+    //         a    mmmm       oooo
+    //        aa    mmmm       oooo
+    // A->   aaa -> mmmm  ->   oooo
+    //      aaaa    mmmm       oooo
+    //     
+    ///////////////////////////////////////////////////////////////////////////
+    
+    void
+    GemmCalcHalf(
+        HalfEdgeStream &p_As,
+        HalfEdgeStream &p_Bs,
+        HalfTaggedDdrStream &p_Cs
+      ) {
+      //#pragma HLS inline region off
+      bool l_exit;
+      bool l_firstFlushDone = false;
+      unsigned int l_step = 0;
+      unsigned int l_outCt = 2 * t_DdrWidth/2; // controls middle stage (Cout to CoutSave strobing)
+      unsigned int l_outCt1 = 1 * t_DdrWidth/2; // controls the output stage (CoutSave shifting)
+
+      WindowRm<TaggedFloatType, t_DdrWidth/2, t_DdrWidth/2> l_bwin;
+      WindowRm<TaggedFloatType, t_DdrWidth/2, t_DdrWidth/2> l_awin;
+      WindowRm<t_FloatType, t_DdrWidth/2, t_DdrWidth/2> l_cwin, l_cowin, l_cowinSave;
+      #pragma HLS ARRAY_PARTITION variable=l_cwin dim=1 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cwin dim=2 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cowin dim=1 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cowin dim=2 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cowinSave dim=1 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cowinSave dim=2 complete
+      TriangSrl<TaggedFloatType, t_DdrWidth/2> l_Ta;
+      TriangSrl<TaggedFloatType, t_DdrWidth/2> l_Tb;
+      //bool l_hlsWaWritingCowin = false;
+      
+      #ifndef __SYNTHESIS__
+      l_Ta.clear();
+      l_Tb.clear();
+        l_awin.clear();
+        l_bwin.clear();
+        l_cwin.clear();
+        l_cowin.clear();
+        l_cowinSave.clear();
+      #endif
+      
+      GEMM_CALC_DO:do {
+        l_step++;
+        #pragma HLS LOOP_TRIPCOUNT min=1 max=16
+        #pragma HLS PIPELINE
+        
+        //#pragma HLS DEPENDENCE variable=l_cowin array inter false
+        //#pragma HLS DEPENDENCE variable=l_cowin array intra false
+        #pragma HLS DEPENDENCE variable=l_cwin array inter false
+        //#pragma HLS DEPENDENCE variable=l_cwin array intra false
+        
+        #ifndef __SYNTHESIS__
+          (t_debug >= 1) && std::cout << "\n" << "  ######### START step  " << l_step << "\n";
+        #endif
+
+        HalfTaggedWideFloat l_a = p_As.read();
+        HalfTaggedWideFloat l_b = p_Bs.read();
+        #pragma HLS data_pack variable=l_a
+        #pragma HLS data_pack variable=l_b
+        #ifndef __SYNTHESIS__
+          (t_debug >= 1) && std::cout << "    GemmCalcT5 Received A " << l_a << "\n";
+          (t_debug >= 1) && std::cout << "    GemmCalcT5 Received B " << l_b << "\n";
+        #endif
+        bool l_exitA = l_a.getExit();
+        bool l_exitB = l_b.getExit();
+        assert(l_exitA == l_exitB);
+        l_exit = l_exitA;
+        bool l_flushA = l_a.getFlush();
+        bool l_flushB = l_b.getFlush();
+        assert(l_flushA == l_flushB);
+        bool l_flush = l_flushA;
+        
+        HalfTaggedFloatArray l_avec = l_a.getVectOfTaggedValues();
+        HalfTaggedFloatArray l_bvec = l_b.getVectOfTaggedValues();
+        
+        HalfTaggedFloatArray l_avec1 = l_Ta.shift(l_avec);
+        HalfTaggedFloatArray l_bvec1 = l_Tb.shift(l_bvec);
+        
+        (void)l_awin.shift_right(l_avec1);
+        (void)l_bwin.shift(l_bvec1);
+        
+        #ifndef __SYNTHESIS__
+          (t_debug >= 3) && std::cout << "  Calc before a step  " << l_step << "\n"
+            << "  Ta\n" << l_Ta << "\n"
+            << "  Tb\n" << l_Tb << "\n"
+            << "  A\n" << l_awin << "\n"
+            << "  B\n" << l_bwin << "\n"
+            << "  C\n" << l_cwin << "\n"
+            << "  Cout\n" << l_cowin << "\n"
+            << "  CoutSave\n" << l_cowinSave << "\n"
+            << "\n";
+        #endif
+
+
+        #ifndef __SYNTHESIS__
+          (t_debug >= 1) && std::cout << "    CONTROLS  "
+                    << "  l_outCt=" << l_outCt
+                    << "  l_outCt1=" << l_outCt1
+                    << std::endl;
+        #endif
+        
+		if ((l_outCt1 < t_DdrWidth/2) || (l_exit)) {
+		  	HalfDdrWideType l_outVal;
+
+		  	if (l_outCt1 < t_DdrWidth/2) {
+          		l_outVal = l_cowinSave.unshift();
+			}
+          	HalfTaggedDdrWideType l_cout(l_outVal, l_exit);
+          	#pragma HLS data_pack variable=l_cout
+          	p_Cs.write(l_cout);
+          	#ifndef __SYNTHESIS__
+            	(t_debug >= 1) && std::cout << "    GemmCalc Sent C " << l_cout << "\n";
+          	#endif
+        }
+        if (l_outCt == 2 * t_DdrWidth/2 - 1) {
+          #ifndef __SYNTHESIS__
+            (t_debug >= 1) && std::cout << "    GemmCalc Strobing l_cowin \n" << l_cowin << "\n";
+          #endif
+          l_cowinSave = l_cowin;
+          l_outCt1 = 0;
+        } else {
+          l_outCt1++;
+        }
+                
+        if (l_flush) {
+          if (l_firstFlushDone) {
+            l_outCt = 0;
+          } else {
+            l_firstFlushDone = true;
+          }
+        } else {
+          l_outCt++;
+        }
+
+        GEMM_CALC_ROW:for(unsigned int row = 0; row < t_DdrWidth/2; ++row) {
+          #pragma HLS UNROLL
+          HalfTaggedFloatArray l_arow = l_awin[row];
+          HalfTaggedFloatArray l_brow = l_bwin[row];
+          //DdrWideType &l_crow = l_cwin[row];
+          //#pragma HLS ARRAY_PARTITION variable=l_crow dim=1 complete
+          #pragma HLS data_pack variable=l_arow
+          #pragma HLS data_pack variable=l_brow
+          //#pragma HLS data_pack variable=l_crow
+          GEMM_CALC_COLS:for(unsigned int i = 0; i < t_DdrWidth/2; ++i) {
+            #pragma HLS UNROLL
+            t_FloatType aval = l_arow[i]();
+            t_FloatType bval = l_brow[i]();
+            bool aflush = l_arow[i].getFlush();
+            bool bflush = l_brow[i].getFlush();
+            assert(aflush == bflush);
+            
+            //assert(aflush != l_hlsWaWritingCowin);
+            macStep(aval, bval, l_cwin[row][i], l_cowin[row][i], aflush);
+          }
+          //l_cwin[row] = l_crow;
+        }
+        
+         
+        #ifndef __SYNTHESIS__
+          (t_debug >= 2) && std::cout << "  Calc after a step  " << l_step << "\n"
+            << "  Ta\n" << l_Ta << "\n"
+            << "  Tb\n" << l_Tb << "\n"
+            << "  A\n" << l_awin << "\n"
+            << "  B\n" << l_bwin << "\n"
+            << "  C\n" << l_cwin << "\n"
+            << "  Cout\n" << l_cowin << "\n"
+            << "  CoutSave\n" << l_cowinSave << "\n"
+            << "\n";
+        #endif
+      
+     } while (!l_exit);
+   }
+	
+	///////////////////////////////////////////////////////////////////////////
+	//GemmCalComp
+	// Gemm split the original systolic array, triangular shift into 4 and combine the results togeter
+	///////////////////////////////////////////////////////////////////////////
+	void
+	GemmCalcComp(
+		EdgeStream &p_As,
+		EdgeStream &p_Bs,
+		DdrStream &p_Cs
+	){
+		HalfEdgeStream l_edgesA[2];
+		#pragma HLS DATA_PACK variable=l_edgesA
+		//#pragma HLS STREAM variable=l_edgesA DEPTH=2
+
+		HalfEdgeStream l_edgesB[2];
+		#pragma HLS DATA_PACK variable=l_edgesB
+		//#pragma HLS STREAM variable=l_edgesB DEPTH=2
+
+		HalfEdgeStream l_edgesIntA[2][2];
+		#pragma HLS DATA_PACK variable=l_edgesIntA
+		//#pragma HLS STREAM variable=l_edgesIntA DEPTH=2
+
+		HalfEdgeStream l_edgesIntB[2][2];
+		#pragma HLS DATA_PACK variable=l_edgesIntB
+		//#pragma HLS STREAM variable=l_edgesIntB DEPTH=2
+		
+		HalfTaggedDdrStream l_dataS[2][2];
+		#pragma HLS DATA_PACK variable=l_dataS
+		#pragma HLS STREAM variable=l_dataS DEPTH=t_DdrWidth/2
+
+		#pragma HLS DATAFLOW
+
+		GemmSplitEdges(p_As, l_edgesA[0], l_edgesA[1]);
+		GemmSplitEdges(p_Bs, l_edgesB[0], l_edgesB[1]);
+
+		for (int row=0; row<2; ++row) {
+		#pragma HLS UNROLL
+			GemmDupEdges(l_edgesA[row], l_edgesIntA[row][0], l_edgesIntA[row][1]);
+		}
+
+		for (int col=0; col<2; ++col){
+		#pragma HLS UNROLL
+			GemmDupEdges(l_edgesB[col], l_edgesIntB[0][col], l_edgesIntB[1][col]);
+		}
+
+		for (int row=0; row<2; ++row) {
+		#pragma HLS UNROLL
+			for (int col=0; col<2; ++col) {
+			#pragma HLS UNROLL
+				GemmCalcHalf(l_edgesIntA[row][col], l_edgesIntB[row][col], l_dataS[row][col]);
+			}
+		}
+
+		GemmMergeDdrS(l_dataS, p_Cs);
+	}
+
+    ///////////////////////////////////////////////////////////////////////////
     // GEMM writer
     // 
     ///////////////////////////////////////////////////////////////////////////
@@ -638,10 +923,8 @@ class Gemm
       unsigned int l_cWordLd
       ) {
 		DdrWideType l_bufferC[t_aMH*t_bColMemWords];
-		#pragma HLS ARRAY_PARTITION variable=l_bufferC dim=2
-#pragma HLS RESOURCE variable=l_bufferC core=RAM_2P_LUTRAM
-//#pragma HLS RESOURCE variable=l_bufferC core=RAM_T2P_BRAM
-//#pragma HLS DEPENDENCE variable=l_bufferC inter false
+		//#pragma HLS ARRAY_PARTITION variable=l_bufferC dim=2
+		//#pragma HLS RESOURCE variable=l_bufferC core=RAM_2P_LUTRAM
         
 		unsigned int l_rowOffset = 0;
 		unsigned int l_colOffset = 0;
@@ -743,8 +1026,7 @@ class Gemm
       unsigned int l_aLd,
 	  unsigned int l_bLd,
 	  unsigned int l_cLd,
-	  unsigned int l_transpBlocks,
-      unsigned int p_Kdepth
+	  unsigned int l_transpBlocks
     ) {
       #pragma HLS DATAFLOW
 
@@ -783,7 +1065,8 @@ class Gemm
 
       #pragma HLS STREAM variable=p_AEdgeS0 depth=4
       #pragma HLS STREAM variable=p_BEdgeS0 depth=4
-      #pragma HLS STREAM variable=p_CEdgeS depth=t_aMH*t_bColMemWords
+      //#pragma HLS STREAM variable=p_CEdgeS depth=t_aMH*t_bColMemWords
+      #pragma HLS STREAM variable=p_CEdgeS depth=t_DdrWidth*2*t_bColMemWords
 	//#pragma HLS RESOURCE variable=p_CEdgeS core=FIFO_LUTRAM
 
 	  Transp<t_FloatType, t_DdrWidth, t_aColMemWords, 1> l_transp;
@@ -799,7 +1082,11 @@ class Gemm
 	  l_transp.mergeWithReuse(p_As2_1, p_As2_2, p_As2, l_transpBlocks, t_bColMemWords-1);
       l_transp.shuffle_output(p_As2, p_As3, l_transpBlocks*t_bColMemWords);
       GemmTagAB(p_As3, p_Bs1, l_aColBlocks, l_aRowBlocks, l_bColBlocks, p_AEdgeS0, p_BEdgeS0);
-      GemmCalc(p_AEdgeS0, p_BEdgeS0, p_CEdgeS, p_Kdepth);
+      	#if GEMX_splitMesh
+		GemmCalcComp(p_AEdgeS0, p_BEdgeS0, p_CEdgeS);
+		#else
+      	GemmCalc(p_AEdgeS0, p_BEdgeS0, p_CEdgeS);
+		#endif
       GemmWrite(l_cAddr, p_CEdgeS, l_aColBlocks, l_aRowBlocks, l_bColBlocks, l_cLd);
     }
 
@@ -822,7 +1109,7 @@ class Gemm
 		unsigned int l_transpBlocks = l_aColBlocks * l_aRowBlocks * l_bColBlocks *t_aRowMemWords;
 
         GemmBlocks(l_aAddr, l_bAddr, l_cAddr, l_aColBlocks, l_aRowBlocks,
-                                     l_bColBlocks, l_aLd, l_bLd, l_cLd, l_transpBlocks, p_Args.m_K);
+                                     l_bColBlocks, l_aLd, l_bLd, l_cLd, l_transpBlocks);
       }
       
 };

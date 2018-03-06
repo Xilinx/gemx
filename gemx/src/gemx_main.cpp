@@ -29,7 +29,7 @@
 /**
  *  @brief Main executable for SDX flow
  *
- *  $DateTime: 2017/10/24 03:52:34 $
+ *  $DateTime: 2017/11/07 13:14:14 $
  */
 
 // Fast Csim compile
@@ -136,7 +136,7 @@ int main(int argc, char** argv)
   if (argc < 4){
     printf("ERROR: passed %d arguments instead of %d, exiting\n",
            argc, 4);
-    printf("  Usage:\n    gemx_sdx.exe  gemx.xclbin  app.bin  app_out.bin [kernel_id] [kernelName_id]\n");
+    printf("  Usage:\n    gemx_host.exe  gemx.xclbin  app.bin  app_out.bin\n");
     return EXIT_FAILURE;
   }
   
@@ -145,7 +145,7 @@ int main(int argc, char** argv)
   std::string l_binFileOut(argv[3]);
   unsigned int l_kernelId = 0;
   unsigned int l_kernelNameId = 0;
-  if (argc > 4) {
+  /*if (argc > 4) {
     l_kernelId = atoi(argv[4]);
     assert(l_kernelId < 4);
   }
@@ -155,7 +155,7 @@ int main(int argc, char** argv)
   }
   else {
 	l_kernelNameId = l_kernelId;
-  }
+  }*/
 
   printf("GEMX:   %s  %s  %s %s\n",
          argv[0], l_xclbinFile.c_str(), l_binFile.c_str(), l_binFileOut.c_str());
@@ -168,7 +168,7 @@ int main(int argc, char** argv)
   DdrType *l_mem = &l_memVec[0];
   
   
-  std::vector<DdrType> l_memVecOut;
+  std::vector<DdrType> l_memVecOut[GEMX_numKernels];
   #if TEST_SDX
     #include <chrono>
     TimePointType l_tp[10];
@@ -177,10 +177,14 @@ int main(int argc, char** argv)
     
     // ################# HW run through SDX #################
     // Init FPGA
-    gemx::Fpga l_fpga(l_kernelId);
-    std::string l_kernelName("gemxKernel_"+std::to_string(l_kernelNameId));
-    if (l_fpga.loadXclbinSingleKernel(l_xclbinFile, l_kernelName)) {
-      std::cout << "INFO: created kernel" + l_kernelName<< std::endl;
+    gemx::Fpga l_fpga;
+    std::string kernelNames[GEMX_numKernels];
+    for (int i=0; i<GEMX_numKernels; ++i){
+	kernelNames[i] = "gemxKernel_" + std::to_string(i);
+    }
+    //std::string l_kernelName("gemxKernel_"+std::to_string(l_kernelNameId));
+    if (l_fpga.loadXclbinWithoutEvent(l_xclbinFile, kernelNames)) {
+      std::cout << "INFO: created kernels" << std::endl;
     } else {
       std::cerr << "ERROR: failed to load " + l_xclbinFile + "\n";
       return EXIT_FAILURE;
@@ -190,32 +194,36 @@ int main(int argc, char** argv)
     // Transfer data to FPGA
     gemx::MemDesc l_memDesc(l_memVec.size() * sizeof(DdrType) / GEMX_pageSizeBytes, l_memVec.data());
     assert(l_memVec.size() * sizeof(DdrType) % GEMX_pageSizeBytes == 0);
-    if (l_fpga.copyToFpgaSingleKernel(l_memDesc)) {
+    if (l_fpga.copyToFpgaWithoutEvent(l_memDesc)) {
       std::cout << "INFO: transferred data to FPGA" << std::endl;
     } else {
       std::cerr << "ERROR: failed to copy data to FPGA DDR\n";
       return EXIT_FAILURE;
     }
     showTimeData("copyToFpga", l_tp[l_tpIdx], l_tp[l_tpIdx+1]); l_tpIdx++;
-  
+
     // Gemx kernel ops
-    if (l_fpga.callSingleKernel(l_kernelName)) {
-      std::cout << "INFO: Executed kernel" + l_kernelName << std::endl;
+    if (l_fpga.callKernelWithoutEvent()) {
+      std::cout << "INFO: Executed kernel" << std::endl;
     } else {
-      std::cerr << "ERROR: failed to call kernel " + l_kernelName + "\n";
+      std::cerr << "ERROR: failed to call kernel \n";
       return EXIT_FAILURE;
     }
     showTimeData("callKernel", l_tp[l_tpIdx], l_tp[l_tpIdx+1]); l_tpIdx++;
-
+  
+    gemx::MemDesc l_memDescOuts[GEMX_numKernels];
+    for (unsigned int i=0; i<GEMX_numKernels; ++i) {
+      l_memVecOut[i].resize(l_memVec.size());
+      gemx::MemDesc l_memDescOut(l_memDesc.sizePages(), l_memVecOut[i].data());
+      l_memDescOuts[i]= l_memDescOut;
+    }
     // Transfer data back to host
-    l_memVecOut.resize(l_memVec.size());
-    gemx::MemDesc l_memDescOut(l_memDesc.sizePages(), l_memVecOut.data());
-    if (l_fpga.copyFromFpgaSingleKernel(l_memDescOut)) {
+    if (l_fpga.copyFromFpgaWithoutEvent(l_memDescOuts)) {
       std::cout << "INFO: Transferred data from FPGA" << std::endl;
     } else {
       std::cerr << "ERROR: failed to copy data from FPGA DDR\n";
       return EXIT_FAILURE;
-    }
+    }    
     showTimeData("copyFromFpga", l_tp[l_tpIdx], l_tp[l_tpIdx+1]); l_tpIdx++;
     showTimeData("total", l_tp[0], l_tp[l_tpIdx]); l_tpIdx++;
     showTimeData("subtotalFpga", l_tp[1], l_tp[l_tpIdx]); l_tpIdx++; // Host->DDR, kernel, DDR->host
@@ -225,16 +233,22 @@ int main(int argc, char** argv)
     // Gemx kernel ops
     gemxKernel_0(l_mem, l_mem);
     
-    l_memVecOut = l_memVec;
+    l_memVecOut[0] = l_memVec;
   
   #endif
   
   // Write out the received data
-  if (!writeBinFile(l_binFileOut, l_memVecOut)) {
-      std::cerr << "ERROR: failed to write output file " + l_binFileOut + "\n";
+ for (int i=0; i<GEMX_numKernels; ++i) {
+    std::size_t pos0 = l_binFileOut.find("/");
+    std::size_t pos1 = l_binFileOut.find("app_out");
+    std::size_t pos2 = l_binFileOut.find(".bin");
+    //std::string binFileOutName = l_binFileOut.substr(0,10) + std::to_string(i) + l_binFileOut.substr(10,4);
+    std::string binFileOutName =l_binFileOut.substr(0,pos0+1)+l_binFileOut.substr(pos1,7) + std::to_string(i) + l_binFileOut.substr(pos2,4);
+   if (!writeBinFile(binFileOutName, l_memVecOut[i])) {
+      std::cerr << "ERROR: failed to write output file " + binFileOutName + "\n";
       return EXIT_FAILURE;
     }
-  
+ }
 
   return EXIT_SUCCESS;
 }

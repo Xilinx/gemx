@@ -54,8 +54,8 @@ runGemm | *DdrWideType \*p_DdrRd*: memory pointer used to read matrices from the
     * A : (t_DdrWidth) x (t_DdrWidth * 2)
     * B : (t_DdrWidth * 2) x (t_DdrWidth)
   * maximum matrix size
-    * A : 2^31 x 2^31, or as big as the device memory can store
-    * B : 2^31 x 2^31, or as big as the device memory can store
+    * A : 2^31 bytes 
+    * B : 2^31 bytes
   * minimum block buffer size
     * A : (t_DdrWidth) x (t_DdrWidth * 2)
     * B : (t_DdrWidth*2) x (t_DdrWidth)
@@ -64,7 +64,9 @@ runGemm | *DdrWideType \*p_DdrRd*: memory pointer used to read matrices from the
     * for t_DdrWidth == 32, the configuration with t_aColMemWords=8, t_aRowMemWords=8 and t_bColMemWords=8 provides enough buffering to achieve 99% compute efficiency, meaning no overhead caused by accessing the device memory.
     * the maximul block buffer size is limited by the number of BRAMs you have on an FPGA platform.
   * matrix element type
-    * only 16-bit integer type is supported
+    * 16-bit integer
+    * 8-bit integer
+    * fp32
 
 ### 2.2 GEMV ENGINE
 The GEMV engine is implemented by class Gemv in file gemx_gemv.h. The top function *runGemv* implements matrix vector multiplication on an FPGA. The items below list the supported operations, the template parameters, the functions and the features of the Gemv class.
@@ -154,7 +156,7 @@ runTransp | *DdrWideType \*p_DdrRd*: memory pointer used to read matrices from t
   * minimum matrix size
     * A: t_DdrWidth x t_DdrWidth
   * maximum matrix size
-    * A: 2^32 x 2^31
+    * A: 2^31 bytes 
   * legal matrix inputs' size
     * A: multiple of (t_rowMemWords * t_DdrWidth) x (t_colMemWords * t_DdrWidth)
 
@@ -178,7 +180,6 @@ GEMX_useURAM  | use UltraRam to implement some buffers.<br> **only supported for
 GEMX_vivadoFlow | configure Vivado to use more timing consuming placement and routing strategies to achieve higher clock frequency for the final FPGA image.<br> **only supported for vu9pf1 platform** | "", "EXP" | ""
 GEMX_argInstrWidth | number of instructions in one 64-byte memory word | 64 / (GEMX_ddrWidth * sizeof(GEMX_dataType)) | 1 
 GEMX_dataEqIntType | a type compatible with ap_uint<> of same size as t_FloatType | C, C++ fundamental types. | short 
-GEMX_gemmMeshRows<br> GEMX_gemmMeshCols<br> GEMX_gemmMeshDepth | define the systolic array size used to implement matrix multiplication | the values of these three variable should always be equal to GEMX_ddrWidth | GEMX_ddrWidth
 GEMX_dataType<br> GEMX_ddrWidth<br> GEMX_transpBlocks<br> GEMX_gemvmGroups<br> GEMX_gemvkVectorBlocks<br> GEMX_gemvmVectorBlocks<br> GEMX_gemmMBlocks<br> GEMX_gemmKBlocks<br> GEMX_gemmNBlocks<br> | refer to the **GEMX ENGINES IN DETAILS** section for their usage and default values. | |
 GEMX_BIN_PROGRAM | a string of instructions that are executed on the kernel.<br> refer to gemx_gen_bin.cpp for the example usage | |
 
@@ -243,5 +244,5 @@ Oct2017|1.0|Initial Xilinx Release
 [Nimbix Application Submission README]: https://github.com/Xilinx/SDAccel_Examples/blob/master/utility/nimbix/README.md
 [Repository Contribution README]: https://github.com/Xilinx/SDAccel_Examples/blob/master/CONTRIBUTING.md
 [AWS F1 Application Execution on Xilinx Virtex UltraScale Devices]: https://github.com/aws/aws-fpga/blob/master/SDAccel/README.md
-[GEMM_API_UG]: http://github.com/Xilinx/gemx/GEMM_API_UG.md
-[GEMX_README]: http://github.com/Xilinx/gemx/README.md
+[GEMM_API_UG]: https://github.com/Xilinx/gemx/blob/master/GEMM_API_UG.md 
+[GEMX_README]: https://github.com/Xilinx/gemx/blob/master/README.md

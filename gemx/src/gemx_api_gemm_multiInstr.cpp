@@ -41,8 +41,8 @@
 // Compile and run this API example with 4GEMM FPGA image on F1:
 //   export s= 32
 //   make GEMX_ddrWidth=$s GEMX_argInstrWidth=`expr 32/$s` GEMX_gemmMBlocks=8 GEMX_gemmKBlocks=8 GEMX_gemmNBlocks=8 GEMX_numKernels=4 out_host/gemx_api_gemm_multiInstr.exe
-//   gemx_api_gemm.exe gemx.awsxclbin 512 512 512 
-//   it will run two pairs of 512x512 matrix multiplications C=A*B E=C*D on each GEMM kernel, and calculate the performance.
+//   gemx_api_gemm_multiInstr.exe gemx.awsxclbin 512 512 512 512 512 512 A1 B1 C1 512 512 512 512 512 512 C1 B2 C2
+//   it will run two matrix multiplications C1=A1*B1 C2=C1*B2 on each GEMM kernel, and calculate the performance.
  
 #include <stdio.h>
 #include <string>
@@ -97,7 +97,7 @@ float getBoardFreqMHz(unsigned int p_BoardId) {
   }
   if (l_freq == -1) {
 	//if xbsak does not work, as happens on F1, put the XOCC achieved kernel frequcy here
-	l_freq = 240;
+	l_freq = 246;
     std::cout << "INFO: Failed to get board frequency by xbsak. This is normal for cpu and hw emulation, using -1 MHz for reporting.\n";
   }
   return(l_freq);
@@ -108,145 +108,118 @@ int main(int argc, char **argv)
   //############  UI and GEMM problem size  ############
   if (argc < 2) {
     std::cerr << "Usage:\n"
-              <<  "  gemx_api_gemm_multiInstr.exe <path/gemx.xclbin> [M K N  [LdA LdB LdC] ]\n"
+              <<  "  gemx_api_gemm_multiInstr.exe <path/gemx.xclbin> [M K N  [LdA LdB LdC] [HandleA HandleB HandleC]]\n"
+              <<  "  If enter more than one instructions, for each instruction, [M K N LdA LdB LdC HandleA HandleB HandleC] could not be missing\n"
               <<  "  Examples:\n"
               <<  "    gemx_api_gemm_multiInstr.exe   out_hw/gemx.xclbin\n"
               <<  "    gemx_api_gemm_multiInstr.exe   out_hw/gemx.xclbin  32 64 32\n"
               <<  "    gemx_api_gemm_multiInstr.exe   out_hw/gemx.xclbin  32 128 256  256 128 128\n"
-              <<  "    gemx_api_gemm_multiInstr.exe   out_hw/gemx.xclbin  32 128 256  288 160 160\n";
+              <<  "    gemx_api_gemm_multiInstr.exe   out_hw/gemx.xclbin  32 128 256  288 160 160\n"
+              <<  "    gemx_api_gemm_multiInstr.exe   out_hw/gemx.xclbin  1024 1024 1024  1024 1024 1024 A1 B1 C1 \n"
+	      <<  "    gemx_api_gemm_multiInstr.exe   out_hw/gemx.xclbin  1024 1024 1024  1024 1024 1024 A1 B1 C1 1024 1024 1024  1024 1024 1024 C1 B2 C2...\n";
+    exit(2);
+  }
+  if(((argc - 2) % 9 != 0) && argc > 11) {
+    std::cerr << "  If enter more than one instructions, for each instruction, [M K N LdA LdB LdC HandleA HandleB HandleC] could not be missing\n";
     exit(2);
   }
   unsigned int l_argIdx = 1;
   std::string l_xclbinFile(argv[l_argIdx]);
-  //unsigned int l_kernelId = 0;
 
-  // Row major  C  M rows N cols  =  A  M rows K cols  *  B  K rows N cols
-  //   MatType - tensor like type to allocate/store/align memory; you can use your own type instead
-  //   Min size is the array edge (e.g., 32 on ku115), see GenGemm::check() for example of arg checking functions
+  unsigned int l_instrCount = ((argc-2)/9>1)?((argc-2)/9):1; //number of instructions
+  
+  if(l_instrCount > 15){
+    std::cerr << "  Too many instructions at same time\n";
+    exit(2);
+  }
+  
   unsigned int l_ddrW = GEMX_ddrWidth;
-  unsigned int l_M = l_ddrW,  l_K = l_ddrW,  l_N = l_ddrW;  // the smallest matrices for flow testing
-  if (argc > ++l_argIdx) {l_M = atoi(argv[l_argIdx]);}  
-  if (argc > ++l_argIdx) {l_K = atoi(argv[l_argIdx]);}  
-  if (argc > ++l_argIdx) {l_N = atoi(argv[l_argIdx]);}  
-  unsigned int l_LdA = l_K,  l_LdB= l_N,  l_LdC = l_N, l_LdD= l_M,  l_LdE = l_M;
-  if (argc > ++l_argIdx) {l_LdA = atoi(argv[l_argIdx]);}
-  if (argc > ++l_argIdx) {l_LdB = atoi(argv[l_argIdx]);}
-  if (argc > ++l_argIdx) {l_LdC = atoi(argv[l_argIdx]);}
+  unsigned int l_m[l_instrCount];
+  unsigned int l_k[l_instrCount];
+  unsigned int l_n[l_instrCount];
   
-  if (! (
-      checkDim(l_M, l_ddrW*GEMX_gemmMBlocks, l_ddrW*GEMX_gemmMBlocks) &&
-      checkDim(l_K, l_ddrW*GEMX_gemmKBlocks, l_ddrW*GEMX_gemmKBlocks) &&
-      checkDim(l_N, l_ddrW*GEMX_gemmNBlocks, l_ddrW*GEMX_gemmNBlocks) &&
-      checkDim(l_LdA, l_ddrW, l_K) &&
-      checkDim(l_LdB, l_ddrW, l_N) &&
-      checkDim(l_LdC, l_ddrW, l_N)
-    )) {
-    return EXIT_FAILURE;
-  }  
+  unsigned int l_lda;
+  unsigned int l_ldb;
+  unsigned int l_ldc;
   
+
   printf("GEMX-gemm C++ API example using accelerator image \n",
          l_xclbinFile.c_str());
-    
-  //############  Client code - prepare the gemm problem input  ############
-  ProgramType l_program[GEMX_numKernels];  // Holds instructions and controls memory allocation
+  ProgramType l_program[GEMX_numKernels];
+  unsigned long int l_Ops[l_instrCount]; //operations carried out by each kernel 
   
-  std::string l_handleA[GEMX_numKernels];
-  std::string l_handleB[GEMX_numKernels];
-  std::string l_handleC[GEMX_numKernels];
-  std::string l_handleD[GEMX_numKernels];
-  std::string l_handleE[GEMX_numKernels];
-  //std::string l_handleF[GEMX_numKernels];
-
-  bool l_newAllocA[GEMX_numKernels];
-  bool l_newAllocB[GEMX_numKernels];
-  bool l_newAllocC[GEMX_numKernels];
-  bool l_newAllocD[GEMX_numKernels];
-  bool l_newAllocE[GEMX_numKernels];
-  //bool l_newAllocF[GEMX_numKernels];
-
-  unsigned int l_pageA[GEMX_numKernels];
-  unsigned int l_pageB[GEMX_numKernels];
-  unsigned int l_pageC[GEMX_numKernels];
-  unsigned int l_pageD[GEMX_numKernels];
-  unsigned int l_pageE[GEMX_numKernels];
- // unsigned int l_pageF[GEMX_numKernels];
-  
-  MatType l_matA[GEMX_numKernels];
-  MatType l_matB[GEMX_numKernels];
-  MatType l_matC[GEMX_numKernels];
-  MatType l_matD[GEMX_numKernels];
-  MatType l_matE[GEMX_numKernels];
- // MatType l_matF[GEMX_numKernels];
-  
-  GemmArgsType l_gemmArgs[GEMX_numKernels];
-  GemmArgsType l_gemmArgs2[GEMX_numKernels];
- // GemmArgsType l_gemmArgs3[GEMX_numKernels];
-  
-  KargsType l_kargs[GEMX_numKernels];
-
-      for (int i=0; i<GEMX_numKernels; ++i) {
-	l_handleA[i] = "A"+std::to_string(i);
-	l_handleB[i] = "B"+std::to_string(i);
-	l_handleC[i] = "C"+std::to_string(i);
-	l_handleD[i] = "D"+std::to_string(i);
-	l_handleE[i] = "E"+std::to_string(i);
-
-  	// Allocate all pages before getting any address
-  	l_pageA[i] = l_program[i].allocPages(l_handleA[i], l_newAllocA[i], l_M * l_LdA);
-  	l_pageB[i] = l_program[i].allocPages(l_handleB[i], l_newAllocB[i], l_K * l_LdB);
-  	l_pageC[i] = l_program[i].allocPages(l_handleC[i], l_newAllocC[i], l_M * l_LdC);
-	l_pageD[i] = l_program[i].allocPages(l_handleD[i], l_newAllocD[i], l_N * l_LdD);
-  	l_pageE[i] = l_program[i].allocPages(l_handleE[i], l_newAllocE[i], l_M * l_LdE);
-
+  for(int i = 0; i < GEMX_numKernels; i++) {
+    l_argIdx = 1;
+    for(int index = 0; index<l_instrCount; index++){
+	// Row major  C  M rows N cols  =  A  M rows K cols  *  B  K rows N cols
+	//   MatType - tensor like type to allocate/store/align memory; you can use your own type instead
+	//   Min size is the array edge (e.g., 32 on ku115), see GenGemm::check() for example of arg checking functions
+	l_m[index],l_k[index],l_n[index]=l_ddrW;
+	if (argc > ++l_argIdx){l_m[index] = atoi(argv[l_argIdx]);}
+	if (argc > ++l_argIdx){l_k[index] = atoi(argv[l_argIdx]);}
+	if (argc > ++l_argIdx){l_n[index] = atoi(argv[l_argIdx]);}
+	l_lda=l_k[index],l_ldb=l_n[index],l_ldc=l_n[index];
+	if (argc > ++l_argIdx) {l_lda = atoi(argv[l_argIdx]);}
+	if (argc > ++l_argIdx) {l_ldb = atoi(argv[l_argIdx]);}
+	if (argc > ++l_argIdx) {l_ldc = atoi(argv[l_argIdx]);}
+	std::string l_handleA("A0"), l_handleB("B0"), l_handleC("C0");
+	if (argc > ++l_argIdx) {std::string l_handleA(argv[l_argIdx]);}
+	if (argc > ++l_argIdx) {std::string l_handleB(argv[l_argIdx]);}
+	if (argc > ++l_argIdx) {std::string l_handleC(argv[l_argIdx]);}
+	    
+	assert(l_lda >= l_k[index]);
+	assert(l_ldb >= l_n[index]);
+	assert(l_ldc >= l_n[index]);	  
+	if (! (
+	checkDim(l_m[index], l_ddrW*GEMX_gemmMBlocks, l_ddrW*GEMX_gemmMBlocks) &&
+	checkDim(l_k[index], l_ddrW*GEMX_gemmKBlocks, l_ddrW*GEMX_gemmKBlocks) &&
+	checkDim(l_n[index], l_ddrW*GEMX_gemmNBlocks, l_ddrW*GEMX_gemmNBlocks) &&
+	checkDim(l_lda, l_ddrW, l_k[index]) &&
+	checkDim(l_ldb, l_ddrW, l_n[index]) &&
+	checkDim(l_ldc, l_ddrW, l_n[index])
+	)) {
+	return EXIT_FAILURE;
+	}  
+	
+	l_Ops[index] = 2ull * l_m[index] * l_n[index] * l_k[index];
+	
+	// Allocate all pages before getting any address
+	bool l_newAllocA, l_newAllocB, l_newAllocC;
+	unsigned int l_pageA = l_program[i].allocPages(l_handleA, l_newAllocA, l_m[index] * l_lda);
+	unsigned int l_pageB = l_program[i].allocPages(l_handleB, l_newAllocB, l_k[index] * l_ldb);
+	unsigned int l_pageC = l_program[i].allocPages(l_handleC, l_newAllocC, l_m[index] * l_ldc);
+	
 	// Get addresses where matrices are stored
-  	l_matA[i].init(l_M, l_K, l_LdA, l_program[i].getPageAddr(l_pageA[i]));
-  	l_matB[i].init(l_K, l_N, l_LdB, l_program[i].getPageAddr(l_pageB[i]));
-  	l_matC[i].init(l_M, l_N, l_LdC, l_program[i].getPageAddr(l_pageC[i]));
-	l_matD[i].init(l_N, l_M, l_LdD, l_program[i].getPageAddr(l_pageD[i]));
-  	l_matE[i].init(l_M, l_M, l_LdE, l_program[i].getPageAddr(l_pageE[i]));
+	MatType l_matA(l_m[index], l_k[index], l_lda, l_program[i].getPageAddr(l_pageA));
+	MatType l_matB(l_k[index], l_n[index], l_ldb, l_program[i].getPageAddr(l_pageB));
+	MatType l_matC(l_m[index], l_n[index], l_ldc, l_program[i].getPageAddr(l_pageC));
 	
-	// Fill inputs with random data
-	if (l_newAllocA[i]) {
-    	l_matA[i].fillMod(67, 1);
-  	}
-  	if (l_newAllocB[i]) {
-    	l_matB[i].fillMod(129, 65);
-  	}
-	// Fill inputs with random data
-	if (l_newAllocD[i]) {
-	  l_matD[i].fillMod(67, 1);
-	}  	
-  	
-  	//############  Compile program for the accelerator with a single GEMM instruction  ############
-  	// GemmArgsType, KargsType - helper types to compile and check the accelerator program
-  	
-	l_gemmArgs[i].init(
-	l_pageA[i], l_pageB[i], l_pageC[i],
-	l_M, l_K, l_N,
-	l_LdA, l_LdB, l_LdC
-	);
-    
-	l_kargs[i].setGemmArgs(l_gemmArgs[i]);
-	l_kargs[i].store(l_program[i].addInstr(), 0);
+	/*l_matA.init(p_M, p_K, p_LdA, p_Program.getPageAddr(l_pageA));
+	l_matB.init(p_K, p_N, p_LdB, p_Program.getPageAddr(l_pageB));
+	l_matC.init(p_M, p_N, p_LdC, p_Program.getPageAddr(l_pageC));
+	*/
 	
-	std::cout << "Added instruction GEMM " << l_M << "x" << l_K << "x" << l_N << "  ";
-	
-	//############  Compile program for the accelerator with a single GEMM instruction  ############
-	// GemmArgsType, KargsType - helper types to compile and check the accelerator program
-	
-	l_gemmArgs2[i].init(
-	l_pageC[i], l_pageD[i], l_pageE[i],
-	l_M, l_N, l_M,
-	l_LdC, l_LdD, l_LdE
-	);
-	
-  	l_kargs[i].setGemmArgs(l_gemmArgs2[i]);
-	l_kargs[i].store(l_program[i].addInstr(), 0);
-	
-	std::cout << "Added instruction GEMM " << l_M << "x" << l_K << "x" << l_N << "  ";
-
+	if (l_newAllocA) {
+	  l_matA.fillMod(67, 1);
 	}
-  
+	if (l_newAllocB) {
+	  l_matB.fillMod(129, 65);
+	}
+	
+	// Instruction
+	GemmArgsType l_gemmArgs(
+	    l_pageA, l_pageB, l_pageC,
+	    l_m[index], l_k[index], l_n[index],
+	    l_lda, l_ldb, l_ldc
+	  );
+	KargsType l_kargs;
+	l_kargs.setGemmArgs(l_gemmArgs);
+	l_kargs.store(l_program[i].addInstr(), 0);
+	
+	std::cout << "Added instruction GEMM " << l_m[index] << "x" << l_k[index] << "x" <<  l_n[index] <<" in kernel " << i << "  \n";
+
+      }
+  }
   std::string kernelNames[GEMX_numKernels];
   gemx::MemDesc l_memDesc[GEMX_numKernels];
  
@@ -317,10 +290,10 @@ int main(int argc, char **argv)
   
   //############  Get the exact kernel time from HW cycle counters on the accelerator  ############
   float l_boardFreqMHz = getBoardFreqMHz(0);
-  unsigned long int l_Ops = 2ull * l_M * l_N * l_K * 2; //operations carried out by each kernel  
+  //unsigned long int l_Ops = 2ull * l_M * l_N * l_K * 2; //operations carried out by each kernel  
   KargsType l_kargsRes[GEMX_numKernels];
-  KargsOpType l_op[GEMX_numKernels*2];
-  gemx::InstrResArgs l_instrRes[GEMX_numKernels*2];
+  KargsOpType l_op[GEMX_numKernels*l_instrCount];
+  gemx::InstrResArgs l_instrRes[GEMX_numKernels*l_instrCount];
   unsigned long int l_cycleCount[GEMX_numKernels];
   unsigned long int l_maxCycleCount=0;
   double l_timeKernelInMs[GEMX_numKernels];
@@ -331,37 +304,42 @@ int main(int argc, char **argv)
   double l_timeMsAt100pctEff;
   double l_effKernelPct;
   double l_effApiPct;
-
+  
+  unsigned long int l_total_Ops = 0;
+  for(int j=0;j<l_instrCount;++j){l_total_Ops += l_Ops[j];}
+  
   for (int i=0; i<GEMX_numKernels; ++i) {
-	l_cycleCount[i] = 0;
-    for(int j=0;j<2;++j){ //number of instructions
-  	l_op[i*2+j] = l_kargsRes[i].load(l_program[i].getBaseResAddr(), j * l_kargsRes[i].getInstrWidth());
+    l_cycleCount[i] = 0;
+    for(int j=0;j<l_instrCount;++j){ //number of instructions
+  	l_op[i*l_instrCount+j] = l_kargsRes[i].load(l_program[i].getBaseResAddr(), j * l_kargsRes[i].getInstrWidth());
 	//l_op[i*2+j] = l_kargsRes[i].load(l_program[i].getBaseResAddr(), j);
-	assert(l_op[i*2+j] == KargsType::OpResult);
-  	l_instrRes[i*2+j] = l_kargsRes[i].getInstrResArgs();
-  	l_cycleCount[i] += l_instrRes[i*2+j].getDuration();
-	//std::cout << std::string("cycles:") << l_cycleCount[i*2+j] <<std::endl;
+	assert(l_op[i*l_instrCount+j] == KargsType::OpResult);
+  	l_instrRes[i*l_instrCount+j] = l_kargsRes[i].getInstrResArgs();
+  	l_cycleCount[i] += l_instrRes[i*l_instrCount+j].getDuration();
+	std::cout << std::string("cycles in kernel ") <<i<<"  "<< l_instrRes[i*l_instrCount+j].getDuration() <<std::endl;
     }
-	l_maxCycleCount = (l_cycleCount[i] > l_maxCycleCount)? l_cycleCount[i]: l_maxCycleCount;
-  	l_timeKernelInMs[i] = l_cycleCount[i] / (l_boardFreqMHz * 1e6) * 1e3;
-	l_maxTimeKernelInMs = (l_timeKernelInMs[i] > l_maxTimeKernelInMs)? l_timeKernelInMs[i]: l_maxTimeKernelInMs;
-	l_perfKernelInTops[i] = l_Ops / (l_timeKernelInMs[i] * 1e-3) / 1e12;
-	l_totalPerfKernelInTops += l_perfKernelInTops[i];
-
+    l_maxCycleCount = (l_cycleCount[i] > l_maxCycleCount)? l_cycleCount[i]: l_maxCycleCount;
+    l_timeKernelInMs[i] = l_cycleCount[i] / (l_boardFreqMHz * 1e6) * 1e3;
+    l_maxTimeKernelInMs = (l_timeKernelInMs[i] > l_maxTimeKernelInMs)? l_timeKernelInMs[i]: l_maxTimeKernelInMs;
+    l_perfKernelInTops[i] = l_total_Ops / (l_timeKernelInMs[i] * 1e-3) / 1e12;
+    l_totalPerfKernelInTops += l_perfKernelInTops[i];
   }
-  l_perfApiInTops = (l_Ops*GEMX_numKernels) / (l_timeApiInMs * 1e-3) / 1e12;
-  l_timeMsAt100pctEff = l_Ops / 2 / GEMX_ddrWidth / GEMX_ddrWidth / (l_boardFreqMHz * 1e6) * 1e3;
+  l_perfApiInTops = (l_total_Ops*GEMX_numKernels) / (l_timeApiInMs * 1e-3) / 1e12;
+  l_timeMsAt100pctEff = l_total_Ops / 2 / GEMX_ddrWidth / GEMX_ddrWidth / (l_boardFreqMHz * 1e6) * 1e3;
   l_effKernelPct = 100 * l_timeMsAt100pctEff / l_maxTimeKernelInMs;
   l_effApiPct = 100 * l_timeMsAt100pctEff / l_timeApiInMs;
   // Show time, Tops in csv format
-  std::cout << std::string("DATA_CSV:,DdrWidth,Freq,M,K,N,")
+  std::cout <<"In each kernel, it ran "<<l_instrCount<<" instructions, size for matrices are: " <<"\n";
+  for(int i=0;i<l_instrCount;++i){
+    std::cout <<"m,k,n: "<<l_m[i]<<","<<l_k[i]<<","<<l_n[i]<<" \n";
+  }
+  std::cout << std::string("DATA_CSV:,DdrWidth,Freq,")
              + "Ops,KernelCycles,"
              + "TimeKernelMs,TimeApiMs,"
              + "EffKernelPct,EffApiPct,"
              + "PerfKernelTops,PerfApiTops\n"
             << "DATA_CSV:," <<  GEMX_ddrWidth << "," << l_boardFreqMHz << ","
-            << l_M << "," << l_K << "," << l_N << ","
-            << l_Ops*GEMX_numKernels << "," << l_maxCycleCount << ","
+            << l_total_Ops*GEMX_numKernels << "," << l_maxCycleCount << ","
             << l_maxTimeKernelInMs << "," << l_timeApiInMs << ","
             << l_effKernelPct << "," << l_effApiPct << ","
             << l_totalPerfKernelInTops << "," << l_perfApiInTops
@@ -371,63 +349,8 @@ int main(int argc, char **argv)
   // Calculate reference C = A * B
   // Since the reference is not needed on the acclerator allocate memory in any way
   std::cout << "INFO: Calculating gold values on host ..." << std::endl;
-  // C matrix reference calculated on the host - l_matCref
-  std::vector<GEMX_dataType> l_CmatAlloc;
-  std::vector<GEMX_dataType> l_EmatAlloc;
-  
-  l_CmatAlloc.resize(l_M * l_LdC);
-  l_EmatAlloc.resize(l_M * l_LdE);
-  
-  for (int i=0; i<GEMX_numKernels; ++i) {
-  	assert((l_matC[i].rows() == l_M) && (l_matC[i].cols() == l_N) && (l_matC[i].ld() == l_LdC));
-	assert((l_matE[i].rows() == l_M) && (l_matE[i].cols() == l_M) && (l_matE[i].ld() == l_LdE));
-  }
- 
-  MatType l_matCref(l_M, l_N, l_LdC, l_CmatAlloc.data());
-  MatType l_matEref(l_M, l_M, l_LdE, l_EmatAlloc.data());
-  bool l_calcGold = (l_Ops <= 2ull * 2048*2048*2048);
-  if (l_calcGold) {
-    l_matCref.multiply(l_matA[0], l_matB[0]);
-    l_matEref.multiply(l_matCref, l_matD[0]);
-  } else {
-    std::cout << "INFO: skipped gold calculation on host since it may take too long\n";
-  }
-  // C matrix in the DDR image received from the accelerator - l_matCfpga
-  MatType l_matEfpga[GEMX_numKernels];
-  MatType l_matCfpga[GEMX_numKernels];
-  for (int i=0; i<GEMX_numKernels; ++i) {
-        l_matCfpga[i].init(l_M, l_N, l_LdC, l_program[i].getPageAddr(l_pageC[i]));  
-	l_matEfpga[i].init(l_M, l_M, l_LdE, l_program[i].getPageAddr(l_pageE[i]));  
-  }
-  
-  // Verbose reporting
-  bool l_verbose = ((unsigned long)l_M * l_N * l_K <= 4096);
-  l_verbose && std::cout << "INFO: GEMM details C = A * B; E = C * D \n"
-    << "A\n" <<  l_matA << "\n"
-    << "B\n" <<  l_matB << "\n"
-    << "Eref\n" <<  l_matEref << "\n"
-    << "Efpga\n" <<  l_matEfpga << "\n";
-
-  // Compare FPGA and the reference
-  if (l_calcGold) {
-    float  l_TolRel = 1e-3,  l_TolAbs = 1e-5;
-    bool l_ok;
-    bool l_ok1;
-    bool l_pass = true;
-    for (int i=0; i<GEMX_numKernels; ++i) {
-               // l_ok1 = l_matCfpga[i].cmp(l_TolRel, l_TolAbs, l_matCref);
-		//std::cout << "get c success" << "\n";
-	 	l_ok = l_matEfpga[i].cmp(l_TolRel, l_TolAbs, l_matEref);
-    	std::cout << "INFO: accelerator kernel " << i << " result " << (l_ok ? "MATCHES" : "does NOT match") << " the reference\n";
-    	std::cout << "INFO: status " << (l_ok ? "PASS" : "FAIL") << "\n";
-        if (!l_ok){
-        	l_pass = false;
-        }
-    }
-    return l_pass ? EXIT_SUCCESS : EXIT_FAILURE;
-  } else {
-    return EXIT_SUCCESS; 
-  }
+  // Please refer to gemx_api_gemm.cpp for more information on comparsion
+  return EXIT_SUCCESS; 
 }
 
   

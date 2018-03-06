@@ -234,6 +234,34 @@ std::ostream& operator<<(std::ostream& os, WideType<T1, T2>& p_Val) {
 
 
 template <typename T, unsigned int t_Width>
+class ExitTaggedWideType {
+  private:
+    WideType<T, t_Width> m_Val;
+    bool m_Exit;
+  public:
+    ExitTaggedWideType(WideType<T, t_Width> p_Val, bool p_Exit)
+      : m_Val(p_Val),
+        m_Exit(p_Exit)
+      {}
+    ExitTaggedWideType() {}
+    WideType<T, t_Width> &getVal() {return m_Val;}
+    T &operator[](unsigned int p_Idx) {return(m_Val[p_Idx]);}
+
+    bool getExit() {return(m_Exit);}
+    void
+    print(std::ostream& os) {
+        m_Val.print(os);
+        os << " e" << m_Exit;
+      }
+};
+
+template <typename T1, unsigned int T2>
+std::ostream& operator<<(std::ostream& os, ExitTaggedWideType<T1, T2>& p_Val) {
+  p_Val.print(os);
+  return(os);
+}
+
+template <typename T, unsigned int t_Width>
 class TaggedWideType {
   private:
     WideType<T, t_Width> m_Val;

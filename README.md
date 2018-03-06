@@ -24,6 +24,8 @@ GEMX is a General Matrix Operation library, which is used for accelerating BLAS-
 * The gemx_api_gemm.exe is used to measure the 4 GEMM kernel performance on F1. It also provides an example for using the GEMM accelerator from a C++ application.       
 * All functionality is supported across cpu emulation, hw emulation, and running on board, as well as debugging and analyzing in HLS GUI.
 * Code base: each engine is a separate .h file, gemx_<engine>.h. Each can be used as a standalone templatized HLS library (most depend on shared gemx_types.h, and HLS ap_*.h). The GEMX building environment far simplifies its compilation and verification.
+* [GEMM_API_UG] explains the host code development details for ofloading matrix matrix multiplications to a GEMM FPGA accelerator card in AWS cloud.
+* [GEMX_ENGINE_UG] lists the GEMX engine features, configuration parameters and example usages.    
 
 ## 2. HOW TO DOWNLOAD THE REPOSITORY
 To get a local copy of the GEMX repository, clone this repository to the local system with the following command:
@@ -35,8 +37,9 @@ This command needs to be executed only once. The only required software is a loc
 ## 3. SOFTWARE AND SYSTEM REQUIREMENTS
 Board | Device Name | Software Version
 ------|-------------|-----------------
-AWS VU9P F1|xilinx:aws-vu9p-f1:4ddr-xpr-2pr|SDAccel 2017.1
-Xilinx KU115|xilinx:xil-accel-rd-ku115:4ddr-xpr|SDAccel 2017.2
+AWS VU9P F1|xilinx:aws-vu9p-f1:4ddr-xpr-2pr|SDx 2017.1
+Xilinx KU115|xilinx:xil-accel-rd-ku115:4ddr-xpr:4.0|SDx 2017.4
+Xilinx VU9P|xilinx:xil-accel-rd-vu9p:4ddr-xpr:4.2|SDx 2017.4
 
 ## 4. DESIGN FILE HIERARCHY
 Source code for building FPGA and host code images is located in the gemx/src directory. boost/ directory provides implementation for OpenCL functions used to instantiate an accelerator, trasmit data between the host and the accelerator and etc. Please refer to gemx_api_gemm.cpp to see its usage. gemx/Makefile is used to build FPGA and host images with different configurations. gemx/hls_config.tcl is used to configure the hls compilation options. gemx/run-hls.tcl is used to create vivado_hls project from cpu emulation results. Refer to line 36 in run-hls.tcl to see a usage example. gemx/post_opt.tcl, gemx/pre_route.tcl and gemx/post_route.tcl are used to build a 4-kernel design with each kernel containing one GEMM engine on AWS VU9P F1. gemx/data includs input sparse matrices' data.
@@ -46,7 +49,7 @@ Source code for building FPGA and host code images is located in the gemx/src di
 Before compiling and building FPGA and host images, make sure SDAccel 2017.1 envioronment variales are set up properly and navigate to gemx/ directory
 * compiling and building the FPGA image
 ```
-make run_hw SDA_FLOW=hw GEMX_ddrWidth=32 GEMX_gemmMBlocks=8 GEMX_gemmKBlocks=8 GEMX_gemmNBlocks=8 GEMX_numKernels=4 GEMX_runGemv=0 GEMX_runGemm=1 GEMX_part=vu9pf1 GEMX_kernelHlsFreq=250 GEMX_kernelVivadoFreq=300 GEMX_useURAM=1 GEMX_vivadoFlow=EXP
+make run_hw SDA_FLOW=hw GEMX_ddrWidth=32 GEMX_gemmMBlocks=8 GEMX_gemmKBlocks=8 GEMX_gemmNBlocks=8 GEMX_numKernels=4 GEMX_runGemv=0 GEMX_runTransp=0 GEMX_runGemm=1 GEMX_part=vu9pf1 GEMX_kernelHlsFreq=250 GEMX_kernelVivadoFreq=300 GEMX_useURAM=1 GEMX_vivadoFlow=EXP
 ```
 where
 ```
@@ -91,6 +94,8 @@ Date | README Version | Description
 -----|----------------|------------
 Oct2017|1.0|Initial Xilinx Release
 
+[GEMM_API_UG]: https://github.com/Xilinx/gemx/blob/master/GEMM_API_UG.md
+[GEMX_ENGINE_UG]: https://github.com/Xilinx/gemx/blob/master/GEMX_ENGINE_UG.md
 [3-Clause BSD License]: https://github.com/Xilinx/SDAccel_Examples/blob/master/LICENSE.txt
 [SDAccel Forums]: https://forums.xilinx.com/t5/SDAccel/bd-p/SDx
 [SDAccel User Guides]: http://www.xilinx.com/support/documentation-navigation/development-tools/software-development/sdaccel.html?resultsTablePreSelect=documenttype:SeeAll#documentation

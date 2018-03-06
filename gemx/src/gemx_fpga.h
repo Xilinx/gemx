@@ -29,7 +29,7 @@
 /**
  *  @brief FPGA utilities
  *
- *  $DateTime: 2017/10/24 03:52:34 $
+ *  $DateTime: 2017/11/03 17:16:49 $
  */
 
 #ifndef GEMX_FPGA_H
@@ -195,7 +195,7 @@ class Fpga
       }
     ///////////////////////////////////////////////////////////////////////////
     bool
-    loadXclbinSingleKernel(std::string p_XclbinFile, std::string p_KernelName) {
+    loadXclbinWithoutEvent(std::string p_XclbinFile, std::string p_KernelName[GEMX_numKernels]) {
         bool ok = false;
         // https://gitenterprise.xilinx.com/rkeryell/heterogeneous_examples/blob/master/vector_add/SDAccel-Boost.Compute/vector_add.cpp
         
@@ -209,40 +209,43 @@ class Fpga
           boost::compute::program::create_with_binary_file(p_XclbinFile,
                                                            m_Context));
         m_Program.build();
-
-		m_Kernel[0] = std::move(boost::compute::kernel(m_Program, p_KernelName));
+	for (int i=0; i<GEMX_numKernels; ++i) {
+	  m_Kernel[i] = std::move(boost::compute::kernel(m_Program, p_KernelName[i]));
+        }
         ok = true;
         return(ok);
       }
     ///////////////////////////////////////////////////////////////////////////
 	bool
-    copyToFpgaSingleKernel(MemDesc &p_MemDesc) {
+    copyToFpgaWithoutEvent(MemDesc &p_MemDesc) {
         bool ok = false;
-        
+        for (unsigned int kernelId=0; kernelId<GEMX_numKernels; ++kernelId) {
         //decltype of cl_mem_ext_ptr_t.flags
         unsigned l_k2bank[] = {GEMX_fpgaDdrBanks};
         
         cl_mem_ext_ptr_t l_bufExt;
         l_bufExt.obj = NULL;
         l_bufExt.param = 0;
-		l_bufExt.flags = l_k2bank[m_KernelId];
+		
+		l_bufExt.flags = l_k2bank[kernelId];
 	
-		m_DataSize[0] = p_MemDesc.sizeBytes();
+		m_DataSize[kernelId] = p_MemDesc.sizeBytes();
 		// Buffers
-		m_Buffer[0] = boost::compute::buffer(m_Context, m_DataSize[0],
+		m_Buffer[kernelId] = boost::compute::buffer(m_Context, m_DataSize[kernelId],
 				  CL_MEM_READ_WRITE | CL_MEM_EXT_PTR_XILINX,
 				  &l_bufExt);
 
 		// Send the input data to the accelerator
-		 m_CommandQueue.enqueue_write_buffer(m_Buffer[0], 0 /* Offset */,
-										m_DataSize[0], p_MemDesc.data());
-		m_Kernel[0].set_args(m_Buffer[0], m_Buffer[0]);
+		 m_CommandQueue.enqueue_write_buffer(m_Buffer[kernelId], 0 ,m_DataSize[kernelId], p_MemDesc.data());
+		m_Kernel[kernelId].set_args(m_Buffer[kernelId], m_Buffer[kernelId]);
+	}
         ok = true;
         return(ok);
       }
+
     ///////////////////////////////////////////////////////////////////////////
     bool
-    callSingleKernel(std::string p_KarnelName) {
+    callKernelWithoutEvent() {
         bool ok = false;
         
         boost::compute::extents<1> offset { 0 };
@@ -250,21 +253,25 @@ class Fpga
         // Use only 1 CU
         boost::compute::extents<1> local { 1 };
         // Launch kernel
-        m_CommandQueue.enqueue_nd_range_kernel(m_Kernel[0], offset, global, local);
+	for (unsigned int kernelId=0; kernelId<GEMX_numKernels; ++kernelId) {
+	  m_CommandQueue.enqueue_nd_range_kernel(m_Kernel[kernelId], offset, global, local);
+	}
         ok = true;
         return(ok);
       }
     ///////////////////////////////////////////////////////////////////////////
     bool
-    copyFromFpgaSingleKernel(MemDesc &p_MemDesc) {
+    copyFromFpgaWithoutEvent(MemDesc p_MemDesc[GEMX_numKernels]) {
         bool ok = false;
         
-		assert(p_MemDesc.sizeBytes() == m_DataSize[0]);
+		for (unsigned int kernelId=0; kernelId<GEMX_numKernels; ++kernelId) {
+		assert(p_MemDesc[kernelId].sizeBytes() == m_DataSize[kernelId]);
 		// Get the output data from the accelerator
-		m_CommandQueue.enqueue_read_buffer(m_Buffer[0], 0 /* Offset */,
-									   m_DataSize[0], p_MemDesc.data());
-		ok = (p_MemDesc.sizePages() > 0);
+		m_CommandQueue.enqueue_read_buffer(m_Buffer[kernelId], 0 /* Offset */,
+									   m_DataSize[kernelId], p_MemDesc[kernelId].data());
+		}
 		
+		ok = (p_MemDesc[0].sizePages() > 0);
         return(ok);
     }
 };

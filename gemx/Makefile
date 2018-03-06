@@ -43,8 +43,7 @@ GEMX_numInstr      =  16
 GEMX_gemvkVectorBlocks  = 512
 GEMX_gemvmVectorBlocks  = 512
 GEMX_gemvmGroups   			=  1
-
-GEMX_argInstrWidth			= 1 
+ 
 
 GEMX_gemmMBlocks   			= 1 
 GEMX_gemmKBlocks   			= 2

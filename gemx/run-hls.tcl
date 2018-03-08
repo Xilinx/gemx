@@ -50,7 +50,7 @@ set GCC_VERSION 6.2.0
 array set opt {
   dataType        short
   dataEqIntType   short
-  ddrWidth     4
+  ddrWidth        4
   argInstrWidth   8   
   numInstr       16
   numKernels      1
@@ -67,7 +67,7 @@ array set opt {
   gemmMBlocks	   1
   gemmKBlocks	   2
   gemmNBlocks	   1
-  splitMesh		   0 
+  splitMesh	   0 
   transpBlocks 1
   spmvWidth            1
   spmvkVectorBlocks  512
@@ -77,6 +77,7 @@ array set opt {
   spmvNumCblocks    1024
   spmvFloatPerDesc     4
   argPipeline  2
+  useURAM     0
   part        ku115
   doCsim      0
   doRTLsynth  1
@@ -101,10 +102,8 @@ foreach o [lsort [array names opt]] {
 }
 #quit
 
-#set BOOST_SRC /public/bugcases/CR/953000-953999/953328/BOOST_SRC
-#set BOOST_LIB /public/bugcases/CR/953000-953999/953328/BOOST_LIB
-set BOOST_SRC /public/bugcases/CR/953000-953999/953328/boost_20170627/include
-set BOOST_LIB /public/bugcases/CR/953000-953999/953328/boost_20170627/lib
+set BOOST_SRC $pwd/../boost/src
+set BOOST_LIB $pwd/../boost/lib
 set CFLAGS_K "-I $pwd/src  $OPT_FLAGS -D GEMX_kernelId=0 "
 set CFLAGS_H "$CFLAGS_K -g -I $BOOST_SRC"
 
@@ -135,8 +134,7 @@ set run_args "gemx.xclbin $pwd/out_host/app.bin $pwd/$proj_dir/app_out.bin"
 
 if {$opt(doCsim)} {
   puts "***** C SIMULATION *****"
-  csim_design -ldflags "-L$BOOST_LIB -lboost_iostreams -lz -lrt -L/tools/batonroot/rodin/devkits/lnx64/gcc-${GCC_VERSION}/lib64 -lstdc++ -Wl,--rpath=${BOOST_LIB} \
-              -Wl,--rpath=/tools/batonroot/rodin/devkits/lnx64/gcc-${GCC_VERSION}/lib64" -argv "$run_args"
+  csim_design -ldflags "-L$BOOST_LIB -lboost_iostreams -lz -lrt -L/usr/lib64 -lstdc++ -Wl,--rpath=${BOOST_LIB} -Wl,--rpath=/usr/lib64" -argv "$run_args"
 }
 
 if {$opt(doRTLsynth)} {

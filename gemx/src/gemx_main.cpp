@@ -29,7 +29,7 @@
 /**
  *  @brief Main executable for SDX flow
  *
- *  $DateTime: 2017/11/07 13:14:14 $
+ *  $DateTime: 2018/02/16 14:56:29 $
  */
 
 // Fast Csim compile
@@ -242,8 +242,10 @@ int main(int argc, char** argv)
     std::size_t pos0 = l_binFileOut.find("/");
     std::size_t pos1 = l_binFileOut.find("app_out");
     std::size_t pos2 = l_binFileOut.find(".bin");
+    std::size_t size_pos = pos2-pos1;
     //std::string binFileOutName = l_binFileOut.substr(0,10) + std::to_string(i) + l_binFileOut.substr(10,4);
-    std::string binFileOutName =l_binFileOut.substr(0,pos0+1)+l_binFileOut.substr(pos1,7) + std::to_string(i) + l_binFileOut.substr(pos2,4);
+    //std::string binFileOutName =l_binFileOut.substr(0,pos0+1)+l_binFileOut.substr(pos1,7) + std::to_string(i) + l_binFileOut.substr(pos2,4);
+    std::string binFileOutName =l_binFileOut.substr(0,pos0+1)+l_binFileOut.substr(pos1,size_pos) + std::to_string(i) + l_binFileOut.substr(pos2,4);
    if (!writeBinFile(binFileOutName, l_memVecOut[i])) {
       std::cerr << "ERROR: failed to write output file " + binFileOutName + "\n";
       return EXIT_FAILURE;

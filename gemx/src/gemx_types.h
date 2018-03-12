@@ -39,7 +39,8 @@
 #include <ostream>
 #include <iomanip>
 
-#include <ap_int.h>
+#include "ap_int.h"
+#include "ap_shift_reg.h"
 
 // Helper macros for renaming kernel
 #define GEMX_PASTER(x,y) x ## y
@@ -305,6 +306,63 @@ std::ostream& operator<<(std::ostream& os, TaggedWideType<T1, T2>& p_Val) {
   return(os);
 }
 
+template <
+    typename T,
+    unsigned int t_Width
+  >
+class TriangSrl {
+  private:
+    ap_shift_reg<T, t_Width> m_Sreg[t_Width];
+  public:
+    WideType<T, t_Width>
+    shift(
+        WideType<T, t_Width> p_DiagIn
+      ) {
+        #pragma HLS inline self
+        #pragma HLS ARRAY_PARTITION variable=m_Sreg dim=1 complete
+        #pragma HLS data_pack variable=p_DiagIn
+        WideType<T, t_Width> l_edgeOut;
+        #pragma HLS data_pack variable=l_edgeOut
+        TRIANGSRL_SHIFT:for (unsigned int i = 0; i < t_Width; ++i) {
+          #pragma HLS unroll
+          l_edgeOut[i] = m_Sreg[i].shift(p_DiagIn[i], i);
+        }
+        return(l_edgeOut);
+      }
+    void
+    clear() {
+	#pragma HLS inline
+	#pragma HLS ARRAY_PARTITION variable=m_Sreg dim=1 complete
+        for (unsigned int row = 0; row < t_Width; ++row) {
+		#pragma HLS PIPELINE
+          for (unsigned int col = 0; col < t_Width; ++col) {
+            (void)m_Sreg[row].shift(0, 0);
+          }
+        }
+      }
+    void
+    print(std::ostream& os) {
+        for (unsigned int row = 0; row < t_Width; ++row) {
+          for (unsigned int col = 0; col < t_Width; ++col) {
+            if (col > row) {
+              os << std::setw(GEMX_FLOAT_WIDTH + 2) << "- ";
+            } else {
+              T l_val = m_Sreg[row].read(col);
+              os << std::setw(GEMX_FLOAT_WIDTH) << l_val;
+            }
+          }
+          os << "\n";
+        }
+      }
+};
+
+template <typename T1, unsigned int T2>
+std::ostream& operator<<(std::ostream& os, TriangSrl<T1, T2>& p_Val) {
+  p_Val.print(os);
+  return(os);
+}
+
+
 // Row-major window
 template <typename T, unsigned int t_Rows, unsigned int t_Cols>
 class WindowRm {
@@ -479,6 +537,8 @@ std::ostream& operator<<(std::ostream& os, TriangWindow<T1, T2>& p_Val) {
 template <typename T>
 T
 CalcMod(T p_Val, T p_Mod, T p_Discard = 1) {
+#pragma HLS inline self
+#pragma HLS PIPELINE
   return (p_Val / p_Discard) % p_Mod;
 }
 
@@ -737,6 +797,7 @@ class BoolArr {
   private:
     bool m_Val[W];
   public:
+		BoolArr(){}
     BoolArr(bool p_Init) {
         for(unsigned int i = 0; i < W; ++i) {
           #pragma HLS UNROLL

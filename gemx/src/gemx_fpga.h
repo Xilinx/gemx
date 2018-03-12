@@ -29,7 +29,7 @@
 /**
  *  @brief FPGA utilities
  *
- *  $DateTime: 2017/11/03 17:16:49 $
+ *  $DateTime: 2018/01/30 15:02:37 $
  */
 
 #ifndef GEMX_FPGA_H
@@ -60,10 +60,10 @@ class Fpga
     boost::compute::program        m_Program;
     boost::compute::kernel         m_Kernel[GEMX_numKernels];
     boost::compute::buffer         m_Buffer[GEMX_numKernels];
-	boost::compute::wait_list	   m_waitInput[GEMX_numKernels];
-	boost::compute::wait_list	   m_waitOutput[GEMX_numKernels];
+    boost::compute::wait_list	   m_waitInput[GEMX_numKernels];
+    boost::compute::wait_list	   m_waitOutput[GEMX_numKernels];
     size_t                         m_DataSize[GEMX_numKernels];
-	unsigned int                   m_KernelId;
+    unsigned int                   m_KernelId;
   private:
 
     ///////////////////////////////////////////////////////////////////////////
@@ -173,6 +173,7 @@ class Fpga
         	m_Kernel[kernelId].set_args(m_Buffer[kernelId], m_Buffer[kernelId]);
         	l_event = m_CommandQueue.enqueue_nd_range_kernel(m_Kernel[kernelId], offset, global, local, m_waitInput[kernelId]);
 			m_waitOutput[kernelId].insert(l_event);
+			m_waitInput[kernelId].clear();
 		}
         ok = true;
         return(ok);
@@ -186,12 +187,26 @@ class Fpga
 		boost::compute::event l_readEvents[GEMX_numKernels]; 
         for (unsigned int kernelId=0; kernelId<GEMX_numKernels; ++kernelId) {
         	l_readEvents[kernelId] = m_CommandQueue.enqueue_migrate_memory_objects(1, &(m_Buffer[kernelId].get()), CL_MIGRATE_MEM_OBJECT_HOST, m_waitOutput[kernelId]);
+		m_waitOutput[kernelId].clear();
 		}
 		for (int i=0; i<GEMX_numKernels; ++i) {
 			l_readEvents[i].wait();
 		}
 		ok=true;
         return(ok);
+      }
+      ///////////////////////////////////////////////////////////////////////////
+      bool clearAll(){
+	bool ok = false;
+	clReleaseContext(m_Context);
+	clReleaseProgram(m_Program);
+	clReleaseCommandQueue(m_CommandQueue);
+	for (int i=0; i<GEMX_numKernels; ++i) {
+	  clReleaseKernel(m_Kernel[i]);
+	  clReleaseMemObject(m_Buffer[i].get());
+	}
+	ok=true;
+      return(ok);
       }
     ///////////////////////////////////////////////////////////////////////////
     bool

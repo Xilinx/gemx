@@ -30,7 +30,7 @@
  *  @brief DDR loader and accelerator flow control
  *
  *  $DateTime: 2017/10/24 03:52:34 $
- *  $Author: lingl $
+ *  $Author: Xilinx $
  *
  *  DDR access utilities
  */

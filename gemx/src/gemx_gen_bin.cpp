@@ -29,7 +29,7 @@
 /**
  *  @brief Semi-standalone generator for the test task binary images (2nd arg to gemc.exe)
  *
- *  $DateTime: 2017/10/24 03:52:34 $
+ *  $DateTime: 2018/03/01 16:50:01 $
  */
 
 // Fast compile and run:
@@ -54,7 +54,7 @@ int main(int argc, char** argv)
     std::cout << "  Usage:\n    gemx_gen_bin.exe  <-write | -read> app.bin [op1 arg arg ...] [op2 arg arg ...] ... | -compare tol_rel tol_abs app_gold.bin app_out.bin\n"
               << "    Ops:\n"
               << "      gemv   M K   LdA            HandleA HandleB HandleC\n"
-              << "      gemm   M K N LdA  LdB  Ldc  HandleA HandleB HandleC\n"
+              << "      gemm   M K N LdA  LdB  LdC LdX postScalVal postScaleShift HandleA HandleB HandleC HandleX\n"
               << "      transp M N   LdIn LdOut  FormatA FormatB  HandleA HandleB\n"
               << "      spmv   M K   Nnz  mtxFile   HandleA HandleB HandleC\n"
               << "    Examples:\n"
@@ -140,15 +140,21 @@ int main(int argc, char** argv)
           unsigned int l_lda = atoi(argv[l_argIdx++]);
           unsigned int l_ldb = atoi(argv[l_argIdx++]);
           unsigned int l_ldc = atoi(argv[l_argIdx++]);
+	  unsigned int l_ldx = atoi(argv[l_argIdx++]);
+	  int32_t     l_postScaleVal = atoi(argv[l_argIdx++]);
+          int32_t     l_postScaleShift = atoi(argv[l_argIdx++]);
+          int32_t     l_postScale = (l_postScaleVal << 8) | (l_postScaleShift & 0x000000ff);
           std::string l_handleA(argv[l_argIdx++]);
           std::string l_handleB(argv[l_argIdx++]);
           std::string l_handleC(argv[l_argIdx++]);
+	  std::string l_handleX(argv[l_argIdx++]);
           assert(l_lda >= l_k);
           assert(l_ldb >= l_n);
           assert(l_ldc >= l_n);
-          if (!l_gemm.check(l_m, l_k, l_n, l_lda, l_ldb, l_ldc)) exit(1);
-          l_gemm.addInstr(l_p[wGolden], l_m,  l_k, l_n, l_lda, l_ldb, l_ldc,
-                          l_handleA, l_handleB, l_handleC, wGolden);
+	  assert(l_ldx >= l_n);
+          if (!l_gemm.check(l_m, l_k, l_n, l_lda, l_ldb, l_ldc, l_ldx)) exit(1);
+          l_gemm.addInstr(l_p[wGolden], l_m,  l_k, l_n, l_lda, l_ldb, l_ldc, l_ldx, l_postScale,
+                          l_handleA, l_handleB, l_handleC, l_handleX, wGolden);
         } else if (l_opName == "transp") {
           unsigned int l_m = atoi(argv[l_argIdx++]);
           unsigned int l_n = atoi(argv[l_argIdx++]);

@@ -30,7 +30,7 @@
  *  @brief Sparse matrix vector multiply  C += A * B
  *
  *  $DateTime: 2017/11/14 09:20:31 $
- *  $Author: lingl $
+ *  $Author: Xilinx $
  */
 
 #ifndef GEMX_SPMV_H

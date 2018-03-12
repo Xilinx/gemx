@@ -97,8 +97,8 @@ float getBoardFreqMHz(unsigned int p_BoardId) {
     }
   }
   if (l_freq == -1) {
-	//if xbsak does not work, as happens on F1, put the XOCC achieved kernel frequcy here
-	l_freq = 246.6;
+	//if xbsak does not work, user could put the XOCC achieved kernel frequcy here
+	//l_freq = -1;
     std::cout << "INFO: Failed to get board frequency by xbsak. This is normal for cpu and hw emulation, using -1 MHz for reporting.\n";
   }
   return(l_freq);
@@ -109,38 +109,44 @@ int main(int argc, char **argv)
   //############  UI and GEMM problem size  ############
   if (argc < 2) {
     std::cerr << "Usage:\n"
-              <<  "  gemx_api_gemm.exe <path/gemx.xclbin> [M K N  [LdA LdB LdC] ]\n"
+              <<  "  gemx_api_gemm.exe <path/gemx.xclbin> [M K N  [LdA LdB LdC LdX postScaleVal postScaleShift] ]\n"
               <<  "  Examples:\n"
               <<  "    gemx_api_gemm.exe   out_hw/gemx.xclbin\n"
-              <<  "    gemx_api_gemm.exe   out_hw/gemx.xclbin  32 64 32\n"
-              <<  "    gemx_api_gemm.exe   out_hw/gemx.xclbin  32 128 256  256 128 128\n"
-              <<  "    gemx_api_gemm.exe   out_hw/gemx.xclbin  32 128 256  288 160 160\n";
+              <<  "    gemx_api_gemm.exe   out_hw/gemx.xclbin  256 256 256\n"
+              <<  "    gemx_api_gemm.exe   out_hw/gemx.xclbin  256 256 256  256 256 256\n"
+              <<  "    gemx_api_gemm.exe   out_hw/gemx.xclbin  256 256 256  256 256 256  256 1 0\n";
     exit(2);
   }
   unsigned int l_argIdx = 1;
   std::string l_xclbinFile(argv[l_argIdx]);
-  unsigned int l_kernelId = 0;
 
   // Row major  C  M rows N cols  =  A  M rows K cols  *  B  K rows N cols
   //   MatType - tensor like type to allocate/store/align memory; you can use your own type instead
   //   Min size is the array edge (e.g., 32 on ku115), see GenGemm::check() for example of arg checking functions
   unsigned int l_ddrW = GEMX_ddrWidth;
-  unsigned int l_M = l_ddrW,  l_K = l_ddrW,  l_N = l_ddrW;  // the smallest matrices for flow testing
+  // the smallest matrices for flow testing
+  unsigned int l_M = l_ddrW * GEMX_gemmMBlocks,  l_K = l_ddrW * GEMX_gemmKBlocks,  l_N = l_ddrW * GEMX_gemmNBlocks;  
   if (argc > ++l_argIdx) {l_M = atoi(argv[l_argIdx]);}  
   if (argc > ++l_argIdx) {l_K = atoi(argv[l_argIdx]);}  
   if (argc > ++l_argIdx) {l_N = atoi(argv[l_argIdx]);}  
-  unsigned int l_LdA = l_K,  l_LdB= l_N,  l_LdC = l_N;
+  unsigned int l_LdA = l_K,  l_LdB = l_N,  l_LdC = l_N, l_LdX = l_N;
+  int32_t l_postScaleVal = 1, l_postScaleShift = 0;
   if (argc > ++l_argIdx) {l_LdA = atoi(argv[l_argIdx]);}
   if (argc > ++l_argIdx) {l_LdB = atoi(argv[l_argIdx]);}
   if (argc > ++l_argIdx) {l_LdC = atoi(argv[l_argIdx]);}
+  if (argc > ++l_argIdx) {l_LdX = atoi(argv[l_argIdx]);}
+  if (argc > ++l_argIdx) {l_postScaleVal = atoi(argv[l_argIdx]);}
+  if (argc > ++l_argIdx) {l_postScaleShift= atoi(argv[l_argIdx]);}
+  int32_t l_postScale = (l_postScaleVal << 8) | (l_postScaleShift & 0x000000ff);
   
   if (! (
-      checkDim(l_M, l_ddrW*GEMX_gemmMBlocks, l_ddrW*GEMX_gemmMBlocks) &&
-      checkDim(l_K, l_ddrW*GEMX_gemmKBlocks, l_ddrW*GEMX_gemmKBlocks) &&
-      checkDim(l_N, l_ddrW*GEMX_gemmNBlocks, l_ddrW*GEMX_gemmNBlocks) &&
+      checkDim(l_M, l_ddrW * GEMX_gemmMBlocks, l_ddrW * GEMX_gemmMBlocks) &&
+      checkDim(l_K, l_ddrW * GEMX_gemmKBlocks, l_ddrW * GEMX_gemmKBlocks) &&
+      checkDim(l_N, l_ddrW * GEMX_gemmNBlocks, l_ddrW * GEMX_gemmNBlocks) &&
       checkDim(l_LdA, l_ddrW, l_K) &&
       checkDim(l_LdB, l_ddrW, l_N) &&
-      checkDim(l_LdC, l_ddrW, l_N)
+      checkDim(l_LdC, l_ddrW, l_N) &&
+      checkDim(l_LdX, l_ddrW, l_N)
     )) {
     return EXIT_FAILURE;
   }  
@@ -149,66 +155,23 @@ int main(int argc, char **argv)
          l_xclbinFile.c_str());
     
   //############  Client code - prepare the gemm problem input  ############
+  GenGemm l_gemm;
   ProgramType l_program[GEMX_numKernels];  // Holds instructions and controls memory allocation
+  
   std::string l_handleA[GEMX_numKernels];
   std::string l_handleB[GEMX_numKernels];
   std::string l_handleC[GEMX_numKernels];
-
-  bool l_newAllocA[GEMX_numKernels];
-  bool l_newAllocB[GEMX_numKernels];
-  bool l_newAllocC[GEMX_numKernels];
-
-  unsigned int l_pageA[GEMX_numKernels];
-  unsigned int l_pageB[GEMX_numKernels];
-  unsigned int l_pageC[GEMX_numKernels];
-
-  MatType l_matA[GEMX_numKernels];
-  MatType l_matB[GEMX_numKernels];
-  MatType l_matC[GEMX_numKernels];
-  
-  GemmArgsType l_gemmArgs[GEMX_numKernels];
-  KargsType l_kargs[GEMX_numKernels];
+  std::string l_handleX[GEMX_numKernels];
 
   for (int i=0; i<GEMX_numKernels; ++i) {
 	l_handleA[i] = "A"+std::to_string(i);
 	l_handleB[i] = "B"+std::to_string(i);
 	l_handleC[i] = "C"+std::to_string(i);
-  	// Allocate all pages before getting any address
-  	l_pageA[i] = l_program[i].allocPages(l_handleA[i], l_newAllocA[i], l_M * l_LdA);
-  	l_pageB[i] = l_program[i].allocPages(l_handleB[i], l_newAllocB[i], l_K * l_LdB);
-  	l_pageC[i] = l_program[i].allocPages(l_handleC[i], l_newAllocC[i], l_M * l_LdC);
-  	
-	// Get addresses where matrices are stored
-  	l_matA[i].init(l_M, l_K, l_LdA, l_program[i].getPageAddr(l_pageA[i]));
-  	l_matB[i].init(l_K, l_N, l_LdB, l_program[i].getPageAddr(l_pageB[i]));
-  	l_matC[i].init(l_M, l_N, l_LdC, l_program[i].getPageAddr(l_pageC[i]));
-  	
-	// Fill inputs with random data
-	if (l_newAllocA[i]) {
-    	l_matA[i].fillMod(67, 1);
-  	}
-  	if (l_newAllocB[i]) {
-    	l_matB[i].fillMod(129, 65);
-  	}
-  	
-	// You can fill the input matrices with your own data by e.g.,
-  	//for (int row = 0; row < l_matA.rows();  ++row) {
-  	//  for (int col = 0; col < l_matA.cols();  ++col) {
-  	//    GEMX_dataType l_val = 17 + 2 * row + 3 * col
-  	//    l_matA.getVal(row, col) = l_val;
-  	//  }
-  	//}
-  
-	//############  Compile program for the accelerator with a single GEMM instruction  ############
-  	// GemmArgsType, KargsType - helper types to compile and check the accelerator program
-    l_gemmArgs[i].init(
-      l_pageA[i], l_pageB[i], l_pageC[i],
-      l_M, l_K, l_N,
-      l_LdA, l_LdB, l_LdC
-    );
-    l_kargs[i].setGemmArgs(l_gemmArgs[i]);
-    l_kargs[i].store(l_program[i].addInstr(), 0);
-    std::cout << "Added instruction GEMM " << l_M << "x" << l_K << "x" << l_N << "  ";
+	l_handleX[i] = "X"+std::to_string(i);
+
+    l_gemm.addInstr(l_program[i], l_M, l_K, l_N, l_LdA, l_LdB, l_LdC, l_LdX, l_postScale, l_handleA[i], l_handleB[i], l_handleC[i], l_handleX[i], false);
+    std::cout << "In kernel " << i << " ";
+    std::cout << "Added instruction GEMM (" << l_M << "x" << l_K <<" * "<< l_K << "x" << l_N << " + " << l_M << "x" << l_N << ") * " << l_postScaleVal <<" >> " << l_postScaleShift <<"\n";
   }
 
   std::string kernelNames[GEMX_numKernels];
@@ -231,48 +194,48 @@ int main(int argc, char **argv)
 	kernelNames[i] = "gemxKernel_" + std::to_string(i);
   }
   if (l_fpga.loadXclbin(l_xclbinFile, kernelNames)) {
-    std::cout << "INFO: created kernels" << std::endl;
+      std::cout << "INFO: created kernels" << std::endl;
   } else {
-    std::cerr << "ERROR: failed to load " + l_xclbinFile + "\n";
-    return EXIT_FAILURE;
+      std::cerr << "ERROR: failed to load " + l_xclbinFile + "\n";
+      return EXIT_FAILURE;
   }
   showTimeData("loadXclbin", l_tp[l_tpIdx], l_tp[l_tpIdx+1]); l_tpIdx++;
 
   //create buffers for transferring data to FPGA
   if (!l_fpga.createBuffers(l_memDesc)) {
-    std::cerr << "ERROR: failed to create buffers for transffering data to FPGA DDR\n";
-    return EXIT_FAILURE;
+      std::cerr << "ERROR: failed to create buffers for transffering data to FPGA DDR\n";
+      return EXIT_FAILURE;
   }
   showTimeData("created buffers", l_tp[l_tpIdx], l_tp[l_tpIdx+1]); l_tpIdx++;
   
   // Transfer data to FPGA
   if (l_fpga.copyToFpga()) {
-    (VERBOSE > 0) && std::cout << "INFO: transferred data to FPGA" << std::endl;
+      (VERBOSE > 0) && std::cout << "INFO: transferred data to FPGA" << std::endl;
   } else {
-    std::cerr << "ERROR: failed to copy data to FPGA DDR\n";
-    return EXIT_FAILURE;
+      std::cerr << "ERROR: failed to copy data to FPGA DDR\n";
+      return EXIT_FAILURE;
   }
   showTimeData("copyToFpga", l_tp[l_tpIdx], l_tp[l_tpIdx+1]); l_tpIdx++;
 
   // Gemx kernel ops
   if (l_fpga.callKernels()) {
-    (VERBOSE > 0) && std::cout << "INFO: Executed kernel" << std::endl;
+      (VERBOSE > 0) && std::cout << "INFO: Executed kernel" << std::endl;
   } else {
-    std::cerr << "ERROR: failed to call kernels ";
-	for (int i=0; i<GEMX_numKernels; ++i) {
-		std::cerr << kernelNames[i] << " ";
-	}
-	std::cerr << "\n";
-    return EXIT_FAILURE;
+      std::cerr << "ERROR: failed to call kernels ";
+      for (int i=0; i<GEMX_numKernels; ++i) {
+	std::cerr << kernelNames[i] << " ";
+      }
+      std::cerr << "\n";
+      return EXIT_FAILURE;
   }
   showTimeData("callKernel", l_tp[l_tpIdx], l_tp[l_tpIdx+1]); l_tpIdx++;
 
   // Transfer data back to host - due to lazy evaluation this is generally wheer the accelerator performs the work
   if (l_fpga.copyFromFpga()) {
-    (VERBOSE > 0) && std::cout << "INFO: Transferred data from FPGA" << std::endl;
+      (VERBOSE > 0) && std::cout << "INFO: Transferred data from FPGA" << std::endl;
   } else {
-    std::cerr << "ERROR: failed to copy data from FPGA DDR\n";
-    return EXIT_FAILURE;
+      std::cerr << "ERROR: failed to copy data from FPGA DDR\n";
+      return EXIT_FAILURE;
   }
   showTimeData("copyFromFpga", l_tp[l_tpIdx], l_tp[l_tpIdx+1]); l_tpIdx++;
   showTimeData("total", l_tp[0], l_tp[l_tpIdx]); l_tpIdx++;
@@ -281,7 +244,7 @@ int main(int argc, char **argv)
   
   //############  Get the exact kernel time from HW cycle counters on the accelerator  ############
   float l_boardFreqMHz = getBoardFreqMHz(0);
-  unsigned long int l_Ops = 2ull * l_M * l_N * l_K;
+  unsigned long int l_Ops = 2ull * l_M * l_N * l_K + l_M * l_N * 3;
   KargsType l_kargsRes[GEMX_numKernels];
   KargsOpType l_op[GEMX_numKernels];
   gemx::InstrResArgs l_instrRes[GEMX_numKernels];
@@ -309,70 +272,24 @@ int main(int argc, char **argv)
   }
   l_perfApiInTops = (l_Ops*GEMX_numKernels) / (l_timeApiInMs * 1e-3) / 1e12;
   l_timeMsAt100pctEff = l_Ops / 2 / GEMX_ddrWidth / GEMX_ddrWidth / (l_boardFreqMHz * 1e6) * 1e3;
-  l_effKernelPct = 100 * l_timeMsAt100pctEff / l_maxTimeKernelInMs;
+  l_effKernelPct = (100 * l_timeMsAt100pctEff / l_maxTimeKernelInMs < 100)?(100 * l_timeMsAt100pctEff / l_maxTimeKernelInMs):100;
   l_effApiPct = 100 * l_timeMsAt100pctEff / l_timeApiInMs;
   // Show time, Tops in csv format
-  std::cout << std::string("DATA_CSV:,DdrWidth,Freq,M,K,N,")
+  std::cout << std::string("DATA_CSV:,DdrWidth,Freq,M,K,N,postScaleVal,postScaleShift,")
              + "Ops,KernelCycles,"
              + "TimeKernelMs,TimeApiMs,"
              + "EffKernelPct,EffApiPct,"
              + "PerfKernelTops,PerfApiTops\n"
             << "DATA_CSV:," <<  GEMX_ddrWidth << "," << l_boardFreqMHz << ","
-            << l_M << "," << l_K << "," << l_N << ","
+            << l_M << "," << l_K << "," << l_N << "," 
+            << l_postScaleVal << "," << l_postScaleShift << ","
             << l_Ops*GEMX_numKernels << "," << l_maxCycleCount << ","
             << l_maxTimeKernelInMs << "," << l_timeApiInMs << ","
             << l_effKernelPct << "," << l_effApiPct << ","
             << l_totalPerfKernelInTops << "," << l_perfApiInTops
             << std::endl;
-
-  //############  Compare tha FPGA results with the reference results  ############
-  // Calculate reference C = A * B
-  // Since the reference is not needed on the acclerator allocate memory in any way
-  std::cout << "INFO: Calculating gold values on host ..." << std::endl;
-  // C matrix reference calculated on the host - l_matCref
-  std::vector<GEMX_dataType> l_CmatAlloc;
-  l_CmatAlloc.resize(l_M * l_LdC);
-  for (int i=0; i<GEMX_numKernels; ++i) {
-  	assert((l_matC[i].rows() == l_M) && (l_matC[i].cols() == l_N) && (l_matC[i].ld() == l_LdC));
-  }
-  MatType l_matCref(l_M, l_N, l_LdC, l_CmatAlloc.data());
-  bool l_calcGold = (l_Ops <= 2ull * 2048*2048*2048);
-  if (l_calcGold) {
-    l_matCref.multiply(l_matA[0], l_matB[0]);
-  } else {
-    std::cout << "INFO: skipped gold calculation on host since it may take too long\n";
-  }
-  // C matrix in the DDR image received from the accelerator - l_matCfpga
-  MatType l_matCfpga[GEMX_numKernels];
-  for (int i=0; i<GEMX_numKernels; ++i) {
-	l_matCfpga[i].init(l_M, l_N, l_LdC, l_program[i].getPageAddr(l_pageC[i]));  
-  }
-  
-  // Verbose reporting
-  bool l_verbose = ((unsigned long)l_M * l_N * l_K <= 4096);
-  l_verbose && std::cout << "INFO: GEMM details C = A * B\n"
-    << "A\n" <<  l_matA << "\n"
-    << "B\n" <<  l_matB << "\n"
-    << "Cref\n" <<  l_matCref << "\n"
-    << "Cfpga\n" <<  l_matCfpga << "\n";
-
-  // Compare FPGA and the reference
-  if (l_calcGold) {
-    float  l_TolRel = 1e-3,  l_TolAbs = 1e-5;
-    bool l_ok;
-    bool l_pass = true;
-    for (int i=0; i<GEMX_numKernels; ++i) {
-	 	l_ok = l_matCfpga[i].cmp(l_TolRel, l_TolAbs, l_matCref);
-    	std::cout << "INFO: accelerator kernel " << i << " result " << (l_ok ? "MATCHES" : "does NOT match") << " the reference\n";
-    	std::cout << "INFO: status " << (l_ok ? "PASS" : "FAIL") << "\n";
-        if (!l_ok){
-        	l_pass = false;
-        }
-    }
-    return l_pass ? EXIT_SUCCESS : EXIT_FAILURE;
-  } else {
-    return EXIT_SUCCESS;
-  }
+	    
+  return EXIT_SUCCESS;
 }
 
   

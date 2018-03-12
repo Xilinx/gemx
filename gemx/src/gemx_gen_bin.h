@@ -29,7 +29,7 @@
 /**
  *  @brief GEMV testcase generator
  *
- *  $DateTime: 2017/11/22 14:19:13 $
+ *  $DateTime: 2018/03/09 06:16:16 $
  */
 
 #ifndef GEMX_GEN_BIN_H
@@ -94,6 +94,52 @@ showTimeData(std::string p_Task, TimePointType &t1, TimePointType &t2, double *p
             << l_timeMs << " msec\n";
 }
 
+class MtxRow {
+  private:
+    unsigned int m_Row, m_Col ;
+    double m_Val;
+  public:
+    MtxRow() : m_Row(0), m_Col(0), m_Val(0) {}
+    MtxRow(double p_Val, unsigned int p_Row, unsigned int p_Col)
+      : m_Row(p_Row), m_Col(p_Col), m_Val(p_Val) {}
+    unsigned int getRow() {return m_Row;}
+    unsigned int getCol() {return m_Col;}
+    double getVal() {return m_Val;}
+    void
+    scan(std::istream& p_Is) {
+        p_Is >>  m_Row >> m_Col >> m_Val;
+        if ((m_Row <= 0) || (m_Col <= 0))  {
+          std::cerr << "  Error: invalid MTX file line row=" << m_Row
+                    << " col=" << m_Col << " val=" << m_Val << "\n";
+          assert(0);
+        }
+        // Indices start from 1 in MTX; 0 locally
+        m_Row--;
+        m_Col--;
+      }
+    friend bool
+    operator<(MtxRow &a, MtxRow &b) {
+        if (a.getRow() < b.getRow()) {
+          return(true);
+        } else if (a.getRow() == b.getRow()) {
+          if (a.getCol() < b.getCol()) {
+            return(true);
+          }
+        }
+        return(false);
+      }
+    void
+    print(std::ostream& os) {
+        os << std::setw(GEMX_FLOAT_WIDTH) << int(getRow()) << " "
+           << std::setw(GEMX_FLOAT_WIDTH) << int(getCol()) << "    "
+           << std::setw(GEMX_FLOAT_WIDTH) << getVal();
+      }
+};
+inline
+std::ostream& operator<<(std::ostream& os, MtxRow &p_Val) {
+  p_Val.print(os);
+  return(os);
+}
 
 template<
   typename T,
@@ -173,7 +219,6 @@ class Program {
 	}
     unsigned int
     allocPages(std::string p_Handle, bool &p_NewAlloc, size_t p_NumElements) { // unit: t_FloatType
-        
         assert(p_NumElements > 0);
         size_t l_numPages = (p_NumElements * sizeof(t_FloatType)
                              + GEMX_pageSizeBytes - 1)  /  GEMX_pageSizeBytes;
@@ -273,52 +318,6 @@ class Program {
 typedef Program<GEMX_dataType> ProgramType;
 
 
-class MtxRow {
-  private:
-    unsigned int m_Row, m_Col ;
-    double m_Val;
-  public:
-    MtxRow() : m_Row(0), m_Col(0), m_Val(0) {}
-    MtxRow(double p_Val, unsigned int p_Row, unsigned int p_Col)
-      : m_Row(p_Row), m_Col(p_Col), m_Val(p_Val) {}
-    unsigned int getRow() {return m_Row;}
-    unsigned int getCol() {return m_Col;}
-    double getVal() {return m_Val;}
-    void
-    scan(std::istream& p_Is) {
-        p_Is >>  m_Row >> m_Col >> m_Val;
-        if ((m_Row <= 0) || (m_Col <= 0))  {
-          std::cerr << "  Error: invalid MTX file line row=" << m_Row
-                    << " col=" << m_Col << " val=" << m_Val << "\n";
-          assert(0);
-        }
-        // Indices start from 1 in MTX; 0 locally
-        m_Row--;
-        m_Col--;
-      }
-    friend bool
-    operator<(MtxRow &a, MtxRow &b) {
-        if (a.getRow() < b.getRow()) {
-          return(true);
-        } else if (a.getRow() == b.getRow()) {
-          if (a.getCol() < b.getCol()) {
-            return(true);
-          }
-        }
-        return(false);
-      }
-    void
-    print(std::ostream& os) {
-        os << std::setw(GEMX_FLOAT_WIDTH) << int(getRow()) << " "
-           << std::setw(GEMX_FLOAT_WIDTH) << int(getCol()) << "    "
-           << std::setw(GEMX_FLOAT_WIDTH) << getVal();
-      }
-};
-inline
-std::ostream& operator<<(std::ostream& os, MtxRow &p_Val) {
-  p_Val.print(os);
-  return(os);
-}
 
 
 // Sparse matrix descriptor with data itself stored in caller's space
@@ -557,9 +556,6 @@ std::ostream& operator<<(std::ostream& os, SpMat<T1, T2, T3>& p_Val) {
   return(os);
 }
 
-
-
-
 // Matrix descriptor with data itself stored in caller's space
 template < typename T, typename TspD, typename Tsp>
 class Mat
@@ -594,6 +590,16 @@ class Mat
 		m_Ld = p_Ld;
 		m_Addr = p_Addr;
     }
+    
+    void fillModRange(T p_Min, T p_Max) {
+        T l_val = p_Min;
+        for (unsigned int row = 0; row < m_Rows; ++row) {
+            for (unsigned int col = 0; col < ld(); ++col) {
+                getVal(row, col) = l_val++;
+                if ( l_val > p_Max ) l_val = p_Min;
+            }
+        }
+    }
     void
     fillMod(T p_Max, T p_First = 0) {
         T l_val = p_First;
@@ -619,6 +625,35 @@ class Mat
             }
             //std::cout << "    DEBUG multiply setting row=" << row << " col=" << col << std::endl;
             getVal(row, col) = l_val;
+          }
+        }
+      }
+    void
+    multiplyAddScale(Mat & p_A, Mat & p_B,  Mat<GEMX_XdataType, TspD, Tsp> & p_X, int32_t p_postScale) {
+        assert(p_A.rows() == rows());
+        assert(p_A.cols() == p_B.rows());
+        assert(p_B.cols() == cols());
+				assert(p_X.rows() == rows());
+				assert(p_X.cols() == cols());
+        for (unsigned int row = 0; row < rows(); ++row) {
+          for (unsigned int col = 0; col < cols(); ++col) {
+						#if GEMX_keepMacBits
+            	int64_t l_val = 0;
+						#else
+							T l_val=0;
+						#endif
+            for (unsigned int k = 0; k < p_A.cols(); ++k) {
+              l_val += p_A.getVal(row, k) * p_B.getVal(k, col);
+            }
+						l_val += p_X.getVal(row, col);
+						#if GEMX_keepMacBits
+							unsigned int l_psShift = p_postScale & 0x00ff;
+							int64_t l_psVal =  p_postScale >> 8;
+							l_val = l_val * l_psVal;
+							l_val = l_val >> l_psShift;
+						#endif
+            T l_entry = (T)(l_val);
+            getVal(row, col) = l_entry;
           }
         }
       }
@@ -759,8 +794,6 @@ std::ostream& operator<<(std::ostream& os, Mat<T1, T2, T3>& p_Val) {
 }
 
 
-
-
 // Float specialization
 
 typedef gemx::Spmv<
@@ -866,457 +899,8 @@ SpMatType_ForFloat::fillMod(float p_Max) {
 typedef SpmvType::SpmvAdType SpmvAdType;
 typedef SpmvType::SpmvAType SpmvAType;
 typedef Mat<GEMX_dataType, SpmvAdType, SpmvAType > MatType;
+typedef Mat<GEMX_XdataType, SpmvAdType, SpmvAType> XMatType;
 typedef SpMat<GEMX_dataType, SpmvAdType, SpmvAType > SpMatType;
-
-
-
-////////////////////////  CONTROL  ////////////////////////
-class GenControl
-{
-  public:
-    void
-    addInstr(
-      ProgramType &p_Program,
-      bool p_IsLastOp,
-      bool p_Noop
-    ) {
-    
-    // Instruction
-    ControlArgsType l_controlArgs(
-        p_IsLastOp, p_Noop
-      );
-    KargsType l_kargs;
-    l_kargs.setControlArgs(l_controlArgs);
-    l_kargs.store(p_Program.addInstr(), 0);
-
-    std::cout << "Added CONTROL  IsLastOp=" << p_IsLastOp << " Noop=" << p_Noop << "  ";
-  }
-  
-  void
-  show(
-      ProgramType &p_Program,
-      ControlArgsType p_ControlArgs
-    ) {
-      bool l_isLastOp = p_ControlArgs.m_IsLastOp,
-           l_Noop = p_ControlArgs.m_Noop;
-      std::cout << "\n###########  Op Control  ###########\n"
-        << "  IsLastOp=" << l_isLastOp
-        << " Noop=" << l_Noop
-        << "\n";
-    }
-      
-};
-
-  
-////////////////////////  GEMV  ////////////////////////
-class GenGemv
-{
-  public:
-    bool
-    check(
-      unsigned int p_M,
-      unsigned int p_K,
-      unsigned int p_LdA
-    ) {
-        bool ok = true;
-        
-        const unsigned int l_mEdge = GEMX_gemvmGroups * GEMX_ddrWidth;
-        const unsigned int l_kEdge = GEMX_transpBlocks * GEMX_ddrWidth;
-        
-        if (p_M % l_mEdge != 0) {
-          std::cerr << "ERROR: gemv  M dimension " << p_M << " must be multiple of "
-                    << l_mEdge << "\n";
-          ok = false;
-        }
-        if (p_K % (l_kEdge) != 0) {
-          std::cerr << "ERROR: gemv  K dimension " << p_K << " must be multiple of "
-                    << l_kEdge << "\n";
-          ok = false;
-        }        
-        return(ok);
-      }
-    //__attribute__ ((noinline))
-    void
-    addInstr(
-      ProgramType &p_Program,
-      unsigned int p_M,
-      unsigned int p_K,
-      unsigned int p_Lda,
-      std::string p_handleA,
-      std::string p_handleB,
-      std::string p_handleC,
-      bool p_WithGolden
-    ) {
-    
-    // Allocate all pages before getting any address
-    bool l_newAllocA, l_newAllocB, l_newAllocC;
-    unsigned int l_pageA = p_Program.allocPages(p_handleA, l_newAllocA, p_M * p_Lda);
-    unsigned int l_pageB = p_Program.allocPages(p_handleB, l_newAllocB, p_K * 1);
-    unsigned int l_pageC = p_Program.allocPages(p_handleC, l_newAllocC, p_M * 1);
-    
-    // Get addresses where matrices are stored
-    MatType l_matA(p_M, p_K, p_Lda, p_Program.getPageAddr(l_pageA));
-    MatType l_matB(p_K, 1, 1,       p_Program.getPageAddr(l_pageB));
-    MatType l_matC(p_M, 1, 1,       p_Program.getPageAddr(l_pageC));
-    
-    // Instruction
-    GemvArgsType l_gemvArgs(
-        l_pageA, l_pageB, l_pageC,
-        p_M, p_K, p_Lda
-      );
-    KargsType l_kargs;
-    l_kargs.setGemvArgs(l_gemvArgs);
-    l_kargs.store(p_Program.addInstr(), 0);
-
-    if (l_newAllocA) {
-      l_matA.fillMod(std::numeric_limits<GEMX_dataType>::max());
-    }
-    if (l_newAllocB) {
-      l_matB.fillMod(7);
-    }
-    
-    // Calculate reference C = A * B
-    if (p_WithGolden) {
-      l_matC.multiply(l_matA, l_matB);
-    }
-    std::cout << "Added GEMV " << p_M << "x" << p_K << "  ";
-  }
-  
-  void
-  show(
-      ProgramType &p_Program,
-      GemvArgsType p_GemvArgs
-    ) {
-      unsigned int l_M = p_GemvArgs.m_M,
-                   l_K = p_GemvArgs.m_K,
-				   l_Lda = p_GemvArgs.m_Lda;
-      MatType l_matA(l_M, l_K, l_Lda, p_Program.getPageAddr(p_GemvArgs.m_Aoffset));
-      MatType l_matB(l_K, 1,   1,   p_Program.getPageAddr(p_GemvArgs.m_Boffset));
-      MatType l_matC(l_M, 1,   1,   p_Program.getPageAddr(p_GemvArgs.m_Coffset));
-      std::cout << "\n###########  Op Gemv  ###########\n"
-        << "  C = A * B  "
-        << l_M << "x" << 1 << " = " << l_M << "x" << l_K << " * " << l_K << "x" << 1
-        << "  A " << l_matA << "\n"
-        << "  B " << l_matB << "\n"
-        << "  C " << l_matC << "\n";
-    }
-  bool
-  compare(
-      float p_TolRel, float p_TolAbs, 
-      ProgramType &p_Program0, ProgramType &p_Program1,
-      GemvArgsType p_GemvArgs
-    ) {
-      unsigned int l_M = p_GemvArgs.m_M,
-                   l_K = p_GemvArgs.m_K;
-      MatType l_matC0(l_M, 1,   1,   p_Program0.getPageAddr(p_GemvArgs.m_Coffset)),
-              l_matC1(l_M, 1,   1,   p_Program1.getPageAddr(p_GemvArgs.m_Coffset));
-      std::cout << "\n###########  Op Gemv  ###########\n"
-        << "  C = A * B  "
-        << l_M << "x" << 1 << " = " << l_M << "x" << l_K << " * " << l_K << "x" << 1
-        << "  Comparing ...\n";
-      bool ok = l_matC1.cmp(p_TolRel, p_TolAbs, l_matC0);
-      std::cout << "Gemv C " << (ok ? "Matches" : "Differs") << "\n";
-      return(ok);
-    }
-      
-};
-
-  
-////////////////////////  GEMM  ////////////////////////
-class GenGemm
-{
-  public:
-    bool
-    checkDim(std::string p_VarName, unsigned int p_Val, unsigned int p_Mod, unsigned int p_Min) {
-      bool l_ok = true;
-      if (p_Val % p_Mod != 0) {
-        std::cerr << "ERROR: " << p_VarName << " " << p_Val << " must be multiple of " << p_Mod << "\n";
-        l_ok = false;
-      }
-      if (p_Val < p_Min) {
-        std::cerr << "ERROR: " << p_VarName << " " << p_Val << " must be at least " << p_Min << "\n";
-        l_ok = false;
-      }
-      return(l_ok);
-    }
-
-    bool
-    check(
-      unsigned int p_M,
-      unsigned int p_K,
-      unsigned int p_N,
-      unsigned int p_LdA,
-      unsigned int p_LdB,
-      unsigned int p_LdC
-    ) {
-        bool ok = true;
-        
-        const unsigned int l_Edge = GEMX_ddrWidth;
-        const unsigned int l_kMin = 2 * GEMX_ddrWidth; // due to kernel Cout control to save area
-        
-        ok = checkDim("M", p_M, l_Edge, 1) &&
-             checkDim("K", p_K, l_Edge, 2 * l_Edge) &&
-             checkDim("N", p_N, l_Edge, 1) &&
-             checkDim("LdA", p_LdA, l_Edge, p_K) &&
-             checkDim("LdB", p_LdB, l_Edge, p_N) &&
-             checkDim("LdC", p_LdC, l_Edge, p_N);
-        return(ok);
-      }
-    void
-    addInstr(
-      ProgramType &p_Program,
-      unsigned int p_M,
-      unsigned int p_K,
-      unsigned int p_N,
-      unsigned int p_LdA,
-      unsigned int p_LdB,
-      unsigned int p_LdC,
-      std::string p_handleA,
-      std::string p_handleB,
-      std::string p_handleC,
-      bool p_WithGolden
-    ) {
-    
-    // Allocate all pages before getting any address
-    bool l_newAllocA, l_newAllocB, l_newAllocC;
-    unsigned int l_pageA = p_Program.allocPages(p_handleA, l_newAllocA, p_M * p_LdA);
-    unsigned int l_pageB = p_Program.allocPages(p_handleB, l_newAllocB, p_K * p_LdB);
-    unsigned int l_pageC = p_Program.allocPages(p_handleC, l_newAllocC, p_M * p_LdC);
-    
-    // Get addresses where matrices are stored
-    MatType l_matA(p_M, p_K, p_LdA, p_Program.getPageAddr(l_pageA));
-    MatType l_matB(p_K, p_N, p_LdB, p_Program.getPageAddr(l_pageB));
-    MatType l_matC(p_M, p_N, p_LdC, p_Program.getPageAddr(l_pageC));
-    
-    // Instruction
-    GemmArgsType l_gemmArgs(
-        l_pageA, l_pageB, l_pageC,
-        p_M, p_K, p_N,
-        p_LdA, p_LdB, p_LdC
-      );
-    KargsType l_kargs;
-    l_kargs.setGemmArgs(l_gemmArgs);
-    l_kargs.store(p_Program.addInstr(), 0);
-
-    if (l_newAllocA) {
-      l_matA.fillMod(67, 1);
-    }
-    if (l_newAllocB) {
-      l_matB.fillMod(129, 65);
-    }
-  
-    // Calculate reference C = A * B
-    if (p_WithGolden) {
-      l_matC.multiply(l_matA, l_matB);
-    }
-    std::cout << "Added GEMM " << p_M << "x" << p_K << "x" << p_N << "  ";
-  }
-  void
-  show(
-      ProgramType &p_Program,
-      GemmArgsType p_GemmArgs) {
-      unsigned int l_M = p_GemmArgs.m_M,
-                   l_K = p_GemmArgs.m_K,
-                   l_N = p_GemmArgs.m_N,
-                   l_ldA = p_GemmArgs.m_Lda,
-                   l_ldB = p_GemmArgs.m_Ldb,
-                   l_ldC = p_GemmArgs.m_Ldc;
-      MatType l_matA(l_M, l_K, l_ldA, p_Program.getPageAddr(p_GemmArgs.m_Aoffset));
-      MatType l_matB(l_K, l_N, l_ldB, p_Program.getPageAddr(p_GemmArgs.m_Boffset));
-      MatType l_matC(l_M, l_N, l_ldC, p_Program.getPageAddr(p_GemmArgs.m_Coffset));
-      std::cout << "\n###########  Op Gemm  ###########\n"
-        << "  C = A * B  "
-        << l_M << "x" << l_N << " = " << l_M << "x" << l_K << " * " << l_K << "x" << l_N << "\n"
-        << "  A " << l_matA << "\n"
-        << "  B " << l_matB << "\n"
-        << "  C " << l_matC << "\n";
-    }
-  bool
-  compare(
-      float p_TolRel, float p_TolAbs, 
-      ProgramType &p_Program0, ProgramType &p_Program1,
-      GemmArgsType p_GemmArgs
-    ) {
-      unsigned int l_M = p_GemmArgs.m_M,
-                   l_K = p_GemmArgs.m_K,
-                   l_N = p_GemmArgs.m_N,
-                   l_ldA = p_GemmArgs.m_Lda,
-                   l_ldB = p_GemmArgs.m_Ldb,
-                   l_ldC = p_GemmArgs.m_Ldc;
-      MatType l_matC0(l_M, l_N, l_ldC, p_Program0.getPageAddr(p_GemmArgs.m_Coffset)),
-              l_matC1(l_M, l_N, l_ldC, p_Program1.getPageAddr(p_GemmArgs.m_Coffset));
-      std::cout << "\n###########  Op Gemm  ###########\n"
-        << "  C = A * B  "
-        << l_M << "x" << l_N << " = " << l_M << "x" << l_K << " * " << l_K << "x" << l_N << "\n"
-        << "  Comparing ...\n";
-      bool ok = l_matC1.cmp(p_TolRel, p_TolAbs, l_matC0);
-      std::cout << "Gemm C " << (ok ? "Matches" : "Differs") << "\n";
-      return(ok);
-    }
-      
-};
-  
-////////////////////////  TRANSP  ////////////////////////
-class GenTransp
-{
-  public:
-    typedef gemx::DdrMatrixShape::FormatType MatFormatType;
-
-  public:
-    bool
-    check(
-      unsigned int p_M,
-      unsigned int p_N,
-      unsigned int p_LdIn,
-      unsigned int p_LdOut,
-      MatFormatType p_FormatA,
-      MatFormatType p_FormatB
-    ) {
-        bool ok = true;
-        
-        if (p_FormatB == MatFormatType::GvA) {
-          if (p_LdOut != 0) {
-            std::cerr << "ERROR: transp  LdOut " << p_LdOut << " is auto computed for GVA matrix, use 0 " << "\n";
-            ok = false;
-          }
-        } else {
-          if (p_LdOut < p_M) {
-            std::cerr << "ERROR: transp  LdOut " << p_LdOut << " is smaller than p_M " << p_M << "\n";
-            ok = false;
-          }
-        }
-        
-        if (p_LdIn < p_N) {
-          std::cerr << "ERROR: transp  LdIn " << p_LdIn << " is smaller than p_N " << p_N << "\n";
-          ok = false;
-        }
-        if (p_M % GEMX_transpEdgeSize != 0) {
-          std::cerr << "ERROR: transp  p_M " << p_M << " is not divisible by GEMX_transpEdgeSize " << GEMX_transpEdgeSize << "\n";
-          ok = false;
-        }
-        if (p_N % GEMX_transpEdgeSize != 0) {
-          std::cerr << "ERROR: transp  p_N " << p_N << " is not divisible by GEMX_transpEdgeSize " << GEMX_transpEdgeSize << "\n";
-          ok = false;
-        }
-        if (p_LdIn % GEMX_ddrWidth != 0) {
-          std::cerr << "ERROR: transp  p_LdIn " << p_LdIn << " is not divisible by GEMX_ddrWidth " << GEMX_ddrWidth << "\n";
-          ok = false;
-        }
-        if (p_LdOut % GEMX_ddrWidth != 0) {
-          std::cerr << "ERROR: transp  p_LdOut " << p_LdOut << " is not divisible by GEMX_ddrWidth " << GEMX_ddrWidth << "\n";
-          ok = false;
-        }
-        if (p_FormatA == MatFormatType::Unknown) {
-          std::cerr << "ERROR: transp  formatA " << p_FormatA << " is not valid\n";
-          ok = false;
-        }
-        if (p_FormatB == MatFormatType::Unknown) {
-          std::cerr << "ERROR: transp  formatB " << p_FormatB << " is not valid\n";
-          ok = false;
-        }
-        
-        return(ok);
-      }
-    void
-    addInstr(
-      ProgramType &p_Program,
-      unsigned int p_M,
-      unsigned int p_N,
-      unsigned int p_LdIn,
-      unsigned int p_LdOut,
-      MatFormatType p_FormatA,
-      MatFormatType p_FormatB,
-      std::string p_handleA,
-      std::string p_handleB,
-      bool p_WithGolden
-    ) {
-    
-    // Dimensions
-    unsigned int l_outRows = p_N;
-    unsigned int l_outCols = p_M;
-    unsigned int l_outLd = p_LdOut;
-    if (p_FormatB == MatFormatType::GvA) {
-      unsigned int l_Width = GEMX_ddrWidth;
-      l_outRows = p_M / l_Width;
-      l_outCols = p_N * l_Width;
-      l_outLd = l_outCols;
-    }
-    
-    // Allocate all pages before getting any address
-    bool l_newAllocA, l_newAllocB;
-    unsigned int l_pageA = p_Program.allocPages(p_handleA, l_newAllocA, p_M * p_LdIn);
-    unsigned int l_pageB = p_Program.allocPages(p_handleB, l_newAllocB, l_outRows * l_outLd);
-    
-    // Get addresses where matrices are stored
-    MatType l_matA(p_M, p_N, p_LdIn, p_Program.getPageAddr(l_pageA));
-    MatType l_matB(l_outRows, l_outCols, l_outLd, p_Program.getPageAddr(l_pageB));
-    
-    // Instruction
-    DdrMatrixShapeType l_srcShape(l_pageA,  p_M, p_N, p_LdIn,  0, p_FormatA),
-                       l_dstShape(l_pageB, l_outRows, l_outCols, l_outLd, 0, p_FormatB);
-    TranspArgsType l_transpArgs(
-        l_srcShape, l_dstShape
-      );
-    KargsType l_kargs;
-    l_kargs.setTranspArgs(l_transpArgs);
-    l_kargs.store(p_Program.addInstr(), 0);
-
-    if (l_newAllocA) {
-      l_matA.fillMod(std::numeric_limits<GEMX_dataType>::max());
-    }
-    if (l_newAllocB) {
-      l_matB.fillMod(7);
-    }
-    
-    // Calculate reference C = A * B
-    if (p_WithGolden) {
-      if (p_FormatB == MatFormatType::Cm) {
-        l_matB.transpose(l_matA);
-      } else if (p_FormatB == MatFormatType::GvA) {
-        l_matB.transposeGva(l_matA, GEMX_ddrWidth * GEMX_gemvmGroups, GEMX_ddrWidth);
-      } else {
-        assert(false);
-      }
-    }
-    std::cout << "Added TRANSP " << p_M << "x" << p_N << "  ";
-  }
-  void
-  show(
-      ProgramType &p_Program,
-      TranspArgsType p_TranspArgs
-    ) {
-      DdrMatrixShapeType l_src = p_TranspArgs.m_Src,
-                          l_dst = p_TranspArgs.m_Dst;
-      unsigned int l_pageA = l_src.m_Offset,
-                   l_pageB = l_dst.m_Offset;
-      MatType l_matA(l_src.m_Rows, l_src.m_Cols, l_src.m_Ld, p_Program.getPageAddr(l_pageA));
-      MatType l_matB(l_dst.m_Rows, l_dst.m_Cols, l_dst.m_Ld, p_Program.getPageAddr(l_pageB));
-      std::cout << "\n###########  Op Transp  ###########\n"
-        << "  " << l_src << "  ->  " << l_dst << "\n"
-        << "  A  Page=" << l_pageA << "  " << l_matA << "\n"
-        << "  B  Page=" << l_pageB << "  " << l_matB << "\n";
-    }
-  bool
-  compare(
-      float p_TolRel, float p_TolAbs, 
-      ProgramType &p_Program0, ProgramType &p_Program1,
-      TranspArgsType p_TranspArgs
-    ) {
-      DdrMatrixShapeType l_src = p_TranspArgs.m_Src,
-                         l_dst = p_TranspArgs.m_Dst;
-      unsigned int l_pageA = l_src.m_Offset,
-                   l_pageB = l_dst.m_Offset;
-      MatType l_matB0(l_dst.m_Rows, l_dst.m_Cols, l_dst.m_Ld, p_Program0.getPageAddr(l_pageB)),
-              l_matB1(l_dst.m_Rows, l_dst.m_Cols, l_dst.m_Ld, p_Program1.getPageAddr(l_pageB));
-      std::cout << "\n###########  Op Transp  ###########\n"
-        << "  " << l_src << "  ->  " << l_dst << "\n"
-        << "  Comparing ...\n";
-      bool ok = l_matB1.cmp(p_TolRel, p_TolAbs, l_matB0);
-      std::cout << "Transp B " << (ok ? "Matches" : "Differs") << "\n";
-      return(ok);
-    }
-};
-
 
 ////////////////////////  SPMV  ////////////////////////
 
@@ -1582,5 +1166,468 @@ class GenSpmv
       
 };
 
+
+////////////////////////  CONTROL  ////////////////////////
+class GenControl
+{
+  public:
+    void
+    addInstr(
+      ProgramType &p_Program,
+      bool p_IsLastOp,
+      bool p_Noop
+    ) {
+    
+    // Instruction
+    ControlArgsType l_controlArgs(
+        p_IsLastOp, p_Noop
+      );
+    KargsType l_kargs;
+    l_kargs.setControlArgs(l_controlArgs);
+    l_kargs.store(p_Program.addInstr(), 0);
+
+    std::cout << "Added CONTROL  IsLastOp=" << p_IsLastOp << " Noop=" << p_Noop << "  ";
+  }
+  
+  void
+  show(
+      ProgramType &p_Program,
+      ControlArgsType p_ControlArgs
+    ) {
+      bool l_isLastOp = p_ControlArgs.m_IsLastOp,
+           l_Noop = p_ControlArgs.m_Noop;
+      std::cout << "\n###########  Op Control  ###########\n"
+        << "  IsLastOp=" << l_isLastOp
+        << " Noop=" << l_Noop
+        << "\n";
+    }
+      
+};
+
+  
+////////////////////////  GEMV  ////////////////////////
+class GenGemv
+{
+  public:
+    bool
+    check(
+      unsigned int p_M,
+      unsigned int p_K,
+      unsigned int p_LdA
+    ) {
+        bool ok = true;
+        
+        const unsigned int l_mEdge = GEMX_gemvmGroups * GEMX_ddrWidth;
+        const unsigned int l_kEdge = GEMX_transpBlocks * GEMX_ddrWidth;
+        
+        if (p_M % l_mEdge != 0) {
+          std::cerr << "ERROR: gemv  M dimension " << p_M << " must be multiple of "
+                    << l_mEdge << "\n";
+          ok = false;
+        }
+        if (p_K % (l_kEdge) != 0) {
+          std::cerr << "ERROR: gemv  K dimension " << p_K << " must be multiple of "
+                    << l_kEdge << "\n";
+          ok = false;
+        }        
+        return(ok);
+      }
+    //__attribute__ ((noinline))
+    void
+    addInstr(
+      ProgramType &p_Program,
+      unsigned int p_M,
+      unsigned int p_K,
+      unsigned int p_Lda,
+      std::string p_handleA,
+      std::string p_handleB,
+      std::string p_handleC,
+      bool p_WithGolden
+    ) {
+    
+    // Allocate all pages before getting any address
+    bool l_newAllocA, l_newAllocB, l_newAllocC;
+    unsigned int l_pageA = p_Program.allocPages(p_handleA, l_newAllocA, p_M * p_Lda);
+    unsigned int l_pageB = p_Program.allocPages(p_handleB, l_newAllocB, p_K * 1);
+    unsigned int l_pageC = p_Program.allocPages(p_handleC, l_newAllocC, p_M * 1);
+    
+    // Get addresses where matrices are stored
+    MatType l_matA(p_M, p_K, p_Lda, p_Program.getPageAddr(l_pageA));
+    MatType l_matB(p_K, 1, 1,       p_Program.getPageAddr(l_pageB));
+    MatType l_matC(p_M, 1, 1,       p_Program.getPageAddr(l_pageC));
+    
+    // Instruction
+    GemvArgsType l_gemvArgs(
+        l_pageA, l_pageB, l_pageC,
+        p_M, p_K, p_Lda
+      );
+    KargsType l_kargs;
+    l_kargs.setGemvArgs(l_gemvArgs);
+    l_kargs.store(p_Program.addInstr(), 0);
+
+    if (l_newAllocA) {
+      l_matA.fillMod(std::numeric_limits<GEMX_dataType>::max());
+    }
+    if (l_newAllocB) {
+      l_matB.fillMod(7);
+    }
+    
+    // Calculate reference C = A * B
+    if (p_WithGolden) {
+      l_matC.multiply(l_matA, l_matB);
+    }
+    std::cout << "Added GEMV " << p_M << "x" << p_K << "  ";
+  }
+  
+  void
+  show(
+      ProgramType &p_Program,
+      GemvArgsType p_GemvArgs
+    ) {
+      unsigned int l_M = p_GemvArgs.m_M,
+                   l_K = p_GemvArgs.m_K,
+				   l_Lda = p_GemvArgs.m_Lda;
+      MatType l_matA(l_M, l_K, l_Lda, p_Program.getPageAddr(p_GemvArgs.m_Aoffset));
+      MatType l_matB(l_K, 1,   1,   p_Program.getPageAddr(p_GemvArgs.m_Boffset));
+      MatType l_matC(l_M, 1,   1,   p_Program.getPageAddr(p_GemvArgs.m_Coffset));
+      std::cout << "\n###########  Op Gemv  ###########\n"
+        << "  C = A * B  "
+        << l_M << "x" << 1 << " = " << l_M << "x" << l_K << " * " << l_K << "x" << 1
+        << "  A " << l_matA << "\n"
+        << "  B " << l_matB << "\n"
+        << "  C " << l_matC << "\n";
+    }
+  bool
+  compare(
+      float p_TolRel, float p_TolAbs, 
+      ProgramType &p_Program0, ProgramType &p_Program1,
+      GemvArgsType p_GemvArgs
+    ) {
+      unsigned int l_M = p_GemvArgs.m_M,
+                   l_K = p_GemvArgs.m_K;
+      MatType l_matC0(l_M, 1,   1,   p_Program0.getPageAddr(p_GemvArgs.m_Coffset)),
+              l_matC1(l_M, 1,   1,   p_Program1.getPageAddr(p_GemvArgs.m_Coffset));
+      std::cout << "\n###########  Op Gemv  ###########\n"
+        << "  C = A * B  "
+        << l_M << "x" << 1 << " = " << l_M << "x" << l_K << " * " << l_K << "x" << 1
+        << "  Comparing ...\n";
+      bool ok = l_matC1.cmp(p_TolRel, p_TolAbs, l_matC0);
+      std::cout << "Gemv C " << (ok ? "Matches" : "Differs") << "\n";
+      return(ok);
+    }
+      
+};
+
+  
+////////////////////////  GEMM  ////////////////////////
+class GenGemm
+{
+  public:
+    bool
+    checkDim(std::string p_VarName, unsigned int p_Val, unsigned int p_Mod, unsigned int p_Min) {
+      bool l_ok = true;
+      if (p_Val % p_Mod != 0) {
+        std::cerr << "ERROR: " << p_VarName << " " << p_Val << " must be multiple of " << p_Mod << "\n";
+        l_ok = false;
+      }
+      if (p_Val < p_Min) {
+        std::cerr << "ERROR: " << p_VarName << " " << p_Val << " must be at least " << p_Min << "\n";
+        l_ok = false;
+      }
+      return(l_ok);
+    }
+
+    bool
+    check(
+      unsigned int p_M,
+      unsigned int p_K,
+      unsigned int p_N,
+      unsigned int p_LdA,
+      unsigned int p_LdB,
+      unsigned int p_LdC,
+			unsigned int p_LdX
+    ) {
+        bool ok = true;
+        
+        const unsigned int l_Edge = GEMX_ddrWidth;
+        const unsigned int l_kMin = 2 * GEMX_ddrWidth; // due to kernel Cout control to save area
+        
+        ok = checkDim("M", p_M, l_Edge, 1*l_Edge) &&
+             checkDim("K", p_K, l_Edge, 2 * l_Edge) &&
+             checkDim("N", p_N, l_Edge, 1*l_Edge) &&
+             checkDim("LdA", p_LdA, l_Edge, p_K) &&
+             checkDim("LdB", p_LdB, l_Edge, p_N) &&
+             checkDim("LdC", p_LdC, l_Edge, p_N) &&
+						 checkDim("LdX", p_LdX, l_Edge, p_N);
+        return(ok);
+      }
+    void
+    addInstr(
+      ProgramType &p_Program,
+      unsigned int p_M,
+      unsigned int p_K,
+      unsigned int p_N,
+      unsigned int p_LdA,
+      unsigned int p_LdB,
+      unsigned int p_LdC,
+			unsigned int p_LdX,
+			int32_t p_postScale,
+      std::string p_handleA,
+      std::string p_handleB,
+      std::string p_handleC,
+			std::string p_handleX,
+      bool p_WithGolden
+    ) {
+    
+    // Allocate all pages before getting any address
+    bool l_newAllocA, l_newAllocB, l_newAllocC, l_newAllocX;
+    unsigned int l_pageA = p_Program.allocPages(p_handleA, l_newAllocA, p_M * p_LdA);
+    unsigned int l_pageB = p_Program.allocPages(p_handleB, l_newAllocB, p_K * p_LdB);
+    unsigned int l_pageX = p_Program.allocPages(p_handleX, l_newAllocX, p_M * p_LdX * (sizeof(GEMX_XdataType)/sizeof(GEMX_dataType)));
+    unsigned int l_pageC = p_Program.allocPages(p_handleC, l_newAllocC, p_M * p_LdC);
+    
+    // Get addresses where matrices are stored
+    MatType l_matA(p_M, p_K, p_LdA, p_Program.getPageAddr(l_pageA));
+    MatType l_matB(p_K, p_N, p_LdB, p_Program.getPageAddr(l_pageB));
+    XMatType l_matX(p_M, p_N, p_LdX, (GEMX_XdataType *) p_Program.getPageAddr(l_pageX));
+    MatType l_matC(p_M, p_N, p_LdC, p_Program.getPageAddr(l_pageC));
+    
+    // Instruction
+    GemmArgsType l_gemmArgs(
+        l_pageA, l_pageB, l_pageC, l_pageX,
+        p_M, p_K, p_N,
+        p_LdA, p_LdB, p_LdC, p_LdX,
+				p_postScale
+      );
+    KargsType l_kargs;
+    l_kargs.setGemmArgs(l_gemmArgs);
+    l_kargs.store(p_Program.addInstr(), 0);
+
+    if (l_newAllocA) {
+      l_matA.fillMod(67, 1);
+    }
+    if (l_newAllocB) {
+      l_matB.fillMod(129, 65);
+    }
+		if (l_newAllocX) {
+			l_matX.fillMod(1, 0);
+		}
+  
+    // Calculate reference C = postScale(A * B + X)
+    if (p_WithGolden) {
+      l_matC.multiplyAddScale(l_matA, l_matB, l_matX, p_postScale);
+    }
+    std::cout << "Added GEMM " << p_M << "x" << p_K << "x" << p_N << "  ";
+  }
+  void
+  show(
+      ProgramType &p_Program,
+      GemmArgsType p_GemmArgs) {
+      unsigned int l_M = p_GemmArgs.m_M,
+                   l_K = p_GemmArgs.m_K,
+                   l_N = p_GemmArgs.m_N,
+                   l_ldA = p_GemmArgs.m_Lda,
+                   l_ldB = p_GemmArgs.m_Ldb,
+                   l_ldC = p_GemmArgs.m_Ldc,
+									 l_ldX = p_GemmArgs.m_Ldx;
+			int32_t l_postScale = p_GemmArgs.m_postScale;
+      MatType l_matA(l_M, l_K, l_ldA, p_Program.getPageAddr(p_GemmArgs.m_Aoffset));
+      MatType l_matB(l_K, l_N, l_ldB, p_Program.getPageAddr(p_GemmArgs.m_Boffset));
+     	XMatType l_matX(l_M, l_N, l_ldX, (GEMX_XdataType *)p_Program.getPageAddr(p_GemmArgs.m_Xoffset));
+      MatType l_matC(l_M, l_N, l_ldC, p_Program.getPageAddr(p_GemmArgs.m_Coffset));
+      std::cout << "\n###########  Op Gemm  ###########\n"
+        << "  C = postScale(A * B + X) "
+        << l_M << "x" << l_N << " = " << l_M << "x" << l_K << " * " << l_K << "x" << l_N << " + " << l_M << " x " << l_N <<"\n"
+				<< " postScale " << l_postScale << "\n"
+        << "  A " << l_matA << "\n"
+        << "  B " << l_matB << "\n"
+				<< "  X	" << l_matX << "\n"
+        << "  C " << l_matC << "\n";
+    }
+  bool
+  compare(
+      float p_TolRel, float p_TolAbs, 
+      ProgramType &p_Program0, ProgramType &p_Program1,
+      GemmArgsType p_GemmArgs
+    ) {
+      unsigned int l_M = p_GemmArgs.m_M,
+                   l_K = p_GemmArgs.m_K,
+                   l_N = p_GemmArgs.m_N,
+                   l_ldA = p_GemmArgs.m_Lda,
+                   l_ldB = p_GemmArgs.m_Ldb,
+                   l_ldC = p_GemmArgs.m_Ldc;
+      MatType l_matC0(l_M, l_N, l_ldC, p_Program0.getPageAddr(p_GemmArgs.m_Coffset)),
+              l_matC1(l_M, l_N, l_ldC, p_Program1.getPageAddr(p_GemmArgs.m_Coffset));
+      std::cout << "\n###########  Op Gemm  ###########\n"
+        << "  C = postScale(A * B + X) "
+        << l_M << "x" << l_N << " = " << l_M << "x" << l_K << " * " << l_K << "x" << l_N << " + " << l_M << " x " << l_N <<"\n"
+        << "  Comparing ...\n";
+      bool ok = l_matC1.cmp(p_TolRel, p_TolAbs, l_matC0);
+      std::cout << "Gemm C " << (ok ? "Matches" : "Differs") << "\n";
+      return(ok);
+    }
+      
+};
+  
+////////////////////////  TRANSP  ////////////////////////
+class GenTransp
+{
+  public:
+    typedef gemx::DdrMatrixShape::FormatType MatFormatType;
+
+  public:
+    bool
+    check(
+      unsigned int p_M,
+      unsigned int p_N,
+      unsigned int p_LdIn,
+      unsigned int p_LdOut,
+      MatFormatType p_FormatA,
+      MatFormatType p_FormatB
+    ) {
+        bool ok = true;
+        
+        if (p_FormatB == MatFormatType::GvA) {
+          if (p_LdOut != 0) {
+            std::cerr << "ERROR: transp  LdOut " << p_LdOut << " is auto computed for GVA matrix, use 0 " << "\n";
+            ok = false;
+          }
+        } else {
+          if (p_LdOut < p_M) {
+            std::cerr << "ERROR: transp  LdOut " << p_LdOut << " is smaller than p_M " << p_M << "\n";
+            ok = false;
+          }
+        }
+        
+        if (p_LdIn < p_N) {
+          std::cerr << "ERROR: transp  LdIn " << p_LdIn << " is smaller than p_N " << p_N << "\n";
+          ok = false;
+        }
+        if (p_M % GEMX_transpEdgeSize != 0) {
+          std::cerr << "ERROR: transp  p_M " << p_M << " is not divisible by GEMX_transpEdgeSize " << GEMX_transpEdgeSize << "\n";
+          ok = false;
+        }
+        if (p_N % GEMX_transpEdgeSize != 0) {
+          std::cerr << "ERROR: transp  p_N " << p_N << " is not divisible by GEMX_transpEdgeSize " << GEMX_transpEdgeSize << "\n";
+          ok = false;
+        }
+        if (p_LdIn % GEMX_ddrWidth != 0) {
+          std::cerr << "ERROR: transp  p_LdIn " << p_LdIn << " is not divisible by GEMX_ddrWidth " << GEMX_ddrWidth << "\n";
+          ok = false;
+        }
+        if (p_LdOut % GEMX_ddrWidth != 0) {
+          std::cerr << "ERROR: transp  p_LdOut " << p_LdOut << " is not divisible by GEMX_ddrWidth " << GEMX_ddrWidth << "\n";
+          ok = false;
+        }
+        if (p_FormatA == MatFormatType::Unknown) {
+          std::cerr << "ERROR: transp  formatA " << p_FormatA << " is not valid\n";
+          ok = false;
+        }
+        if (p_FormatB == MatFormatType::Unknown) {
+          std::cerr << "ERROR: transp  formatB " << p_FormatB << " is not valid\n";
+          ok = false;
+        }
+        
+        return(ok);
+      }
+    void
+    addInstr(
+      ProgramType &p_Program,
+      unsigned int p_M,
+      unsigned int p_N,
+      unsigned int p_LdIn,
+      unsigned int p_LdOut,
+      MatFormatType p_FormatA,
+      MatFormatType p_FormatB,
+      std::string p_handleA,
+      std::string p_handleB,
+      bool p_WithGolden
+    ) {
+    
+    // Dimensions
+    unsigned int l_outRows = p_N;
+    unsigned int l_outCols = p_M;
+    unsigned int l_outLd = p_LdOut;
+    if (p_FormatB == MatFormatType::GvA) {
+      unsigned int l_Width = GEMX_ddrWidth;
+      l_outRows = p_M / l_Width;
+      l_outCols = p_N * l_Width;
+      l_outLd = l_outCols;
+    }
+    
+    // Allocate all pages before getting any address
+    bool l_newAllocA, l_newAllocB;
+    unsigned int l_pageA = p_Program.allocPages(p_handleA, l_newAllocA, p_M * p_LdIn);
+    unsigned int l_pageB = p_Program.allocPages(p_handleB, l_newAllocB, l_outRows * l_outLd);
+    
+    // Get addresses where matrices are stored
+    MatType l_matA(p_M, p_N, p_LdIn, p_Program.getPageAddr(l_pageA));
+    MatType l_matB(l_outRows, l_outCols, l_outLd, p_Program.getPageAddr(l_pageB));
+    
+    // Instruction
+    DdrMatrixShapeType l_srcShape(l_pageA,  p_M, p_N, p_LdIn,  0, p_FormatA),
+                       l_dstShape(l_pageB, l_outRows, l_outCols, l_outLd, 0, p_FormatB);
+    TranspArgsType l_transpArgs(
+        l_srcShape, l_dstShape
+      );
+    KargsType l_kargs;
+    l_kargs.setTranspArgs(l_transpArgs);
+    l_kargs.store(p_Program.addInstr(), 0);
+
+    if (l_newAllocA) {
+      l_matA.fillMod(std::numeric_limits<GEMX_dataType>::max());
+    }
+    if (l_newAllocB) {
+      l_matB.fillMod(7);
+    }
+    
+    // Calculate reference C = A * B
+    if (p_WithGolden) {
+      if (p_FormatB == MatFormatType::Cm) {
+        l_matB.transpose(l_matA);
+      } else if (p_FormatB == MatFormatType::GvA) {
+        l_matB.transposeGva(l_matA, GEMX_ddrWidth * GEMX_gemvmGroups, GEMX_ddrWidth);
+      } else {
+        assert(false);
+      }
+    }
+    std::cout << "Added TRANSP " << p_M << "x" << p_N << "  ";
+  }
+  void
+  show(
+      ProgramType &p_Program,
+      TranspArgsType p_TranspArgs
+    ) {
+      DdrMatrixShapeType l_src = p_TranspArgs.m_Src,
+                          l_dst = p_TranspArgs.m_Dst;
+      unsigned int l_pageA = l_src.m_Offset,
+                   l_pageB = l_dst.m_Offset;
+      MatType l_matA(l_src.m_Rows, l_src.m_Cols, l_src.m_Ld, p_Program.getPageAddr(l_pageA));
+      MatType l_matB(l_dst.m_Rows, l_dst.m_Cols, l_dst.m_Ld, p_Program.getPageAddr(l_pageB));
+      std::cout << "\n###########  Op Transp  ###########\n"
+        << "  " << l_src << "  ->  " << l_dst << "\n"
+        << "  A  Page=" << l_pageA << "  " << l_matA << "\n"
+        << "  B  Page=" << l_pageB << "  " << l_matB << "\n";
+    }
+  bool
+  compare(
+      float p_TolRel, float p_TolAbs, 
+      ProgramType &p_Program0, ProgramType &p_Program1,
+      TranspArgsType p_TranspArgs
+    ) {
+      DdrMatrixShapeType l_src = p_TranspArgs.m_Src,
+                         l_dst = p_TranspArgs.m_Dst;
+      unsigned int l_pageA = l_src.m_Offset,
+                   l_pageB = l_dst.m_Offset;
+      MatType l_matB0(l_dst.m_Rows, l_dst.m_Cols, l_dst.m_Ld, p_Program0.getPageAddr(l_pageB)),
+              l_matB1(l_dst.m_Rows, l_dst.m_Cols, l_dst.m_Ld, p_Program1.getPageAddr(l_pageB));
+      std::cout << "\n###########  Op Transp  ###########\n"
+        << "  " << l_src << "  ->  " << l_dst << "\n"
+        << "  Comparing ...\n";
+      bool ok = l_matB1.cmp(p_TolRel, p_TolAbs, l_matB0);
+      std::cout << "Transp B " << (ok ? "Matches" : "Differs") << "\n";
+      return(ok);
+    }
+};
 
 #endif

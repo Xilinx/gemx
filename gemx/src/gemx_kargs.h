@@ -29,7 +29,7 @@
 /**
  *  @brief Kernet argrument handling
  *
- *  $DateTime: 2017/10/24 03:52:34 $
+ *  $DateTime: 2018/02/13 14:44:57 $
  */
 
 #ifndef GEMX_KARGS_H
@@ -142,37 +142,57 @@ class SpmvArgs {
       {}
 };
 
+class SpmvArgsUram {
+  public:
+    unsigned int m_AdataOffset, m_AidOffset, m_Boffset, m_Coffset,
+                 m_M, m_K, m_Nnz;
+  public:
+    SpmvArgsUram() {}
+    SpmvArgsUram(
+        unsigned int p_AdataOffset, unsigned int p_AidOffset, unsigned int p_Boffset, unsigned int p_Coffset,
+        unsigned int p_M, unsigned int p_K, unsigned int p_Nnz
+      ) : m_AdataOffset(p_AdataOffset), m_AidOffset(p_AidOffset), m_Boffset(p_Boffset),  m_Coffset(p_Coffset),
+          m_M(p_M), m_K(p_K), m_Nnz(p_Nnz)
+      {}
+};
 
 //////////////////////////// GEMM ////////////////////////////
 class GemmArgs {
   public:
-    unsigned int m_Aoffset, m_Boffset, m_Coffset,
+    unsigned int m_Aoffset, m_Boffset, m_Coffset, m_Xoffset,
                  m_M, m_K, m_N,
-                 m_Lda, m_Ldb, m_Ldc;
+                 m_Lda, m_Ldb, m_Ldc, m_Ldx;
+		int32_t	m_postScale;
   public:
     GemmArgs() {}
     GemmArgs(
-        unsigned int p_Aoffset, unsigned int p_Boffset, unsigned int p_Coffset,
+        unsigned int p_Aoffset, unsigned int p_Boffset, unsigned int p_Coffset, unsigned int p_Xoffset,
         unsigned int p_M, unsigned int p_K, unsigned int p_N,
-        unsigned int p_Lda, unsigned int p_Ldb, unsigned int p_Ldc
-      ) : m_Aoffset(p_Aoffset), m_Boffset(p_Boffset),  m_Coffset(p_Coffset),
+        unsigned int p_Lda, unsigned int p_Ldb, unsigned int p_Ldc, unsigned int p_Ldx,
+				int32_t p_postScale
+      ) : m_Aoffset(p_Aoffset), m_Boffset(p_Boffset),  m_Coffset(p_Coffset), m_Xoffset(p_Xoffset),
           m_M(p_M), m_K(p_K), m_N(p_N),
-          m_Lda(p_Lda),  m_Ldb(p_Ldb),  m_Ldc(p_Ldc) 
+          m_Lda(p_Lda),  m_Ldb(p_Ldb),  m_Ldc(p_Ldc), m_Ldx(p_Ldx),
+					m_postScale(p_postScale) 
       {}
 	void
 	init(
-        unsigned int p_Aoffset, unsigned int p_Boffset, unsigned int p_Coffset,
+        unsigned int p_Aoffset, unsigned int p_Boffset, unsigned int p_Coffset, unsigned int p_Xoffset,
         unsigned int p_M, unsigned int p_K, unsigned int p_N,
-        unsigned int p_Lda, unsigned int p_Ldb, unsigned int p_Ldc) {
+        unsigned int p_Lda, unsigned int p_Ldb, unsigned int p_Ldc, unsigned int p_Ldx,
+				int32_t p_postScale) {
       m_Aoffset=p_Aoffset;
- 	  m_Boffset=p_Boffset;
+ 	  	m_Boffset=p_Boffset;
       m_Coffset=p_Coffset;
+			m_Xoffset=p_Xoffset;
       m_M=p_M;
-	  m_K=p_K;
-	  m_N=p_N;
+	  	m_K=p_K;
+	  	m_N=p_N;
       m_Lda=p_Lda;
-	  m_Ldb=p_Ldb;
-	  m_Ldc=p_Ldc; 
+	  	m_Ldb=p_Ldb;
+	  	m_Ldc=p_Ldc; 
+			m_Ldx=p_Ldx;
+			m_postScale = p_postScale;
 	}
 };
 
@@ -487,12 +507,15 @@ class Kargs
       loadVal(l_args.m_Aoffset);
       loadVal(l_args.m_Boffset);
       loadVal(l_args.m_Coffset);
+			loadVal(l_args.m_Xoffset);
       loadVal(l_args.m_M);
       loadVal(l_args.m_K);
       loadVal(l_args.m_N);
       loadVal(l_args.m_Lda);
       loadVal(l_args.m_Ldb);
       loadVal(l_args.m_Ldc);
+			loadVal(l_args.m_Ldx);
+			loadVal(l_args.m_postScale);
       GemmArgs l_ret = hlsReg<GemmArgs, t_ArgPipeline>(l_args);
       return l_ret;
     }
@@ -504,12 +527,15 @@ class Kargs
       storeVal(p_args.m_Aoffset);
       storeVal(p_args.m_Boffset);
       storeVal(p_args.m_Coffset);
+			storeVal(p_args.m_Xoffset);
       storeVal(p_args.m_M);
       storeVal(p_args.m_K);
       storeVal(p_args.m_N);
       storeVal(p_args.m_Lda);
       storeVal(p_args.m_Ldb);
       storeVal(p_args.m_Ldc);
+			storeVal(p_args.m_Ldx);
+			storeVal(p_args.m_postScale);
     }
 
     TranspArgs
@@ -579,7 +605,6 @@ class Kargs
       storeVal(p_args.m_Cblocks);
       storeVal(p_args.m_DescPages);
     }
-
     static unsigned int
     getInstrWidth() {return(t_InstrWidth);}
 };

@@ -29,7 +29,7 @@
 /**
  *  @brief Kernel API header file
  *
- *  $DateTime: 2017/10/27 09:54:34 $
+ *  $DateTime: 2018/03/09 06:16:16 $
  */
 
 #ifndef GEMX_KERNEL_H
@@ -40,6 +40,7 @@
 #include "gemx_gemv.h"
 #include "gemx_gemm.h"
 #include "gemx_transp.h"
+
 #include "gemx_spmv.h"
 
 // Location of code aand data segements in DDR memory
@@ -85,14 +86,15 @@ typedef gemx::Gemv<
   > GemvType;
 
 typedef gemx::Gemm<
-	GEMX_dataType, GEMX_ddrWidth, GEMX_gemmKBlocks, GEMX_gemmMBlocks, GEMX_gemmNBlocks
+	GEMX_dataType, GEMX_dataEqIntType, GEMX_XdataType, GEMX_ddrWidth, GEMX_XddrWidth, GEMX_gemmKBlocks, GEMX_gemmMBlocks, GEMX_gemmNBlocks, GEMX_macBits
 > GemmType;
 
 typedef gemx::Transp<
     GEMX_dataType, GEMX_ddrWidth,
     GEMX_transpBlocks,
-    GEMX_gemvmGroups
+    GEMX_transpBlocks
   > TranspType;
+
 typedef gemx::Spmv<
     GEMX_dataType, GEMX_dataEqIntType,
     GEMX_ddrWidth, GEMX_spmvWidth,

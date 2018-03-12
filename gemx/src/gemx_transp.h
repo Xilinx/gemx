@@ -29,7 +29,7 @@
 /**
  *  @brief DDR-to-DDR matrix transposer and formatter
  *
- *  $DateTime: 2017/10/27 09:54:34 $
+ *  $DateTime: 2018/01/09 05:28:55 $
  */
 
 #ifndef GEMX_TRANSP_H
@@ -136,7 +136,7 @@ return;
 }
 
 void WR_buffer(DdrStream &wrStream, DdrStream &shuffleStream, unsigned int numOfBlocks) {
-	bool finish = false;
+	bool finish = (numOfBlocks == 0);
 	enum STATE{IDLE=0, WRITE, READ} mState=IDLE;
 
 	t_FloatType localBuffer[t_DdrWidth][t_rowBlockLength*t_colBlockLength/t_DdrWidth];
@@ -261,6 +261,7 @@ void split(DdrStream &inStream, DdrStream &outStream, DdrStream &outStreamNext, 
 		}
 	}
 }
+
 void WR_bufferWithReuse(DdrStream &wrStream, DdrStream &shuffleStream, unsigned int numOfBlocks, unsigned int numOfReuse) {
 //after first WRITE, the READ state is gone over numOfReuse times to reuse the transposed block again and again
 	bool finish = (numOfBlocks == 0);
@@ -409,6 +410,7 @@ void merge(DdrStream &inStream, DdrStream &inStreamNext, DdrStream &outStream, u
 		}
 	}
 }
+
 void mergeWithReuse(DdrStream &inStream, DdrStream &inStreamNext, DdrStream &outStream, unsigned int numOfBlocks, unsigned int numOfReuse) {
 	
 	for (int i=0; i<numOfBlocks; ++i) {
@@ -495,14 +497,11 @@ void load_matrix(DdrWideType *l_AddrRd, unsigned int l_srcWordLd, unsigned int l
 	unsigned short l_colBlock = 0;
 	bool finish = false;
 	
-	//for (unsigned short l_rowBlock = 0; l_rowBlock < l_rowBlocks; ++l_rowBlock) {
-	//while (l_rowBlock < l_rowBlocks){
 	while (!finish){
-		//for (unsigned short l_colBlock = 0; l_colBlock < l_colBlocks; ++l_colBlock) {
 		l_srcOffset = rowOffset + colOffset; //l_rowBlock * t_rowBlockLength * l_srcWordLd + l_colBlock * t_colMemWords;
 		for (unsigned short row = 0; row < t_rowBlockLength; ++row) {
-		#pragma HLS PIPELINE
 			for (unsigned short colWord= 0; colWord < t_colMemWords; ++colWord) {
+			#pragma HLS PIPELINE
 				DdrWideType l_word = l_AddrRd[l_srcOffset + colWord];
 				fromMemStream.write(l_word);
 			}
@@ -533,12 +532,10 @@ void store_matrix(DdrStream &toMemStream, DdrWideType *l_AddrWr, unsigned int l_
 	bool finish=false;
 	
 	while (!finish){
-	//for (unsigned int l_rowBlock = 0; l_rowBlock < l_rowBlocks; ++l_rowBlock) {
-		//for (unsigned int l_colBlock = 0; l_colBlock < l_colBlocks; ++l_colBlock) {
 			l_dstOffset = colOffset + rowOffset; //l_colBlock * t_colBlockLength*l_dstWordLd+l_rowBlock * t_rowMemWords;
 			for (unsigned short row = 0; row < t_colBlockLength; ++row) {
-			#pragma HLS PIPELINE
 				for (unsigned short colWord = 0; colWord < t_rowMemWords; ++colWord) {
+				#pragma HLS PIPELINE
 					DdrWideType l_word;
 					toMemStream.read(l_word);
 					l_AddrWr[l_dstOffset + colWord] = l_word;
@@ -547,7 +544,6 @@ void store_matrix(DdrStream &toMemStream, DdrWideType *l_AddrWr, unsigned int l_
 			}
 			colOffset += t_colBlockLength*l_dstWordLd;
 			l_colBlock++;
-		//}
 		if (l_colBlock >= l_colBlocks){
 			l_colBlock = 0;
 			colOffset = 0;
@@ -567,8 +563,6 @@ void store_matrixGVA(DdrStream &toMemStream, DdrWideType *l_AddrWr, unsigned int
 	bool finish=false;
 	
 	while (!finish){
-	//for (unsigned int l_rowBlock = 0; l_rowBlock < l_rowBlocks; ++l_rowBlock) {
-		//for (unsigned int l_colBlock = 0; l_colBlock < l_colBlocks; ++l_colBlock) {
 			p_dstOffset = l_dstOffset;
 			for (unsigned short row = 0; row < t_colBlockLength; ++row) {
 			#pragma HLS PIPELINE
@@ -580,7 +574,6 @@ void store_matrixGVA(DdrStream &toMemStream, DdrWideType *l_AddrWr, unsigned int
 				}
 			}
 			l_colBlock++;
-		//}
 		if (l_colBlock >= l_colBlocks){
 			l_colBlock = 0;
 			l_rowBlock++;
@@ -598,6 +591,10 @@ void transp_matrix_blocks(DdrWideType *l_AddrRd, unsigned int l_srcWordLd, unsig
 
 	DdrStream fromMemStream("fromMemStream");
 	DdrStream wrStream("wrStream");
+	DdrStream wrStream1("wrStream1");
+	DdrStream wrStream2("wrStream2");
+	DdrStream shuffleStream1("shuffleStream1");
+	DdrStream shuffleStream2("shuffleStream2");
 	DdrStream shuffleStream("shuffleStream");
 	DdrStream toMemStream("toMemStream");
 	
@@ -607,6 +604,18 @@ void transp_matrix_blocks(DdrWideType *l_AddrRd, unsigned int l_srcWordLd, unsig
 	#pragma HLS DATA_PACK variable=wrStream
 	#pragma HLS STREAM variable=wrStream depth=4
 	
+	#pragma HLS DATA_PACK variable=wrStream1
+	#pragma HLS STREAM variable=wrStream1 depth=4
+
+	#pragma HLS DATA_PACK variable=wrStream2
+	#pragma HLS STREAM variable=wrStream2 depth=4
+
+	#pragma HLS DATA_PACK variable=shuffleStream1
+	#pragma HLS STREAM variable=shuffleStream1 depth=4
+
+	#pragma HLS DATA_PACK variable=shuffleStream2
+	#pragma HLS STREAM variable=shuffleStream2 depth=4
+
 	#pragma HLS DATA_PACK variable=shuffleStream
 	#pragma HLS STREAM variable=shuffleStream depth=4
 	
@@ -615,7 +624,11 @@ void transp_matrix_blocks(DdrWideType *l_AddrRd, unsigned int l_srcWordLd, unsig
 
 	load_matrix(l_AddrRd, l_srcWordLd, l_rowBlocks, l_colBlocks, fromMemStream);
 	shuffle_input(fromMemStream, wrStream, numOfBlocks);
-	WR_buffer(wrStream, shuffleStream, numOfBlocks);
+	//WR_buffer(wrStream, shuffleStream, numOfBlocks);
+	split(wrStream, wrStream1, wrStream2, numOfBlocks);
+	WR_buffer(wrStream1, shuffleStream1, ((numOfBlocks/2) + (numOfBlocks%2)));
+	WR_buffer(wrStream2, shuffleStream2, numOfBlocks/2);
+	merge(shuffleStream1, shuffleStream2, shuffleStream, numOfBlocks);
 	shuffle_output(shuffleStream, toMemStream, numOfBlocks);
 	store_matrix(toMemStream, l_AddrWr, l_dstWordLd, l_rowBlocks, l_colBlocks); 
 }

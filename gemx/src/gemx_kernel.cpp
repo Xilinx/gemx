@@ -29,7 +29,7 @@
 /**
  *  @brief FPGA SGEMM accelerator kernel
  *
- *  $DateTime: 2017/10/27 09:54:34 $
+ *  $DateTime: 2018/02/05 02:36:41 $
  */
 
 #include <assert.h>
@@ -157,8 +157,8 @@ GEMX_EVALUATOR(gemxKernel_, GEMX_kernelId)
     DdrType *p_DdrWr
   )
 {
-  #pragma HLS INTERFACE m_axi port=p_DdrRd offset=slave bundle=gmemM  num_write_outstanding=16 num_read_outstanding=16 max_write_burst_length=16 max_read_burst_length=16 depth=16 latency=125
-  #pragma HLS INTERFACE m_axi port=p_DdrWr offset=slave bundle=gmemM  num_write_outstanding=16 num_read_outstanding=16 max_write_burst_length=16 max_read_burst_length=16 depth=16 latency=125
+  #pragma HLS INTERFACE m_axi port=p_DdrRd offset=slave bundle=gmemm  num_write_outstanding=16 num_read_outstanding=16 max_write_burst_length=16 max_read_burst_length=16 depth=16 latency=125
+  #pragma HLS INTERFACE m_axi port=p_DdrWr offset=slave bundle=gmemm  num_write_outstanding=16 num_read_outstanding=16 max_write_burst_length=16 max_read_burst_length=16 depth=16 latency=125
 
   #pragma HLS INTERFACE s_axilite port=p_DdrRd bundle=control
   #pragma HLS INTERFACE s_axilite port=p_DdrWr bundle=control

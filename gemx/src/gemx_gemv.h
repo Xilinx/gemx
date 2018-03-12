@@ -29,7 +29,7 @@
 /**
  *  @brief GEMV based on GEMM-A format input
  *
- *  $DateTime: 2017/10/27 09:54:34 $
+ *  $DateTime: 2018/01/11 03:35:36 $
  */
 
 #ifndef GEMX_GEMV_H
@@ -130,20 +130,22 @@ void multA(DdrStream &inStream, unsigned int l_rowBlocks, unsigned int l_colBloc
 
 		for (int l_rowBlockCounter=0; l_rowBlockCounter < l_rowBlocks; ++l_rowBlockCounter){
 			l_IdxBaseC = l_rowBlockCounter * t_rowMemWords;
-			for (int i=0; i<t_DdrWidth; ++i){
+			LOOP_REGC:for (int i=0; i<t_DdrWidth; ++i){
+			#pragma HLS UNROLL
 				l_C[i] = m_C[i][l_rowBlockCounter];
 			}
-			for (int l_colBlockCounter=0; l_colBlockCounter < l_colBlocks; ++l_colBlockCounter){
+			LOOP_MUL_ROW:for (int l_colBlockCounter=0; l_colBlockCounter < l_colBlocks; ++l_colBlockCounter){
 				l_IdxBaseB = l_colBlockCounter * t_colMemWords;
-				for (int l_colMemWordCounter = 0; l_colMemWordCounter < t_colMemWords; ++l_colMemWordCounter){
-					for (int i=0; i<t_DdrWidth; ++i){
+				LOOP_MUL_BLOCK:for (int l_colMemWordCounter = 0; l_colMemWordCounter < t_colMemWords; ++l_colMemWordCounter){
+					LOOP_REGB:for (int i=0; i<t_DdrWidth; ++i){
+					#pragma HLS UNROLL
 						l_B[i] = m_B[i][l_IdxBaseB+l_colMemWordCounter];
 					}
-					for (int l_colCounter =0; l_colCounter < t_DdrWidth; ++l_colCounter){
-			#pragma HLS PIPELINE II=1
+					LOOP_MULT:for (int l_colCounter =0; l_colCounter < t_DdrWidth; ++l_colCounter){
+					#pragma HLS PIPELINE II=1
 						l_valA = inStream.read();
 						for (int i=0; i< t_DdrWidth; ++i){
-#pragma HLS UNROLL
+						#pragma HLS UNROLL
 							l_C[i] += l_valA[i] * l_B[l_colCounter];
 						}
 					}
@@ -181,8 +183,25 @@ void gemv_blocks(DdrWideType *l_aAddr, unsigned int l_srcWordLd, unsigned int l_
 
 	DdrStream aWrStream("aWrStream");
 	#pragma HLS DATA_PACK variable=aWrStream
-	#pragma HLS STREAM variable=aWrStream depth=t_colMemWords*t_DdrWidth
+	#pragma HLS STREAM variable=aWrStream depth=4
+	//#pragma HLS STREAM variable=aWrStream depth=t_colMemWords*t_DdrWidth
 	
+	DdrStream aWrStream1("aWrStream1");
+	#pragma HLS DATA_PACK variable=aWrStream1
+	#pragma HLS STREAM variable=aWrStream1 depth=4
+
+	DdrStream aWrStream2("aWrStream2");
+	#pragma HLS DATA_PACK variable=aWrStream2
+	#pragma HLS STREAM variable=aWrStream2 depth=4
+
+	DdrStream aShuffleStream1("aShuffleStream1");
+	#pragma HLS DATA_PACK variable=aShuffleStream1
+	#pragma HLS STREAM variable=aShuffleStream1 depth=4
+
+	DdrStream aShuffleStream2("aShuffleStream2");
+	#pragma HLS DATA_PACK variable=aShuffleStream2
+	#pragma HLS STREAM variable=aShuffleStream2 depth=4
+
 	DdrStream aShuffleStream("aShuffleStream");
 	#pragma HLS DATA_PACK variable=aShuffleStream
 	#pragma HLS STREAM variable=aShuffleStream depth=4
@@ -195,7 +214,11 @@ void gemv_blocks(DdrWideType *l_aAddr, unsigned int l_srcWordLd, unsigned int l_
 
 	l_Transp.load_matrix(l_aAddr, l_srcWordLd, l_rowBlocks, l_colBlocks, aStream);
 	l_Transp.shuffle_input(aStream, aWrStream, numOfBlocks);
-	l_Transp.WR_buffer(aWrStream, aShuffleStream, numOfBlocks);
+	//l_Transp.WR_buffer(aWrStream, aShuffleStream, numOfBlocks);
+	l_Transp.split(aWrStream, aWrStream1, aWrStream2, numOfBlocks);
+	l_Transp.WR_buffer(aWrStream1, aShuffleStream1, ((numOfBlocks / 2) + (numOfBlocks % 2)));
+	l_Transp.WR_buffer(aWrStream2, aShuffleStream2, numOfBlocks / 2);
+	l_Transp.merge(aShuffleStream1, aShuffleStream2, aShuffleStream, numOfBlocks);
 	l_Transp.shuffle_output(aShuffleStream, aTranspStream, numOfBlocks);
 	multA(aTranspStream, l_rowBlocks, l_colBlocks);
 }

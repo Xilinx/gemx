@@ -13,7 +13,8 @@ HWEMUGUI = 0
 
 #DSA_PATH=/proj/xbuilds/2017.2_sdx_released/installs/lin64/SDx/2017.2/platforms
 DSA_PATH=${XILINX_SDX}/platforms
-GCC_PATH=${XILINX_VIVADO}/tps/lnx64
+#GCC_PATH=${XILINX_VIVADO}/tps/lnx64
+GCC_PATH=/tools/batonroot/rodin/devkits/lnx64
 BOOST_SRC=${PWD}/../boost/src
 BOOST_LIB=${PWD}/../boost/lib
 export BOOST_COMPUTE_DEFAULT_VENDOR=Xilinx
@@ -121,14 +122,14 @@ else
   $(error Unknown GEMX_part ${GEMX_part})
 endif
 
-ifeq ("$(wildcard $(XDEVICE_REPO_PATH))","")
-  ifeq ("$(wildcard $(PLATFORM_REPO_PATH))","")
-    $(error Missing DSA or platform repo)
-  endif
-endif
-ifeq ("$(XDEVICE))","")
-  $(error XDEVICE)
-endif
+#ifeq ("$(wildcard $(XDEVICE_REPO_PATH))","")
+#  ifeq ("$(wildcard $(PLATFORM_REPO_PATH))","")
+#    $(error Missing DSA or platform repo)
+#  endif
+#endif
+#ifeq ("$(XDEVICE))","")
+#  $(error XDEVICE)
+#endif
 
 
 KERNEL_CU_OPTS = --nk gemxKernel_0:1:gemxKernel_0
@@ -292,9 +293,9 @@ XCLBIN_FREQ=xclbin_get_freq.pl
 
 #################################################################
 
-ifndef XILINX_SDX
-$(error Environment variable XILINX_SDX is required and should point to SDAccel install area)
-endif
+#ifndef XILINX_SDX
+#$(error Environment variable XILINX_SDX is required and should point to SDAccel install area)
+#endif
 
 SHELL = /bin/bash
 VPATH = ${PWD}

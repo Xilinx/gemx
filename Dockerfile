@@ -1,5 +1,4 @@
-#FROM xilinxatg/sdx:2017.4
-FROM xilinxatg/sdx_dev
+FROM xilinxatg/sdx_dev:2017.4
 
 ADD /gemx /data/gemx
 ADD /boost /data/boost

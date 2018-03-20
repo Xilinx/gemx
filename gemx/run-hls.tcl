@@ -45,12 +45,18 @@ set pwd [pwd]
 set pid [pid]
 
 set GCC_VERSION 6.2.0
+set VIVADO_PATH $::env(XILINX_VIVADO)
+set GCC_PATH ${VIVADO_PATH}/tps/lnx64
 
 # 4x4 int16
 array set opt {
   dataType        short
   dataEqIntType   short
+  XdataType       int32_t
   ddrWidth        4
+  XddrWidth       2
+  macBits         48
+  keepMacBits     0
   argInstrWidth   8   
   numInstr       16
   numKernels      1
@@ -102,13 +108,13 @@ foreach o [lsort [array names opt]] {
 }
 #quit
 
-set BOOST_SRC $pwd/../boost/src
+set BOOST_SRC $pwd/../boost/compute/include
 set BOOST_LIB $pwd/../boost/lib
 set CFLAGS_K "-I $pwd/src  $OPT_FLAGS -D GEMX_kernelId=0 "
 set CFLAGS_H "$CFLAGS_K -g -I $BOOST_SRC"
 
 
-set proj_dir [format prj_hls_%s_%sx%s  $opt(part) $opt(gemmMeshRows) $opt(gemmMeshCols) ]
+set proj_dir [format prj_hls_%s  $opt(part) ]
 open_project $proj_dir -reset
 set_top gemxKernel_0
 
@@ -120,7 +126,7 @@ open_solution "solution1"
 config_compile -ignore_long_run_time
 #config_schedule -effort medium -verbose
 
-if {$opt(part) == "ku115"} {
+if {$opt(part) == "kcu1500"} {
   set_part {xcku115-flvb2104-2-e} -tool vivado
 } else {
   set_part {xcvu9p-flgb2104-2-i} -tool vivado
@@ -134,7 +140,9 @@ set run_args "gemx.xclbin $pwd/out_host/app.bin $pwd/$proj_dir/app_out.bin"
 
 if {$opt(doCsim)} {
   puts "***** C SIMULATION *****"
-  csim_design -ldflags "-L$BOOST_LIB -lboost_iostreams -lz -lrt -L/usr/lib64 -lstdc++ -Wl,--rpath=${BOOST_LIB} -Wl,--rpath=/usr/lib64" -argv "$run_args"
+  csim_design -ldflags "-L$BOOST_LIB -lboost_iostreams -lz -lrt -L${GCC_PATH}/gcc-${GCC_VERSION}/lib64 \
+               -lstdc++ -Wl,--rpath=${BOOST_LIB} \
+               -Wl,--rpath=${GCC_PATH}/gcc-${GCC_VERSION}/lib64" -argv "$run_args"
 }
 
 if {$opt(doRTLsynth)} {

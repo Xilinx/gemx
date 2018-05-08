@@ -111,10 +111,10 @@ else ifeq (${GEMX_part},vcu1525)
   PLATFORM_REPO_PATH=$(XILINX_SDX)/platforms/${DSA_PLATFORM}
   XOPENCL_LIB_PATH=${PLATFORM_REPO_PATH}/sw/lib/x86_64
 else ifeq (${GEMX_part},ku115)
-  DSA=5_0
-  XDEVICE_COLON=xilinx:xil-accel-rd-ku115:dynamic:$(subst _,.,${DSA})
-  XDEVICE=xilinx_xil-accel-rd-ku115_dynamic_${DSA}
-  DSA_PLATFORM=xilinx_xil-accel-rd-ku115_dynamic_${DSA}
+  DSA=4_0
+  XDEVICE_COLON=xilinx:xil-accel-rd-ku115:4ddr-xpr:$(subst _,.,${DSA})
+  XDEVICE=xilinx_xil-accel-rd-ku115_4ddr-xpr_${DSA}
+  DSA_PLATFORM=xilinx_xil-accel-rd-ku115_4ddr-xpr_${DSA}
   XDEVICE_REPO_PATH=$(DSA_PATH)
   PLATFORM_REPO_PATH=$(DSA_PATH)/${DSA_PLATFORM}
   XOPENCL_LIB_PATH=${DSA_PATH}/../runtime/lib/x86_64

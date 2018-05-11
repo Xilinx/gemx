@@ -41,7 +41,11 @@
 #include "gemx_gemm.h"
 #include "gemx_transp.h"
 
+#if GEMX_useURAM
+#include "gemx_spmv_coo.h"
+#else
 #include "gemx_spmv.h"
+#endif 
 
 // Location of code aand data segements in DDR memory
 #define GEMX_codePage 0
@@ -95,6 +99,17 @@ typedef gemx::Transp<
     GEMX_transpBlocks
   > TranspType;
 
+#if GEMX_useURAM
+typedef gemx::SpmvCoo<
+    GEMX_dataType,
+		GEMX_idxType,
+    GEMX_ddrWidth,
+		GEMX_nnzBlocks,
+		GEMX_spmvKmaxBlocks,
+		GEMX_spmvMmaxBlocks,
+		GEMX_spmvUramGroups
+  > SpmvType;
+#else
 typedef gemx::Spmv<
     GEMX_dataType, GEMX_dataEqIntType,
     GEMX_ddrWidth, GEMX_spmvWidth,
@@ -104,6 +119,7 @@ typedef gemx::Spmv<
     GEMX_spmvNumCblocks,
     GEMX_spmvFloatPerDesc
   > SpmvType;
+#endif
 
 typedef gemx::TimeStamp<GEMX_numInstr> TimeStampType;
 

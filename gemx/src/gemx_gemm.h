@@ -29,7 +29,7 @@
 /**
  *  @brief GEMM header
  *
- *  $DateTime: 2018/03/01 11:27:15 $
+ *  $DateTime: 2018/04/17 11:10:24 $
  */
 
 #ifndef GEMX_GEMM_H
@@ -69,16 +69,22 @@ class Gemm
   typedef WideType<t_FloatType, t_DdrWidth> DdrWideType;
   typedef TaggedFloat<t_FloatType> TaggedFloatType;
 	typedef TaggedWideType<t_FloatType, t_DdrWidth> TaggedWideFloat;
-	typedef WideType<TaggedFloatType, t_DdrWidth> TaggedFloatArray; 
+	typedef WideType<TaggedFloatType, t_DdrWidth> TaggedFloatArray;
+	typedef ExitTaggedWideType<TaggedFloatType, t_DdrWidth> ExitTaggedFloatArray;
+ 
 	typedef hls::stream<DdrWideType> DdrStream;
 	typedef hls::stream<TaggedWideFloat> EdgeStream;
+	typedef hls::stream<ExitTaggedFloatArray> ExitTaggedFloatStream;
 
 	typedef WideType<t_FloatType, t_DdrWidth/2> HalfDdrWideType;
-	typedef ExitTaggedWideType<t_FloatType, t_DdrWidth/2> HalfTaggedDdrWideType;
+	typedef ExitTaggedWideType<t_FloatType, t_DdrWidth/2> HalfExitTaggedWideType;
 	typedef TaggedWideType<t_FloatType, t_DdrWidth/2> HalfTaggedWideFloat;
 	typedef WideType<TaggedFloatType, t_DdrWidth/2> HalfTaggedFloatArray; 
-	typedef hls::stream<HalfTaggedDdrWideType> HalfTaggedDdrStream;
+	typedef ExitTaggedWideType<TaggedFloatType, t_DdrWidth/2> HalfExitTaggedFloatArray;
+
+	typedef hls::stream<HalfExitTaggedWideType> HalfExitTaggedDdrStream;
 	typedef hls::stream<HalfTaggedWideFloat> HalfEdgeStream;
+	typedef hls::stream<HalfExitTaggedFloatArray> HalfExitTaggedFloatStream;
 
 	typedef WideType<t_XDataType, t_XDdrWidth> XDdrWideType;
 	typedef hls::stream<XDdrWideType> XDdrStream;
@@ -102,8 +108,8 @@ class Gemm
 	typedef DdrStream WideMacBitStream;
 
 	typedef HalfDdrWideType HalfWideMacBitType;
-	typedef HalfTaggedDdrWideType HalfTaggedWideMacBitType;
-	typedef HalfTaggedDdrStream HalfTaggedWideMacBitStream;
+	typedef HalfExitTaggedWideType HalfTaggedWideMacBitType;
+	typedef HalfExitTaggedDdrStream HalfTaggedWideMacBitStream;
 	typedef HalfEdgeStream HalfWideMacBitStream;
 	#endif
 	
@@ -180,27 +186,80 @@ class Gemm
           p_C = p_A * p_B + (p_Flush ? 0 : p_C);
           #endif
         }
-      
-    ///////////////////////////////////////////////////////////////////////////
-    //GemmSplitEdges
-    // Gemm split t_DdrWidth Edge stream into two half size edge stream
+    
+		///////////////////////////////////////////////////////////////////////////
+		//Gemm delay A B
     ///////////////////////////////////////////////////////////////////////////
     void
-		GemmSplitEdges(
-			EdgeStream &p_InS,
-			HalfEdgeStream &p_Out0S,
-			HalfEdgeStream &p_Out1S
+    GemmDelayAB(
+        EdgeStream &p_As,
+        EdgeStream &p_Bs,
+				ExitTaggedFloatStream &p_taggedAs,
+				ExitTaggedFloatStream &p_taggedBs
+      ) {
+      //#pragma HLS inline region off
+      bool l_exit;
+
+      TriangSrl<TaggedFloatType, t_DdrWidth> l_Ta;
+      TriangSrl<TaggedFloatType, t_DdrWidth> l_Tb;
+      
+      #ifndef __SYNTHESIS__
+      	l_Ta.clear();
+      	l_Tb.clear();
+      #endif
+      
+      GEMM_DELAY_DO:do {
+        #pragma HLS LOOP_TRIPCOUNT min=1 max=16
+        #pragma HLS PIPELINE
+        
+        
+        TaggedWideFloat l_a = p_As.read();
+        TaggedWideFloat l_b = p_Bs.read();
+        #ifndef __SYNTHESIS__
+          (t_debug >= 1) && std::cout << "    GemmDelay Received A " << l_a << "\n";
+          (t_debug >= 1) && std::cout << "    GemmDelay Received B " << l_b << "\n";
+        #endif
+        bool l_exitA = l_a.getExit();
+        bool l_exitB = l_b.getExit();
+        assert(l_exitA == l_exitB);
+        l_exit = l_exitA;
+        
+        TaggedFloatArray l_avec = l_a.getVectOfTaggedValues();
+        TaggedFloatArray l_bvec = l_b.getVectOfTaggedValues();
+        
+        TaggedFloatArray l_avec1 = l_Ta.shift(l_avec);
+        TaggedFloatArray l_bvec1 = l_Tb.shift(l_bvec);
+
+				ExitTaggedFloatArray l_aOut(l_avec1, l_exit);
+				ExitTaggedFloatArray l_bOut(l_bvec1, l_exit);
+       
+				p_taggedAs.write(l_aOut);
+ 				p_taggedBs.write(l_bOut);
+      
+     } while (!l_exit);
+   }
+    
+
+    ///////////////////////////////////////////////////////////////////////////
+    //GemmSplitDL
+    // Gemm split t_DdrWidth TaggedFloat stream into two half size TaggedFloat stream
+    ///////////////////////////////////////////////////////////////////////////
+    void
+		GemmSplitDL(
+			ExitTaggedFloatStream &p_InS,
+			HalfExitTaggedFloatStream &p_Out0S,
+			HalfExitTaggedFloatStream &p_Out1S
 		){
-			TaggedWideFloat l_in;
-			HalfDdrWideType l_val0, l_val1;
 			bool l_exit=false;
-			bool l_flush=false;
+			ExitTaggedFloatArray l_in;
+			HalfExitTaggedFloatArray l_val0, l_val1;
 		
 		GemmSplitLoop: do{
 		#pragma HLS PIPELINE
 			l_in = p_InS.read();
-			l_flush = l_in.getFlush();
 			l_exit = l_in.getExit();
+			l_val0.getExit() = l_exit;
+			l_val1.getExit() = l_exit;
 			for (int i=0; i<t_DdrWidth/2; ++i) {
 			#pragma HLS UNROLL
 				l_val0[i] = l_in[i];
@@ -209,46 +268,14 @@ class Gemm
 			#pragma HLS UNROLL
 				l_val1[i-t_DdrWidth/2] = l_in[i];
 			}
-			HalfTaggedWideFloat l_out0(l_val0, l_flush, l_exit);
-			HalfTaggedWideFloat l_out1(l_val1, l_flush, l_exit);
-			#ifndef __SYNTHESIS__
-				(t_debug>2) && std::cout << "GemmSplitEdges input: " << l_in << std::endl;
-				(t_debug>2) && std::cout << "GemmSplitEdges out0: " << l_out0 << std::endl;
-				(t_debug>2) && std::cout << "GemmSplitEdges out1: " << l_out1 << std::endl;
-			#endif
-			p_Out0S.write(l_out0);
-			p_Out1S.write(l_out1);			
+			p_Out0S.write(l_val0);
+			p_Out1S.write(l_val1);		
 		} while(!l_exit);
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	//GemmDupEdges	
-	// Gemm duplicate HalfEdgeStream
-	///////////////////////////////////////////////////////////////////////////	
-	void
-	GemmDupEdges(
-		HalfEdgeStream &p_InS,
-		HalfEdgeStream &p_Out0S,
-		HalfEdgeStream &p_Out1S
-	) {
-		bool l_exit=false;
-		GemmDupEdgesLoop: do{
-		#pragma HLS PIPELINE
-			HalfTaggedWideFloat l_in = p_InS.read();
-			l_exit = l_in.getExit();
-			
-			#ifndef __SYNTHESIS__
-				(t_debug>2) && std::cout << "GemmDupEdges out0: " << l_in << std::endl;
-				(t_debug>2) && std::cout << "GemmDupEdges out1: " << l_in << std::endl;
-			#endif
-			p_Out0S.write(l_in);
-			p_Out1S.write(l_in);
-		}while(!l_exit);
 	}
 
 	///////////////////////////////////////////////////////////////////////////	
 	//GemmMergeDdrS
-	// Gemm merge 4 HalfTaggedDdrStream into one DdrStream
+	// Gemm merge 4 HalfExitTaggedDdrStream into one DdrStream
 	///////////////////////////////////////////////////////////////////////////	
    	void
 	GemmMergeDdrS(
@@ -299,9 +326,12 @@ class Gemm
     ///////////////////////////////////////////////////////////////////////////
     
     void
-    GemmCalcHalf(
-        HalfEdgeStream &p_As,
-        HalfEdgeStream &p_Bs,
+    GemmCalcHalf00(
+        HalfExitTaggedFloatStream &p_As,
+        HalfExitTaggedFloatStream &p_Bs,
+
+        HalfExitTaggedFloatStream &p_outAs,
+        HalfExitTaggedFloatStream &p_outBs,
         HalfTaggedWideMacBitStream &p_Cs
       ) {
       //#pragma HLS inline region off
@@ -320,13 +350,8 @@ class Gemm
       #pragma HLS ARRAY_PARTITION variable=l_cowin dim=2 complete
       #pragma HLS ARRAY_PARTITION variable=l_cowinSave dim=1 complete
       #pragma HLS ARRAY_PARTITION variable=l_cowinSave dim=2 complete
-      TriangSrl<TaggedFloatType, t_DdrWidth/2> l_Ta;
-      TriangSrl<TaggedFloatType, t_DdrWidth/2> l_Tb;
-      //bool l_hlsWaWritingCowin = false;
       
       #ifndef __SYNTHESIS__
-      l_Ta.clear();
-      l_Tb.clear();
         l_awin.clear();
         l_bwin.clear();
         l_cwin.clear();
@@ -339,45 +364,37 @@ class Gemm
         #pragma HLS LOOP_TRIPCOUNT min=1 max=16
         #pragma HLS PIPELINE
         
-        //#pragma HLS DEPENDENCE variable=l_cowin array inter false
-        //#pragma HLS DEPENDENCE variable=l_cowin array intra false
         #pragma HLS DEPENDENCE variable=l_cwin array inter false
-        //#pragma HLS DEPENDENCE variable=l_cwin array intra false
         
         #ifndef __SYNTHESIS__
           (t_debug >= 1) && std::cout << "\n" << "  ######### START step  " << l_step << "\n";
         #endif
 
-        HalfTaggedWideFloat l_a = p_As.read();
-        HalfTaggedWideFloat l_b = p_Bs.read();
-        #pragma HLS data_pack variable=l_a
-        #pragma HLS data_pack variable=l_b
-        #ifndef __SYNTHESIS__
-          (t_debug >= 1) && std::cout << "    GemmCalcT5 Received A " << l_a << "\n";
-          (t_debug >= 1) && std::cout << "    GemmCalcT5 Received B " << l_b << "\n";
-        #endif
+        HalfExitTaggedFloatArray l_a = p_As.read();
+        HalfExitTaggedFloatArray l_b = p_Bs.read();
+				
         bool l_exitA = l_a.getExit();
         bool l_exitB = l_b.getExit();
         assert(l_exitA == l_exitB);
         l_exit = l_exitA;
-        bool l_flushA = l_a.getFlush();
-        bool l_flushB = l_b.getFlush();
-        assert(l_flushA == l_flushB);
-        bool l_flush = l_flushA;
         
-        HalfTaggedFloatArray l_avec = l_a.getVectOfTaggedValues();
-        HalfTaggedFloatArray l_bvec = l_b.getVectOfTaggedValues();
+        bool l_flushA = l_a[0].getFlush();
+				bool l_flushB = l_b[0].getFlush();
+				assert(l_flushA == l_flushB);
+				bool l_flush = l_flushA;
+
+				HalfTaggedFloatArray l_aVec = l_a.getVal();
+				HalfTaggedFloatArray l_bVec = l_b.getVal();
         
-        HalfTaggedFloatArray l_avec1 = l_Ta.shift(l_avec);
-        HalfTaggedFloatArray l_bvec1 = l_Tb.shift(l_bvec);
-        
-        (void)l_awin.shift_right(l_avec1);
-        (void)l_bwin.shift(l_bvec1);
+        HalfTaggedFloatArray l_aOutVec = l_awin.shift_right(l_aVec);
+        HalfTaggedFloatArray l_bOutVec = l_bwin.shift(l_bVec);
+				HalfExitTaggedFloatArray l_aOut(l_aOutVec, l_exit);
+				HalfExitTaggedFloatArray l_bOut(l_bOutVec, l_exit);
+				p_outAs.write(l_aOut);
+				p_outBs.write(l_bOut);
         
         #ifndef __SYNTHESIS__
           (t_debug >= 3) && std::cout << "  Calc before a step  " << l_step << "\n"
-            << "  Ta\n" << l_Ta << "\n"
-            << "  Tb\n" << l_Tb << "\n"
             << "  A\n" << l_awin << "\n"
             << "  B\n" << l_bwin << "\n"
             << "  C\n" << l_cwin << "\n"
@@ -394,24 +411,25 @@ class Gemm
                     << std::endl;
         #endif
         
-		if ((l_outCt1 < t_DdrWidth/2) || (l_exit)) {
-		  	HalfWideMacBitType l_outVal;
-
-		  	if (l_outCt1 < t_DdrWidth/2) {
-          		l_outVal = l_cowinSave.unshift();
-			}
-          	HalfTaggedWideMacBitType l_cout(l_outVal, l_exit);
-          	#pragma HLS data_pack variable=l_cout
-          	p_Cs.write(l_cout);
-          	#ifndef __SYNTHESIS__
-            	(t_debug >= 1) && std::cout << "    GemmCalc Sent C " << l_cout << "\n";
-          	#endif
+				HalfWideMacBitType l_outVal;
+				if (l_outCt1 < t_DdrWidth/2) {
+					l_outVal = l_cowinSave.unshift();
+				}
+        if (l_outCt == 2 * t_DdrWidth/2 - 1) {
+          l_cowinSave = l_cowin;
+				}
+				if ((l_outCt1 < t_DdrWidth/2) || (l_exit)) {
+          HalfTaggedWideMacBitType l_cout(l_outVal, l_exit);
+          #pragma HLS data_pack variable=l_cout
+          p_Cs.write(l_cout);
+          #ifndef __SYNTHESIS__
+          	(t_debug >= 1) && std::cout << "    GemmCalc Sent C " << l_cout << "\n";
+          #endif
         }
         if (l_outCt == 2 * t_DdrWidth/2 - 1) {
           #ifndef __SYNTHESIS__
             (t_debug >= 1) && std::cout << "    GemmCalc Strobing l_cowin \n" << l_cowin << "\n";
           #endif
-          l_cowinSave = l_cowin;
           l_outCt1 = 0;
         } else {
           l_outCt1++;
@@ -453,8 +471,466 @@ class Gemm
          
         #ifndef __SYNTHESIS__
           (t_debug >= 2) && std::cout << "  Calc after a step  " << l_step << "\n"
-            << "  Ta\n" << l_Ta << "\n"
-            << "  Tb\n" << l_Tb << "\n"
+            << "  A\n" << l_awin << "\n"
+            << "  B\n" << l_bwin << "\n"
+            << "  C\n" << l_cwin << "\n"
+            << "  Cout\n" << l_cowin << "\n"
+            << "  CoutSave\n" << l_cowinSave << "\n"
+            << "\n";
+        #endif
+      
+     } while (!l_exit);
+   }
+
+    void
+    GemmCalcHalf01(
+        HalfExitTaggedFloatStream &p_As,
+        HalfExitTaggedFloatStream &p_Bs,
+
+        HalfExitTaggedFloatStream &p_outBs,
+        HalfTaggedWideMacBitStream &p_Cs
+      ) {
+      //#pragma HLS inline region off
+      bool l_exit;
+      bool l_firstFlushDone = false;
+      unsigned int l_step = 0;
+      unsigned int l_outCt = 2 * t_DdrWidth/2; // controls middle stage (Cout to CoutSave strobing)
+      unsigned int l_outCt1 = 1 * t_DdrWidth/2; // controls the output stage (CoutSave shifting)
+
+      WindowRm<TaggedFloatType, t_DdrWidth/2, t_DdrWidth/2> l_bwin;
+      WindowRm<TaggedFloatType, t_DdrWidth/2, t_DdrWidth/2> l_awin;
+      WindowRm<MacBitType, t_DdrWidth/2, t_DdrWidth/2> l_cwin, l_cowin, l_cowinSave;
+      #pragma HLS ARRAY_PARTITION variable=l_cwin dim=1 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cwin dim=2 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cowin dim=1 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cowin dim=2 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cowinSave dim=1 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cowinSave dim=2 complete
+      
+      #ifndef __SYNTHESIS__
+        l_awin.clear();
+        l_bwin.clear();
+        l_cwin.clear();
+        l_cowin.clear();
+        l_cowinSave.clear();
+      #endif
+      
+      GEMM_CALC_DO:do {
+        l_step++;
+        #pragma HLS LOOP_TRIPCOUNT min=1 max=16
+        #pragma HLS PIPELINE
+        
+        #pragma HLS DEPENDENCE variable=l_cwin array inter false
+        
+        #ifndef __SYNTHESIS__
+          (t_debug >= 1) && std::cout << "\n" << "  ######### START step  " << l_step << "\n";
+        #endif
+
+        HalfExitTaggedFloatArray l_a = p_As.read();
+        HalfExitTaggedFloatArray l_b = p_Bs.read();
+				
+        bool l_exitA = l_a.getExit();
+        bool l_exitB = l_b.getExit();
+        assert(l_exitA == l_exitB);
+        l_exit = l_exitA;
+        
+        bool l_flushA = l_a[0].getFlush();
+				bool l_flushB = l_b[0].getFlush();
+				assert(l_flushA == l_flushB);
+				bool l_flush = l_flushA;
+
+				HalfTaggedFloatArray l_aVec = l_a.getVal();
+				HalfTaggedFloatArray l_bVec = l_b.getVal();
+        
+        (void)l_awin.shift_right(l_aVec);
+        HalfTaggedFloatArray l_bOutVec = l_bwin.shift(l_bVec);
+				HalfExitTaggedFloatArray l_bOut(l_bOutVec, l_exit);
+				p_outBs.write(l_bOut);
+        
+        #ifndef __SYNTHESIS__
+          (t_debug >= 3) && std::cout << "  Calc before a step  " << l_step << "\n"
+            << "  A\n" << l_awin << "\n"
+            << "  B\n" << l_bwin << "\n"
+            << "  C\n" << l_cwin << "\n"
+            << "  Cout\n" << l_cowin << "\n"
+            << "  CoutSave\n" << l_cowinSave << "\n"
+            << "\n";
+        #endif
+
+
+        #ifndef __SYNTHESIS__
+          (t_debug >= 1) && std::cout << "    CONTROLS  "
+                    << "  l_outCt=" << l_outCt
+                    << "  l_outCt1=" << l_outCt1
+                    << std::endl;
+        #endif
+				
+				HalfWideMacBitType l_outVal;
+				if (l_outCt1 < t_DdrWidth/2) {
+					l_outVal = l_cowinSave.unshift();
+				}
+        if (l_outCt == 2 * t_DdrWidth/2 - 1) {
+          l_cowinSave = l_cowin;
+				}
+        
+				if ((l_outCt1 < t_DdrWidth/2) || (l_exit)) {
+          HalfTaggedWideMacBitType l_cout(l_outVal, l_exit);
+          #pragma HLS data_pack variable=l_cout
+          p_Cs.write(l_cout);
+          #ifndef __SYNTHESIS__
+          	(t_debug >= 1) && std::cout << "    GemmCalc Sent C " << l_cout << "\n";
+          #endif
+        }
+        if (l_outCt == 2 * t_DdrWidth/2 - 1) {
+          #ifndef __SYNTHESIS__
+            (t_debug >= 1) && std::cout << "    GemmCalc Strobing l_cowin \n" << l_cowin << "\n";
+          #endif
+          l_outCt1 = 0;
+        } else {
+          l_outCt1++;
+        }
+                
+        if (l_flush) {
+          if (l_firstFlushDone) {
+            l_outCt = 0;
+          } else {
+            l_firstFlushDone = true;
+          }
+        } else {
+          l_outCt++;
+        }
+
+        GEMM_CALC_ROW:for(unsigned int row = 0; row < t_DdrWidth/2; ++row) {
+          #pragma HLS UNROLL
+          HalfTaggedFloatArray l_arow = l_awin[row];
+          HalfTaggedFloatArray l_brow = l_bwin[row];
+          //DdrWideType &l_crow = l_cwin[row];
+          //#pragma HLS ARRAY_PARTITION variable=l_crow dim=1 complete
+          #pragma HLS data_pack variable=l_arow
+          #pragma HLS data_pack variable=l_brow
+          //#pragma HLS data_pack variable=l_crow
+          GEMM_CALC_COLS:for(unsigned int i = 0; i < t_DdrWidth/2; ++i) {
+            #pragma HLS UNROLL
+            t_FloatType aval = l_arow[i]();
+            t_FloatType bval = l_brow[i]();
+            bool aflush = l_arow[i].getFlush();
+            bool bflush = l_brow[i].getFlush();
+            assert(aflush == bflush);
+            
+            //assert(aflush != l_hlsWaWritingCowin);
+            macStep(aval, bval, l_cwin[row][i], l_cowin[row][i], aflush);
+          }
+          //l_cwin[row] = l_crow;
+        }
+        
+         
+        #ifndef __SYNTHESIS__
+          (t_debug >= 2) && std::cout << "  Calc after a step  " << l_step << "\n"
+            << "  A\n" << l_awin << "\n"
+            << "  B\n" << l_bwin << "\n"
+            << "  C\n" << l_cwin << "\n"
+            << "  Cout\n" << l_cowin << "\n"
+            << "  CoutSave\n" << l_cowinSave << "\n"
+            << "\n";
+        #endif
+      
+     } while (!l_exit);
+   }
+
+    void
+    GemmCalcHalf10(
+        HalfExitTaggedFloatStream &p_As,
+        HalfExitTaggedFloatStream &p_Bs,
+
+        HalfExitTaggedFloatStream &p_outAs,
+        HalfTaggedWideMacBitStream &p_Cs
+      ) {
+      //#pragma HLS inline region off
+      bool l_exit;
+      bool l_firstFlushDone = false;
+      unsigned int l_step = 0;
+      unsigned int l_outCt = 2 * t_DdrWidth/2; // controls middle stage (Cout to CoutSave strobing)
+      unsigned int l_outCt1 = 1 * t_DdrWidth/2; // controls the output stage (CoutSave shifting)
+
+      WindowRm<TaggedFloatType, t_DdrWidth/2, t_DdrWidth/2> l_bwin;
+      WindowRm<TaggedFloatType, t_DdrWidth/2, t_DdrWidth/2> l_awin;
+      WindowRm<MacBitType, t_DdrWidth/2, t_DdrWidth/2> l_cwin, l_cowin, l_cowinSave;
+      #pragma HLS ARRAY_PARTITION variable=l_cwin dim=1 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cwin dim=2 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cowin dim=1 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cowin dim=2 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cowinSave dim=1 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cowinSave dim=2 complete
+      
+      #ifndef __SYNTHESIS__
+        l_awin.clear();
+        l_bwin.clear();
+        l_cwin.clear();
+        l_cowin.clear();
+        l_cowinSave.clear();
+      #endif
+      
+      GEMM_CALC_DO:do {
+        l_step++;
+        #pragma HLS LOOP_TRIPCOUNT min=1 max=16
+        #pragma HLS PIPELINE
+        
+        #pragma HLS DEPENDENCE variable=l_cwin array inter false
+        
+        #ifndef __SYNTHESIS__
+          (t_debug >= 1) && std::cout << "\n" << "  ######### START step  " << l_step << "\n";
+        #endif
+
+        HalfExitTaggedFloatArray l_a = p_As.read();
+        HalfExitTaggedFloatArray l_b = p_Bs.read();
+				
+        bool l_exitA = l_a.getExit();
+        bool l_exitB = l_b.getExit();
+        assert(l_exitA == l_exitB);
+        l_exit = l_exitA;
+        
+        bool l_flushA = l_a[0].getFlush();
+				bool l_flushB = l_b[0].getFlush();
+				assert(l_flushA == l_flushB);
+				bool l_flush = l_flushA;
+
+				HalfTaggedFloatArray l_aVec = l_a.getVal();
+				HalfTaggedFloatArray l_bVec = l_b.getVal();
+        
+        HalfTaggedFloatArray l_aOutVec = l_awin.shift_right(l_aVec);
+        (void)l_bwin.shift(l_bVec);
+				HalfExitTaggedFloatArray l_aOut(l_aOutVec, l_exit);
+				p_outAs.write(l_aOut);
+        
+        #ifndef __SYNTHESIS__
+          (t_debug >= 3) && std::cout << "  Calc before a step  " << l_step << "\n"
+            << "  A\n" << l_awin << "\n"
+            << "  B\n" << l_bwin << "\n"
+            << "  C\n" << l_cwin << "\n"
+            << "  Cout\n" << l_cowin << "\n"
+            << "  CoutSave\n" << l_cowinSave << "\n"
+            << "\n";
+        #endif
+
+
+        #ifndef __SYNTHESIS__
+          (t_debug >= 1) && std::cout << "    CONTROLS  "
+                    << "  l_outCt=" << l_outCt
+                    << "  l_outCt1=" << l_outCt1
+                    << std::endl;
+        #endif
+        
+				HalfWideMacBitType l_outVal;
+				if (l_outCt1 < t_DdrWidth/2) {
+					l_outVal = l_cowinSave.unshift();
+				}
+        if (l_outCt == 2 * t_DdrWidth/2 - 1) {
+          l_cowinSave = l_cowin;
+				}
+				if ((l_outCt1 < t_DdrWidth/2) || (l_exit)) {
+          HalfTaggedWideMacBitType l_cout(l_outVal, l_exit);
+          #pragma HLS data_pack variable=l_cout
+          p_Cs.write(l_cout);
+          #ifndef __SYNTHESIS__
+          	(t_debug >= 1) && std::cout << "    GemmCalc Sent C " << l_cout << "\n";
+          #endif
+        }
+        if (l_outCt == 2 * t_DdrWidth/2 - 1) {
+          #ifndef __SYNTHESIS__
+            (t_debug >= 1) && std::cout << "    GemmCalc Strobing l_cowin \n" << l_cowin << "\n";
+          #endif
+          l_outCt1 = 0;
+        } else {
+          l_outCt1++;
+        }
+                
+        if (l_flush) {
+          if (l_firstFlushDone) {
+            l_outCt = 0;
+          } else {
+            l_firstFlushDone = true;
+          }
+        } else {
+          l_outCt++;
+        }
+
+        GEMM_CALC_ROW:for(unsigned int row = 0; row < t_DdrWidth/2; ++row) {
+          #pragma HLS UNROLL
+          HalfTaggedFloatArray l_arow = l_awin[row];
+          HalfTaggedFloatArray l_brow = l_bwin[row];
+          //DdrWideType &l_crow = l_cwin[row];
+          //#pragma HLS ARRAY_PARTITION variable=l_crow dim=1 complete
+          #pragma HLS data_pack variable=l_arow
+          #pragma HLS data_pack variable=l_brow
+          //#pragma HLS data_pack variable=l_crow
+          GEMM_CALC_COLS:for(unsigned int i = 0; i < t_DdrWidth/2; ++i) {
+            #pragma HLS UNROLL
+            t_FloatType aval = l_arow[i]();
+            t_FloatType bval = l_brow[i]();
+            bool aflush = l_arow[i].getFlush();
+            bool bflush = l_brow[i].getFlush();
+            assert(aflush == bflush);
+            
+            //assert(aflush != l_hlsWaWritingCowin);
+            macStep(aval, bval, l_cwin[row][i], l_cowin[row][i], aflush);
+          }
+          //l_cwin[row] = l_crow;
+        }
+        
+         
+        #ifndef __SYNTHESIS__
+          (t_debug >= 2) && std::cout << "  Calc after a step  " << l_step << "\n"
+            << "  A\n" << l_awin << "\n"
+            << "  B\n" << l_bwin << "\n"
+            << "  C\n" << l_cwin << "\n"
+            << "  Cout\n" << l_cowin << "\n"
+            << "  CoutSave\n" << l_cowinSave << "\n"
+            << "\n";
+        #endif
+      
+     } while (!l_exit);
+   }
+
+    void
+    GemmCalcHalf11(
+        HalfExitTaggedFloatStream &p_As,
+        HalfExitTaggedFloatStream &p_Bs,
+
+        HalfTaggedWideMacBitStream &p_Cs
+      ) {
+      //#pragma HLS inline region off
+      bool l_exit;
+      bool l_firstFlushDone = false;
+      unsigned int l_step = 0;
+      unsigned int l_outCt = 2 * t_DdrWidth/2; // controls middle stage (Cout to CoutSave strobing)
+      unsigned int l_outCt1 = 1 * t_DdrWidth/2; // controls the output stage (CoutSave shifting)
+
+      WindowRm<TaggedFloatType, t_DdrWidth/2, t_DdrWidth/2> l_bwin;
+      WindowRm<TaggedFloatType, t_DdrWidth/2, t_DdrWidth/2> l_awin;
+      WindowRm<MacBitType, t_DdrWidth/2, t_DdrWidth/2> l_cwin, l_cowin, l_cowinSave;
+      #pragma HLS ARRAY_PARTITION variable=l_cwin dim=1 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cwin dim=2 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cowin dim=1 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cowin dim=2 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cowinSave dim=1 complete
+      #pragma HLS ARRAY_PARTITION variable=l_cowinSave dim=2 complete
+      
+      #ifndef __SYNTHESIS__
+        l_awin.clear();
+        l_bwin.clear();
+        l_cwin.clear();
+        l_cowin.clear();
+        l_cowinSave.clear();
+      #endif
+      
+      GEMM_CALC_DO:do {
+        l_step++;
+        #pragma HLS LOOP_TRIPCOUNT min=1 max=16
+        #pragma HLS PIPELINE
+        
+        #pragma HLS DEPENDENCE variable=l_cwin array inter false
+        
+        #ifndef __SYNTHESIS__
+          (t_debug >= 1) && std::cout << "\n" << "  ######### START step  " << l_step << "\n";
+        #endif
+
+        HalfExitTaggedFloatArray l_a = p_As.read();
+        HalfExitTaggedFloatArray l_b = p_Bs.read();
+				
+        bool l_exitA = l_a.getExit();
+        bool l_exitB = l_b.getExit();
+        assert(l_exitA == l_exitB);
+        l_exit = l_exitA;
+        
+        bool l_flushA = l_a[0].getFlush();
+				bool l_flushB = l_b[0].getFlush();
+				assert(l_flushA == l_flushB);
+				bool l_flush = l_flushA;
+
+				HalfTaggedFloatArray l_aVec = l_a.getVal();
+				HalfTaggedFloatArray l_bVec = l_b.getVal();
+        
+        (void)l_awin.shift_right(l_aVec);
+        (void)l_bwin.shift(l_bVec);
+        
+        #ifndef __SYNTHESIS__
+          (t_debug >= 3) && std::cout << "  Calc before a step  " << l_step << "\n"
+            << "  A\n" << l_awin << "\n"
+            << "  B\n" << l_bwin << "\n"
+            << "  C\n" << l_cwin << "\n"
+            << "  Cout\n" << l_cowin << "\n"
+            << "  CoutSave\n" << l_cowinSave << "\n"
+            << "\n";
+        #endif
+
+
+        #ifndef __SYNTHESIS__
+          (t_debug >= 1) && std::cout << "    CONTROLS  "
+                    << "  l_outCt=" << l_outCt
+                    << "  l_outCt1=" << l_outCt1
+                    << std::endl;
+        #endif
+        
+				HalfWideMacBitType l_outVal;
+				if (l_outCt1 < t_DdrWidth/2) {
+					l_outVal = l_cowinSave.unshift();
+				}
+        if (l_outCt == 2 * t_DdrWidth/2 - 1) {
+          l_cowinSave = l_cowin;
+				}
+				if ((l_outCt1 < t_DdrWidth/2) || (l_exit)) {
+          HalfTaggedWideMacBitType l_cout(l_outVal, l_exit);
+          #pragma HLS data_pack variable=l_cout
+          p_Cs.write(l_cout);
+          #ifndef __SYNTHESIS__
+          	(t_debug >= 1) && std::cout << "    GemmCalc Sent C " << l_cout << "\n";
+          #endif
+        }
+        if (l_outCt == 2 * t_DdrWidth/2 - 1) {
+          #ifndef __SYNTHESIS__
+            (t_debug >= 1) && std::cout << "    GemmCalc Strobing l_cowin \n" << l_cowin << "\n";
+          #endif
+          l_outCt1 = 0;
+        } else {
+          l_outCt1++;
+        }
+                
+        if (l_flush) {
+          if (l_firstFlushDone) {
+            l_outCt = 0;
+          } else {
+            l_firstFlushDone = true;
+          }
+        } else {
+          l_outCt++;
+        }
+
+        GEMM_CALC_ROW:for(unsigned int row = 0; row < t_DdrWidth/2; ++row) {
+          #pragma HLS UNROLL
+          HalfTaggedFloatArray l_arow = l_awin[row];
+          HalfTaggedFloatArray l_brow = l_bwin[row];
+          //DdrWideType &l_crow = l_cwin[row];
+          //#pragma HLS ARRAY_PARTITION variable=l_crow dim=1 complete
+          #pragma HLS data_pack variable=l_arow
+          #pragma HLS data_pack variable=l_brow
+          //#pragma HLS data_pack variable=l_crow
+          GEMM_CALC_COLS:for(unsigned int i = 0; i < t_DdrWidth/2; ++i) {
+            #pragma HLS UNROLL
+            t_FloatType aval = l_arow[i]();
+            t_FloatType bval = l_brow[i]();
+            bool aflush = l_arow[i].getFlush();
+            bool bflush = l_brow[i].getFlush();
+            assert(aflush == bflush);
+            
+            //assert(aflush != l_hlsWaWritingCowin);
+            macStep(aval, bval, l_cwin[row][i], l_cowin[row][i], aflush);
+          }
+          //l_cwin[row] = l_crow;
+        }
+        
+         
+        #ifndef __SYNTHESIS__
+          (t_debug >= 2) && std::cout << "  Calc after a step  " << l_step << "\n"
             << "  A\n" << l_awin << "\n"
             << "  B\n" << l_bwin << "\n"
             << "  C\n" << l_cwin << "\n"
@@ -872,48 +1348,50 @@ public:
 		EdgeStream &p_Bs,
 		WideMacBitStream &p_Cs
 	){
-		HalfEdgeStream l_edgesA[2];
-		#pragma HLS DATA_PACK variable=l_edgesA
-		//#pragma HLS STREAM variable=l_edgesA DEPTH=2
+		ExitTaggedFloatStream l_taggedAs, l_taggedBs;
+		#pragma HLS DATA_PACK variable=l_taggedAs
+		#pragma HLS DATA_PACK variable=l_taggedBs
+		#pragma HLS STREAM variable=l_taggedAs DEPTH=4
+		#pragma HLS STREAM variable=l_taggedBs DEPTH=4
+		#pragma HLS RESOURCE variable=l_taggedAs core=FIFO_LUTRAM
+		#pragma HLS RESOURCE variable=l_taggedBs core=FIFO_LUTRAM
 
-		HalfEdgeStream l_edgesB[2];
-		#pragma HLS DATA_PACK variable=l_edgesB
-		//#pragma HLS STREAM variable=l_edgesB DEPTH=2
+		HalfExitTaggedFloatStream l_halfAs00, l_halfAs01, l_halfAs10, l_halfAs11;
+		HalfExitTaggedFloatStream l_halfBs00, l_halfBs01, l_halfBs10, l_halfBs11;
+		#pragma HLS DATA_PACK variable=l_halfAs00
+		#pragma HLS DATA_PACK variable=l_halfAs01
+		#pragma HLS DATA_PACK variable=l_halfAs10
+		#pragma HLS DATA_PACK variable=l_halfAs11
 
-		HalfEdgeStream l_edgesIntA[2][2];
-		#pragma HLS DATA_PACK variable=l_edgesIntA
-		//#pragma HLS STREAM variable=l_edgesIntA DEPTH=2
+		#pragma HLS DATA_PACK variable=l_halfBs00
+		#pragma HLS DATA_PACK variable=l_halfBs01
+		#pragma HLS DATA_PACK variable=l_halfBs10
+		#pragma HLS DATA_PACK variable=l_halfBs11
 
-		HalfEdgeStream l_edgesIntB[2][2];
-		#pragma HLS DATA_PACK variable=l_edgesIntB
-		//#pragma HLS STREAM variable=l_edgesIntB DEPTH=2
-		
+		#pragma HLS STREAM variable=l_halfAs00 DEPTH=4
+		#pragma HLS STREAM variable=l_halfAs01 DEPTH=4
+		#pragma HLS STREAM variable=l_halfAs10 DEPTH=4
+		#pragma HLS STREAM variable=l_halfAs11 DEPTH=4
+
+		#pragma HLS STREAM variable=l_halfBs00 DEPTH=4
+		#pragma HLS STREAM variable=l_halfBs01 DEPTH=4
+		#pragma HLS STREAM variable=l_halfBs10 DEPTH=4
+		#pragma HLS STREAM variable=l_halfBs11 DEPTH=4
+
 		HalfTaggedWideMacBitStream l_dataS[2][2];
 		#pragma HLS DATA_PACK variable=l_dataS
 		#pragma HLS STREAM variable=l_dataS DEPTH=t_DdrWidth/2
-
+		
 		#pragma HLS DATAFLOW
 
-		GemmSplitEdges(p_As, l_edgesA[0], l_edgesA[1]);
-		GemmSplitEdges(p_Bs, l_edgesB[0], l_edgesB[1]);
+    GemmDelayAB(p_As, p_Bs, l_taggedAs, l_taggedBs);
+		GemmSplitDL(l_taggedAs, l_halfAs00, l_halfAs10);
+		GemmSplitDL(l_taggedBs, l_halfBs00, l_halfBs01);
 
-		for (int row=0; row<2; ++row) {
-		#pragma HLS UNROLL
-			GemmDupEdges(l_edgesA[row], l_edgesIntA[row][0], l_edgesIntA[row][1]);
-		}
-
-		for (int col=0; col<2; ++col){
-		#pragma HLS UNROLL
-			GemmDupEdges(l_edgesB[col], l_edgesIntB[0][col], l_edgesIntB[1][col]);
-		}
-
-		for (int row=0; row<2; ++row) {
-		#pragma HLS UNROLL
-			for (int col=0; col<2; ++col) {
-			#pragma HLS UNROLL
-				GemmCalcHalf(l_edgesIntA[row][col], l_edgesIntB[row][col], l_dataS[row][col]);
-			}
-		}
+    GemmCalcHalf00(l_halfAs00, l_halfBs00, l_halfAs01, l_halfBs10, l_dataS[0][0]); 
+    GemmCalcHalf01(l_halfAs01, l_halfBs01, l_halfBs11, l_dataS[0][1]); 
+    GemmCalcHalf10(l_halfAs10, l_halfBs10, l_halfAs11, l_dataS[1][0]); 
+    GemmCalcHalf11(l_halfAs11, l_halfBs11, l_dataS[1][1]); 
 
 		GemmMergeDdrS(l_dataS, p_Cs);
 	}

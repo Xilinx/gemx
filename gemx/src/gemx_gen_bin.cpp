@@ -29,7 +29,7 @@
 /**
  *  @brief Semi-standalone generator for the test task binary images (2nd arg to gemc.exe)
  *
- *  $DateTime: 2018/03/01 16:50:01 $
+ *  $DateTime: 2018/03/12 17:57:59 $
  */
 
 // Fast compile and run:
@@ -107,7 +107,11 @@ int main(int argc, char** argv)
   GenGemv l_gemv;
   GenGemm l_gemm;
   GenTransp l_transp;
+	#if GEMX_useURAM
+	GenSpmvUram l_spmv;
+	#else
   GenSpmv l_spmv;
+	#endif
   
   if (l_write) {
     ProgramType l_p[2];  // 0 - no golden, 1 with golden
@@ -137,24 +141,32 @@ int main(int argc, char** argv)
           unsigned int l_m = atoi(argv[l_argIdx++]);
           unsigned int l_k = atoi(argv[l_argIdx++]);
           unsigned int l_n = atoi(argv[l_argIdx++]);
-          unsigned int l_lda = atoi(argv[l_argIdx++]);
-          unsigned int l_ldb = atoi(argv[l_argIdx++]);
-          unsigned int l_ldc = atoi(argv[l_argIdx++]);
-	  unsigned int l_ldx = atoi(argv[l_argIdx++]);
-	  int32_t     l_postScaleVal = atoi(argv[l_argIdx++]);
-          int32_t     l_postScaleShift = atoi(argv[l_argIdx++]);
-          int32_t     l_postScale = (l_postScaleVal << 8) | (l_postScaleShift & 0x000000ff);
-          std::string l_handleA(argv[l_argIdx++]);
-          std::string l_handleB(argv[l_argIdx++]);
-          std::string l_handleC(argv[l_argIdx++]);
-	  std::string l_handleX(argv[l_argIdx++]);
-          assert(l_lda >= l_k);
-          assert(l_ldb >= l_n);
-          assert(l_ldc >= l_n);
-	  assert(l_ldx >= l_n);
-          if (!l_gemm.check(l_m, l_k, l_n, l_lda, l_ldb, l_ldc, l_ldx)) exit(1);
-          l_gemm.addInstr(l_p[wGolden], l_m,  l_k, l_n, l_lda, l_ldb, l_ldc, l_ldx, l_postScale,
-                          l_handleA, l_handleB, l_handleC, l_handleX, wGolden);
+	  if ((l_m == 0) && (l_k == 0) && (l_n == 0)) {
+	      std::string l_insFileName(argv[l_argIdx++]);
+	      std::string l_matAFileName(argv[l_argIdx++]);
+	      std::string l_matBFileName(argv[l_argIdx++]);
+	      std::string l_matXFileName(argv[l_argIdx++]);
+	      l_gemm.addInstrFromFiles(l_instrCount, l_p[wGolden], l_insFileName, l_matAFileName, l_matBFileName, l_matXFileName, wGolden);
+	  }else{
+	      unsigned int l_lda = atoi(argv[l_argIdx++]);
+	      unsigned int l_ldb = atoi(argv[l_argIdx++]);
+	      unsigned int l_ldc = atoi(argv[l_argIdx++]);
+	      unsigned int l_ldx = atoi(argv[l_argIdx++]);
+	      int32_t     l_postScaleVal = atoi(argv[l_argIdx++]);
+	      int32_t     l_postScaleShift = atoi(argv[l_argIdx++]);
+	      int32_t     l_postScale = (l_postScaleVal << 8) | (l_postScaleShift & 0x000000ff);
+	      std::string l_handleA(argv[l_argIdx++]);
+	      std::string l_handleB(argv[l_argIdx++]);
+	      std::string l_handleC(argv[l_argIdx++]);
+	      std::string l_handleX(argv[l_argIdx++]);
+	      assert(l_lda >= l_k);
+	      assert(l_ldb >= l_n);
+	      assert(l_ldc >= l_n);
+	      assert(l_ldx >= l_n);
+	      if (!l_gemm.check(l_m, l_k, l_n, l_lda, l_ldb, l_ldc, l_ldx)) exit(1);
+	      l_gemm.addInstr(l_p[wGolden], l_m,  l_k, l_n, l_lda, l_ldb, l_ldc, l_ldx, l_postScale,
+			      l_handleA, l_handleB, l_handleC, l_handleX, wGolden);
+	  }
         } else if (l_opName == "transp") {
           unsigned int l_m = atoi(argv[l_argIdx++]);
           unsigned int l_n = atoi(argv[l_argIdx++]);
@@ -180,10 +192,17 @@ int main(int argc, char** argv)
           std::string l_handleA(argv[l_argIdx++]);
           std::string l_handleB(argv[l_argIdx++]);
           std::string l_handleC(argv[l_argIdx++]);
+					#if GEMX_useURAM
+          MtxFileUram l_mtxFile(l_mtxFileName);
+          if (!l_spmv.check(l_m, l_k, l_nnz, l_mtxFile)) exit(1);
+          l_spmv.addInstr(l_p[wGolden], l_m,  l_k, l_nnz, l_mtxFile,
+                          l_handleA, l_handleB, l_handleC, wGolden);
+					#else
           MtxFile l_mtxFile(l_mtxFileName);
           if (!l_spmv.check(l_m, l_k, l_nnz, l_mtxFile)) exit(1);
           l_spmv.addInstr(l_p[wGolden], l_m,  l_k, l_nnz, l_mtxFile,
                           l_handleA, l_handleB, l_handleC, wGolden);
+					#endif
        } else {
          std::cerr << "ERROR: unknow op \"" << l_opName << "\"\n";
        }

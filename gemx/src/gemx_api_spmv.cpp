@@ -116,8 +116,13 @@ int main(int argc, char **argv)
   std::string l_mtxFileName("none");
   if (argc > ++l_argIdx) {l_mtxFileName = argv[l_argIdx];}
   
+  #if GEMX_useURAM
+  MtxFileUram l_mtxFile(l_mtxFileName);
+  GenSpmvUram l_spmv;
+  #else	 
   MtxFile l_mtxFile(l_mtxFileName);
   GenSpmv l_spmv;
+  #endif
   //The check() modifies the dimensions when loading from a matrix file. Please use 0 for l_M, l_K and l_NNZ when provding matrix file
   l_spmv.check(l_M, l_K, l_NNZ, l_mtxFile);
   

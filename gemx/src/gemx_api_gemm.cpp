@@ -245,6 +245,7 @@ int main(int argc, char **argv)
   //############  Get the exact kernel time from HW cycle counters on the accelerator  ############
   float l_boardFreqMHz = getBoardFreqMHz(0);
   unsigned long int l_Ops = 2ull * l_M * l_N * l_K + l_M * l_N * 3;
+  unsigned long int l_Parallel_Ops = 2ull * l_M * l_N * l_K;
   KargsType l_kargsRes[GEMX_numKernels];
   KargsOpType l_op[GEMX_numKernels];
   gemx::InstrResArgs l_instrRes[GEMX_numKernels];
@@ -271,7 +272,7 @@ int main(int argc, char **argv)
     l_totalPerfKernelInTops += l_perfKernelInTops[i];
   }
   l_perfApiInTops = (l_Ops*GEMX_numKernels) / (l_timeApiInMs * 1e-3) / 1e12;
-  l_timeMsAt100pctEff = l_Ops / 2 / GEMX_ddrWidth / GEMX_ddrWidth / (l_boardFreqMHz * 1e6) * 1e3;
+  l_timeMsAt100pctEff = l_Parallel_Ops / 2 / GEMX_ddrWidth / GEMX_ddrWidth / (l_boardFreqMHz * 1e6) * 1e3;
   l_effKernelPct = (100 * l_timeMsAt100pctEff / l_maxTimeKernelInMs < 100)?(100 * l_timeMsAt100pctEff / l_maxTimeKernelInMs):100;
   l_effApiPct = 100 * l_timeMsAt100pctEff / l_timeApiInMs;
   // Show time, Tops in csv format

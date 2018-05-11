@@ -248,7 +248,7 @@ class ExitTaggedWideType {
     WideType<T, t_Width> &getVal() {return m_Val;}
     T &operator[](unsigned int p_Idx) {return(m_Val[p_Idx]);}
 
-    bool getExit() {return(m_Exit);}
+    bool &getExit() {return(m_Exit);}
     void
     print(std::ostream& os) {
         m_Val.print(os);

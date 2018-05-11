@@ -29,7 +29,7 @@
 /**
  *  @brief GEMV testcase generator
  *
- *  $DateTime: 2018/03/09 06:16:16 $
+ *  $DateTime: 2018/05/08 03:56:09 $
  */
 
 #ifndef GEMX_GEN_BIN_H
@@ -182,6 +182,7 @@ typedef std::array<uint8_t, GEMX_instructionSizeBytes> InstrControlType;
 typedef std::vector<Page<uint8_t, GEMX_pageSizeBytes > > PageVectorType;
 typedef Page<uint8_t, GEMX_pageSizeBytes> PageType;
 
+#if GEMX_useURAM==0
 template <
     typename t_FloatType  // to simplify client-side interfaces
   >
@@ -611,6 +612,16 @@ class Mat
           }
         }
       }
+    void
+    fillFromFile(std::istream& p_Is) {
+      T l_val;
+      for (unsigned int row=0; row < m_Rows; ++row) {
+	for (unsigned int col=0; col < ld(); ++col) {
+	  p_Is >> l_val;
+	  getVal(row,col) = l_val;
+	}
+      }
+    }
     void
     multiply(Mat & p_A, Mat & p_B) {
         T l_val = 0;
@@ -1166,6 +1177,897 @@ class GenSpmv
       
 };
 
+#else
+
+/////////// URAM based SPMV definitions ////
+class MtxFileUram
+{
+  public:
+  
+  private:
+    std::string m_FileName;
+    bool m_Good;
+		bool m_isDiag;
+    unsigned int m_M, m_K, m_Nnz;
+    std::vector<MtxRow> m_Rows;
+  private:
+    void align( unsigned int &dst, unsigned int width) {dst = width * ((dst + width - 1) / width);}
+  public:
+    bool good() {return(m_Good);}
+		bool isDiag() {return(m_isDiag);}
+    unsigned int rows() {return(m_M);}
+    unsigned int cols() {return(m_K);}
+    unsigned int nnz() {return(m_Nnz);}
+    std::string fileName() {return(m_FileName);}
+    MtxFileUram(std::string p_FileName)
+      : m_Good(false),
+				m_isDiag(true),
+        m_M(0), m_K(0), m_Nnz(0), 
+        m_FileName(p_FileName)
+      {
+        if (m_FileName != "none") {
+          std::cout << "INFO: loading Mtx file  " << m_FileName << "\n";
+          std::ifstream l_fs(m_FileName.c_str(), std::ios_base::in | std::ios_base::binary);
+          
+          boost::iostreams::filtering_istream l_bs;
+          std::string l_ext = boost::to_lower_copy<std::string>(m_FileName.substr(m_FileName.find_last_of(".") + 1));
+          if (l_ext == "gz") {
+            l_bs.push(boost::iostreams::gzip_decompressor());
+          // Bzip2 did not work properly in boost 1.64
+          //} else if (l_ext == "bz2") {
+          //  l_bs.push(boost::iostreams::bzip2_decompressor());
+          } else if (l_ext == "mtx") {
+            // noop
+          } else{
+            std::cerr << "ERROR: MtxFile failed due to unknown extension \"" << l_ext << "\", file  "
+                      << m_FileName << "\n";
+            assert(0);
+          }
+          l_bs.push(l_fs);
+          
+          m_Good = l_bs.good();
+					unsigned int l_curRow=0;
+					unsigned int l_curCol=0;
+          if (m_Good) {
+            while (l_bs.peek() == '%') l_bs.ignore(2048, '\n');
+            l_bs >>  m_M >> m_K >> m_Nnz;
+            for (unsigned int i = 0; i < nnz(); ++i) {
+              MtxRow l_row;
+              l_row.scan(l_bs);
+							if (i==0) {
+								l_curRow = l_row.getRow();
+								l_curCol = l_row.getCol();
+							}
+							else {
+								if ((l_row.getRow() != (l_curRow+1)) || (l_row.getCol() != (l_curCol+1))){
+									m_isDiag = false;
+								}
+								l_curRow = l_row.getRow();
+								l_curCol = l_row.getCol();
+							}
+              m_Rows.push_back(l_row);
+            }
+            boost::iostreams::close(l_bs);
+            // Sort to make canonical
+            //sort(m_Rows.begin(), m_Rows.end());
+            // Pad with 0s
+            while (m_Nnz % (GEMX_ddrWidth * GEMX_nnzBlocks) != 0) {
+              std::cout << "INFO: Added padding row to the mtx data\n";
+              MtxRow l_row;
+              m_Rows.push_back(l_row);
+              m_Nnz++;
+            }
+            // Adjust dimensions - needs to be aligned to both GEMX_ddrWidth
+            align (m_M, GEMX_ddrWidth * GEMX_spmvUramGroups);  // Align for loadC
+            assert(m_M % GEMX_ddrWidth == 0);
+            align (m_K, GEMX_ddrWidth);  
+            std::cout << "INFO: loaded mtx file"
+                     << "  M " << rows()
+                     << "  K " << cols()
+                     << "  Nnz " << nnz()
+                     << "\n";
+          }
+        }
+      }
+    std::vector<MtxRow> &getRows() {return(m_Rows);}
+};
+
+template <
+    typename t_FloatType,  // to simplify client-side interfaces
+		typename t_IdxType=int
+  >
+class ProgramUram {
+  public:
+    typedef std::array<InstrControlType, GEMX_maxNumInstr> InstrType;
+  private:
+    PageVectorType m_PageVector;
+    unsigned int m_NumInstr;
+    std::map<std::string, PageHandleDescriptor> m_Handles;
+  private:
+    // Utilities
+    std::ifstream::pos_type getFileSize(std::string p_FileName)
+    {
+      std::ifstream in(p_FileName.c_str(), std::ifstream::ate | std::ifstream::binary);
+      return in.tellg(); 
+    }
+  public:
+    ProgramUram()
+      : m_NumInstr(0)
+      {
+        // Reserve instruction and result pages
+        m_PageVector.resize(GEMX_dataPage);
+      }
+    ProgramUram(size_t p_NumPages)  // Constructor typically used to store output from FPGA
+      : m_NumInstr(0)
+      {
+        // Reserve space for entire output FPGA image
+        m_PageVector.resize(p_NumPages);
+      }
+	void
+	init (size_t p_NumPages) {
+		m_NumInstr=0;
+		m_PageVector.resize(p_NumPages);
+	}
+    unsigned int
+    allocPages(std::string p_Handle, bool &p_NewAlloc, size_t p_NumElements) { // unit: t_FloatType
+        
+        assert(p_NumElements > 0);
+        size_t l_numPages = (p_NumElements * sizeof(t_FloatType)
+                             + GEMX_pageSizeBytes - 1)  /  GEMX_pageSizeBytes;
+        unsigned int l_startPage = 0;
+        PageHandleDescriptor l_desc = m_Handles[p_Handle];
+        if (l_desc.m_StartPage == 0) {
+          l_startPage = m_PageVector.size();
+          m_PageVector.resize(l_startPage + l_numPages);
+          m_Handles[p_Handle] = PageHandleDescriptor(l_startPage, l_numPages);
+          p_NewAlloc = true;
+        } else {
+          assert(l_desc.m_SizePages == l_numPages);
+          l_startPage = l_desc.m_StartPage;
+          p_NewAlloc = false;
+        }
+        //std::cout << "  DEBUG allocPages Start page for " << p_Handle << " is " << l_startPage << "\n";
+        return(l_startPage);
+      }
+    unsigned int
+    allocIdxPages(std::string p_Handle, bool &p_NewAlloc, size_t p_NumElements) { // unit: t_FloatType
+        
+        assert(p_NumElements > 0);
+        size_t l_numPages = (p_NumElements * sizeof(t_IdxType)
+                             + GEMX_pageSizeBytes - 1)  /  GEMX_pageSizeBytes;
+        unsigned int l_startPage = 0;
+        PageHandleDescriptor l_desc = m_Handles[p_Handle];
+        if (l_desc.m_StartPage == 0) {
+          l_startPage = m_PageVector.size();
+          m_PageVector.resize(l_startPage + l_numPages);
+          m_Handles[p_Handle] = PageHandleDescriptor(l_startPage, l_numPages);
+          p_NewAlloc = true;
+        } else {
+          assert(l_desc.m_SizePages == l_numPages);
+          l_startPage = l_desc.m_StartPage;
+          p_NewAlloc = false;
+        }
+        //std::cout << "  DEBUG allocPages Start page for " << p_Handle << " is " << l_startPage << "\n";
+        return(l_startPage);
+      }
+    t_FloatType *
+    getPageAddr(unsigned int p_PageIdx) {
+        t_FloatType* l_addr = (t_FloatType*)&m_PageVector[p_PageIdx];
+        return(l_addr);
+      }
+    
+		t_IdxType *
+    getIdxPageAddr(unsigned int p_PageIdx) {
+        t_IdxType* l_addr = (t_IdxType*)&m_PageVector[p_PageIdx];
+        return(l_addr);
+      }
+    DdrFloatType *
+    getBaseInstrAddr() {return (DdrFloatType*)&m_PageVector[GEMX_codePage];}
+    DdrFloatType *
+    getBaseResAddr() {return (DdrFloatType*)&m_PageVector[GEMX_resPage];}
+    DdrFloatType *
+    addInstr() {
+        assert(m_NumInstr * sizeof(InstrControlType) <= GEMX_pageSizeBytes);
+        InstrControlType *l_instrBased = (InstrControlType *)&m_PageVector[GEMX_codePage];
+        DdrFloatType* l_instrAdd = (DdrFloatType*)&l_instrBased[m_NumInstr];
+        ++m_NumInstr;
+        return(l_instrAdd);
+      }
+    bool
+    writeToBinFile(std::string p_FileName)
+    {
+      bool ok = false;  
+      std::ofstream l_of(p_FileName.c_str(), std::ios::binary);
+      if (l_of.is_open()) {
+        size_t l_sizeBytes =  sizeof(m_PageVector[0]) * m_PageVector.size();
+        l_of.write((char*)&m_PageVector[0], l_sizeBytes);
+        if (l_of.tellp() == l_sizeBytes) {
+          std::cout << "INFO: wrote " << l_sizeBytes << " bytes to " << p_FileName << "\n";
+          ok = true;
+        } else {
+          std::cout << "ERROR: wrote only " << l_of.tellp() << " bytes to " << p_FileName << "\n";
+        }
+        l_of.close();
+      }
+      return(ok);
+    }
+    bool
+    readFromBinFile(std::string p_FileName)
+    {
+      bool ok = false;  
+      // Bin file existence
+      std::ifstream l_if(p_FileName.c_str(), std::ios::binary);
+      if (l_if.is_open()) {
+        // Bin file size
+        size_t l_FileSize = getFileSize(p_FileName);
+        std::cout << "INFO: loading " + p_FileName + " of size " << l_FileSize << "\n";
+        assert(l_FileSize > 0);
+        size_t l_FileSizeInPages = l_FileSize / sizeof(m_PageVector[0]);
+        assert(l_FileSize % sizeof(m_PageVector[0]) == 0);
+
+        // Bin file storage
+        m_PageVector.reserve(l_FileSizeInPages);
+        m_PageVector.resize(l_FileSizeInPages);
+
+        // Read the bin file
+        l_if.read((char*) &m_PageVector[0], l_FileSize);
+        if (l_if) {
+          std::cout << "INFO: loaded " << l_FileSize << " bytes from " << p_FileName << "\n";
+          ok = true;
+        } else {
+          m_PageVector.clear();
+          std::cout << "ERROR: loaded only " << l_if.gcount() << " bytes from " << p_FileName << "\n";
+        }
+        l_if.close();
+
+      } else {
+        std::cout << "ERROR: failed to open file " + p_FileName + "\n";
+      }
+      return(ok);
+    }
+    gemx::MemDesc
+    getMemDesc(void) {
+      assert(m_PageVector.size() > 0);
+      gemx::MemDesc l_MemDesc(m_PageVector.size(), m_PageVector.data());
+      return(l_MemDesc);
+    }
+
+};
+
+typedef ProgramUram<GEMX_dataType, GEMX_idxType> ProgramType;
+
+// Sparse matrix descriptor with data itself stored in caller's space
+template < typename Tdata,  typename Tidx>
+class SpMatUram
+{
+  private:
+    unsigned int m_Rows, m_Cols, m_Nnz;
+		Tdata *m_DataAddr;
+		Tidx  *m_IdxAddr;
+	public:
+		static const unsigned int t_NumData = (sizeof(GEMX_idxType)*2/sizeof(GEMX_dataType))*GEMX_ddrWidth+GEMX_ddrWidth;
+		static const unsigned int t_NumIdx = (sizeof(GEMX_idxType)*2/sizeof(GEMX_dataType)+1)*sizeof(GEMX_dataType)*GEMX_ddrWidth / sizeof(GEMX_idxType);
+		static const unsigned int t_NumUramPerDdr = GEMX_ddrWidth / (8/sizeof(Tdata)); 
+  public:
+    SpMatUram(){}
+    SpMatUram(unsigned int p_Rows, unsigned int p_Cols, unsigned int p_Nnz, Tdata *p_DataAddr)
+      : m_Rows(p_Rows), m_Cols(p_Cols), m_Nnz(p_Nnz), m_DataAddr(p_DataAddr), m_IdxAddr((Tidx*)(p_DataAddr+GEMX_ddrWidth)) {
+                  
+      }
+    SpMatUram& operator=(const SpMatUram& p_Src) {
+        assert(p_Src.rows() == rows());
+        assert(p_Src.cols() == cols());
+        for (unsigned int i = 0; i < m_Nnz; ++i) {
+          getVal(i) = p_Src.getVal(i);
+					getCol(i) = p_Src.getCol(i);
+					getRow(i) = p_Src.getRow(i);
+        }
+        return *this;
+      }
+    inline unsigned int rows() {return m_Rows;}
+    inline unsigned int cols() {return m_Cols;}
+    inline unsigned int nnz() {return m_Nnz;}
+    inline Tdata &getVal(unsigned int p_id) {return m_DataAddr[(p_id/GEMX_ddrWidth)*t_NumData+(p_id%GEMX_ddrWidth)];}
+		inline Tidx &getCol(unsigned int p_id) {return m_IdxAddr[(p_id/GEMX_ddrWidth)*t_NumIdx + (p_id % GEMX_ddrWidth)*2];}
+		inline Tidx &getRow(unsigned int p_id) {return m_IdxAddr[(p_id/GEMX_ddrWidth)*t_NumIdx + (p_id % GEMX_ddrWidth)*2+1];}
+
+    void 
+    init(unsigned int p_Rows, unsigned int p_Cols, unsigned int p_Nnz, Tdata *p_DataAddr){
+			m_Rows = p_Rows;
+			m_Cols = p_Cols;
+			m_Nnz = p_Nnz;
+    	m_DataAddr = p_DataAddr;
+			m_IdxAddr = (Tidx*) (p_DataAddr+GEMX_ddrWidth);
+    }
+    
+    void
+    fillMod(Tdata p_Max) {
+        std::vector<MtxRow> l_rows;
+        
+        Tdata l_d = 17;
+        unsigned int row = 0, col = 0;
+        unsigned int numCols =  nnz() / rows();
+        assert(numCols > 0);
+        unsigned int colStep = cols() / numCols - 1;
+        assert(colStep > 0);
+        for (unsigned int i = 0; i < m_Nnz; ++i) {
+          l_d++;
+          l_d %= p_Max;
+          assert(row < rows());
+          assert(col < cols());
+          MtxRow l_m(l_d, row, col);
+          l_rows.push_back(l_m);
+          //std::cout << "  DEBUG fillMod\n    l_m = " << l_m
+          //          << "\n    l_D = " << l_mD << "\n";
+          if (i % numCols == numCols - 1) {
+            row++;
+            col = 0;
+          }
+          col += colStep;
+	  			if (row >= rows()) {
+	    			row--;
+	  			}
+        }
+        fillFromVector(l_rows);
+      }
+    void
+    fillFromVector(std::vector<MtxRow> p_Rows) {
+    	assert(p_Rows.size() ==  nnz());
+      for (unsigned int i = 0; i < m_Nnz; ++i) {
+      	MtxRow l_row = p_Rows[i];
+        getVal(i) = l_row.getVal();
+				getRow(i) = l_row.getRow();        
+				getCol(i) = l_row.getCol();
+    	}
+		}
+    
+		void
+    fillFromVectorWithReorder(std::vector<MtxRow> p_Rows) {
+    	assert(p_Rows.size() ==  nnz());
+			unsigned int i=0;
+			unsigned int l_blocks = m_Nnz / (t_NumUramPerDdr * t_NumUramPerDdr);
+      for (unsigned int c = 0; c < t_NumUramPerDdr; ++c) {
+				for (unsigned int b = 0; b < l_blocks; ++b) {
+					for (unsigned int r = 0; r < t_NumUramPerDdr; ++r) {
+						MtxRow l_row = p_Rows[i];
+						i++;
+						getVal(b*t_NumUramPerDdr*t_NumUramPerDdr+r*t_NumUramPerDdr+c) = l_row.getVal();
+						getRow(b*t_NumUramPerDdr*t_NumUramPerDdr+r*t_NumUramPerDdr+c) = l_row.getRow();
+						getCol(b*t_NumUramPerDdr*t_NumUramPerDdr+r*t_NumUramPerDdr+c) = l_row.getCol();
+					}
+				}        
+    	}
+		}
+
+    std::vector<MtxRow>
+    getNnzVector() {
+        std::vector<MtxRow> l_rows;
+        for (unsigned int i = 0; i < m_Nnz; ++i) {
+              MtxRow l_mr(getVal(i), getRow(i), getCol(i));
+              l_rows.push_back(l_mr);
+        }
+        return(l_rows);
+      }
+    
+    void
+    print(std::ostream& os) {
+        os << "%%MatrixMarket matrix coordinate real general\n"
+           << "% Rows Columns Entries\n";
+        os << rows() << "  " << cols() << "  " << nnz() << "\n";
+        for (unsigned int i = 0; i < m_Nnz; ++i) {
+            MtxRow l_mr(getVal(i), getRow(i), getCol(i));
+            os << l_mr << "\n";
+      }
+};
+};
+template <typename T1, typename T2>
+std::ostream& operator<<(std::ostream& os, SpMatUram<T1, T2>& p_Val) {
+  p_Val.print(os);
+  return(os);
+}
+// Matrix descriptor with data itself stored in caller's space
+template < typename T, typename Tidx>
+class MatUram
+{
+  private:
+    unsigned int m_Rows, m_Cols, m_Ld; 
+    T *m_Addr;
+  public:
+	MatUram()
+	{}
+    MatUram(unsigned int p_Rows, unsigned int p_Cols, unsigned int p_Ld, T *p_Addr)
+      : m_Rows(p_Rows), m_Cols(p_Cols), m_Ld(p_Ld), m_Addr(p_Addr)
+      {}
+    MatUram& operator=(const MatUram& p_Src) {
+        assert(p_Src.rows() == rows());
+        assert(p_Src.cols() == cols());
+        for (unsigned int row = 0; row < m_Rows; ++row) {
+          for (unsigned int col = 0; col < m_Cols; ++col) {
+            m_Addr[row][col] = p_Src.getVal(row, col);
+          }
+        }
+        return *this;
+      }
+    inline T &getVal(unsigned int p_Row, unsigned int p_Col) {return m_Addr[p_Row * ld() + p_Col];}
+    inline unsigned int rows() {return m_Rows;}
+    inline unsigned int cols() {return m_Cols;}
+    inline unsigned int ld() {return m_Ld;}
+	void
+	init(unsigned int p_Rows, unsigned int p_Cols, unsigned int p_Ld, T *p_Addr) {
+		m_Rows = p_Rows;
+		m_Cols = p_Cols;
+		m_Ld = p_Ld;
+		m_Addr = p_Addr;
+    }
+    void
+    fillMod(T p_Max, T p_First = 0) {
+        T l_val = p_First;
+        for (unsigned int row = 0; row < m_Rows; ++row) {
+          for (unsigned int col = 0; col < ld(); ++col) {
+            getVal(row, col) = l_val;
+            l_val++;
+            l_val %= p_Max;
+          }
+        }
+      }
+    void
+    fillFromFile(std::istream& p_Is) {
+      T l_val;
+      for (unsigned int row=0; row < m_Rows; ++row) {
+				for (unsigned int col=0; col < ld(); ++col) {
+	  			p_Is >> l_val;
+	  			getVal(row,col) = l_val;
+				}
+      }
+    }
+    void
+    multiply(MatUram & p_A, MatUram & p_B) {
+        T l_val = 0;
+        assert(p_A.rows() == rows());
+        assert(p_A.cols() == p_B.rows());
+        assert(p_B.cols() == cols());
+        for (unsigned int row = 0; row < rows(); ++row) {
+          for (unsigned int col = 0; col < cols(); ++col) {
+            T l_val = 0;
+            for (unsigned int k = 0; k < p_A.cols(); ++k) {
+							T l_multRes;
+              l_multRes = p_A.getVal(row, k) * p_B.getVal(k, col);
+							l_val += l_multRes;
+            }
+            //std::cout << "    DEBUG multiply setting row=" << row << " col=" << col << std::endl;
+            getVal(row, col) = l_val;
+          }
+        }
+      }
+    void
+    multiplyAddScale(MatUram & p_A, MatUram & p_B,  MatUram<GEMX_XdataType, Tidx> & p_X, int32_t p_postScale) {
+        assert(p_A.rows() == rows());
+        assert(p_A.cols() == p_B.rows());
+        assert(p_B.cols() == cols());
+				assert(p_X.rows() == rows());
+				assert(p_X.cols() == cols());
+        for (unsigned int row = 0; row < rows(); ++row) {
+          for (unsigned int col = 0; col < cols(); ++col) {
+						#if GEMX_keepMacBits
+            	int64_t l_val = 0;
+						#else
+							T l_val=0;
+						#endif
+            for (unsigned int k = 0; k < p_A.cols(); ++k) {
+              l_val += p_A.getVal(row, k) * p_B.getVal(k, col);
+            }
+						l_val += p_X.getVal(row, col);
+						#if GEMX_keepMacBits
+							unsigned int l_psShift = p_postScale & 0x00ff;
+							int64_t l_psVal =  p_postScale >> 8;
+							l_val = l_val * l_psVal;
+							l_val = l_val >> l_psShift;
+						#endif
+            T l_entry = (T)(l_val);
+            getVal(row, col) = l_entry;
+          }
+        }
+      }
+    void
+    multiplyGf(MatUram & p_A, MatUram & p_B, unsigned int p_EdgeWidth) {
+        assert(p_A.rows() == rows());
+        assert(p_A.cols() == p_B.rows());
+        assert(p_B.cols() == cols());
+        std::cout << "  DEBUG multiplyGf rows=" << rows() << "  cols=" << cols() << "\n";
+        for (unsigned int rowBlock = 0; rowBlock < rows() / p_EdgeWidth ; ++rowBlock) {
+          for (unsigned int colBlock = 0; colBlock < cols() / p_EdgeWidth ; ++colBlock) {
+            for (unsigned int row = 0; row < rows(); ++row) {
+              for (unsigned int col = 0; col < cols(); ++col) {
+                T l_val = 0;
+                for (unsigned int k = 0; k < p_A.cols(); ++k) {
+                  l_val += p_A.getVal(k + rowBlock * p_EdgeWidth, col + colBlock * p_EdgeWidth) *
+                           p_B.getVal(k + rowBlock * p_EdgeWidth, col + colBlock * p_EdgeWidth);
+                }
+                getVal(row + rowBlock * p_EdgeWidth, col + colBlock * p_EdgeWidth) = l_val;
+                std::cout << "DEBUG multiplyGf after k-loop " << *this << "\n"; 
+              }
+            }
+          }
+        }
+      }
+    // Matrix A is in GvA format (also dimensions are wider and shorter)
+    // The p_rowEdgeWidth just inficates the compute array intake edge to allow for matrix dimension adjustment
+    void
+    multiplyGemvGf(MatUram & p_A, MatUram & p_B, unsigned int p_rowEdgeWidth) {
+        assert(p_A.rows() * p_rowEdgeWidth == rows());
+        assert(p_A.cols() == p_B.rows() * p_rowEdgeWidth);
+        assert(p_B.cols() == cols());
+        std::cout << "  DEBUG multiplyGvA format rows=" << rows() << "  cols=" << cols() << "\n";
+        // Rows here are mblocks, cols are within the mblock 
+        for (unsigned int row = 0; row < p_A.rows() ; ++row) {  // A is already in block format
+          for (unsigned int col = 0; col < p_A.cols() ; ++col) {
+            unsigned int k = col / p_rowEdgeWidth;
+            unsigned int w = col % p_rowEdgeWidth;
+            T l_a = p_A.getVal(row, col);
+            T l_b = p_B.getVal(k, 0);
+            getVal(w + row * p_rowEdgeWidth, 0)  += l_a * l_b;
+            //std::cout << "        += a * b  = " << l_a << " * " << l_b << "\n";
+          }
+          //std::cout << "    DEBUG multiplyGemvGf after k-loop " << *this << "\n"; 
+        }
+      }
+    void
+    multiplySpmv(SpMatUram<T, Tidx> & p_A, MatUram & p_B) {
+        T l_val = 0;
+        assert(p_A.rows() == rows());
+        assert(p_A.cols() == p_B.rows());
+        assert(p_B.cols() == cols());
+        std::vector<MtxRow> l_rows =  p_A.getNnzVector();
+        for (MtxRow &l_row : l_rows) {
+          unsigned int row = l_row.getRow(),
+                       col = l_row.getCol();
+          l_val = l_row.getVal();
+          getVal(row, 0) += l_val * p_B.getVal(col, 0);
+          //std::cout << "DEBUG multiplySpmv row=" << row << " col=" << col << "  "
+            //        << l_val << " * " << p_B.getVal(col, 0)
+            //        << " was added to " << getVal(row, 0) << "\n";
+        }
+      }
+    void
+    transpose(MatUram & p_A) {
+        for (unsigned int row = 0; row < rows(); ++row) {
+          for (unsigned int col = 0; col < cols() ; ++col) {
+            getVal(row, col) = p_A.getVal(col, row);
+          }
+        }
+        std::swap(m_Rows, m_Cols);
+      }
+    void
+    transposeGva(MatUram & p_A, unsigned int p_rowEdgeWidth, unsigned int p_colEdgeWidth) {
+        unsigned int l_pos = 0;
+        for (unsigned int rowBlock = 0; rowBlock < p_A.rows() / p_rowEdgeWidth ; ++rowBlock) {
+          for (unsigned int colBlock = 0; colBlock < p_A.cols() / p_colEdgeWidth ; ++colBlock) {
+            for (unsigned int col = 0; col < p_colEdgeWidth; ++col) {
+              for (unsigned int row = 0; row < p_rowEdgeWidth; ++row) {
+                getVal(l_pos / cols(), l_pos % cols())  =
+                  p_A.getVal(row + rowBlock * p_rowEdgeWidth, col + colBlock * p_colEdgeWidth);
+                l_pos++;
+              }
+              //std::cout << "DEBUG transposeGva step " << *this << "\n"; 
+            }
+          }
+        }
+        std::swap(m_Rows, m_Cols);
+      }
+    void
+    print(std::ostream& os) {
+        os << m_Rows << "x" << m_Cols << " Ld=" << m_Ld << "\n";
+        unsigned int l_cols = 
+          cols(); // normal matrix
+          //ld();; // parent matrix (within Ld
+        for (unsigned int row = 0; row < rows(); ++row) {
+          for (unsigned int col = 0; col < l_cols; ++col) {
+            os << std::setw(GEMX_FLOAT_WIDTH) << int(getVal(row, col)) << " ";
+          }
+          os << "\n";
+        }
+      }
+    bool
+    cmp(float p_TolRel, float p_TolAbs, MatUram &p_Ref) {
+        bool ok = true;
+        unsigned int l_verbose = 1;  // 0 none, 1 if not exactly equal, 2 if passed tolerance, 3 show all
+        unsigned int l_numExactMatches = 0, l_numMismatches = 0;
+        for (unsigned int row = 0; row < rows(); ++row) {
+          for (unsigned int col = 0; col < cols(); ++col) {
+            std::string l_Prefix = "      row " + std::to_string(row) + " col " + std::to_string(col); 
+            T v = getVal(row, col);
+            T vRef = p_Ref.getVal(row, col);
+            bool l_exactMatch = false;
+            bool l_ok = gemx::cmpVal<T>(p_TolRel, p_TolAbs, vRef, v, l_Prefix, l_exactMatch, 1);
+            ok = ok && l_ok;
+            if (l_exactMatch) {
+              l_numExactMatches++;
+            }
+            if (!l_ok) {
+              l_numMismatches++;
+            }
+          }
+        }
+        unsigned int l_total = rows() * cols();
+        unsigned int l_withinTolerance = l_total - l_numExactMatches - l_numMismatches;
+        std::cout << "  Compared " << l_total << " values:"
+                  << "  exact match " << l_numExactMatches
+                  << "  within tolerance " << l_withinTolerance
+                  << "  mismatch " << l_numMismatches << "\n";
+        return(ok);
+      }
+
+};
+template <typename T1, typename T2>
+std::ostream& operator<<(std::ostream& os, MatUram<T1, T2>& p_Val) {
+  p_Val.print(os);
+  return(os);
+}
+
+typedef SpMatUram<float, GEMX_idxType> SpMatType_ForFloat;
+typedef MatUram<float, GEMX_idxType> MatType_ForFloat;
+
+template<>
+void
+MatType_ForFloat::fillMod(float p_Max, float p_First) {
+  const bool l_small = false;
+  if (l_small) {
+    // for easier debug of matrices
+    float l_val = p_First;
+    for (unsigned int row = 0; row < m_Rows; ++row) {
+      for (unsigned int col = 0; col < ld(); ++col) {
+        getVal(row, col) = l_val;
+        l_val += 0.3;
+        if (l_val > p_Max) {
+          l_val -= p_Max;
+        }
+      }
+    }
+  } else {
+    // for better float robustness of large matrices
+    float l_val = 1.0;
+    float l_step = 0.3;
+    float l_drift = 0.00001;
+    float l_sign = 1;
+    for (unsigned int row = 0; row < m_Rows; ++row) {
+      for (unsigned int col = 0; col < ld(); ++col) {
+        getVal(row, col) = l_val;
+        l_val += l_sign * l_step;
+        l_step += l_drift;
+        l_sign = -l_sign;
+        if (l_val > p_Max) {
+          l_val -= p_Max;
+        }
+      }
+    }
+  }
+}
+template<>
+void
+MatType_ForFloat::print(std::ostream& os) {
+    os << m_Rows << "x" << m_Cols << " Ld=" << m_Ld << "\n";
+    unsigned int l_cols = 
+      cols(); // normal matrix
+      //ld();; // parent matrix (within Ld
+    for (unsigned int row = 0; row < rows(); ++row) {
+      for (unsigned int col = 0; col < l_cols; ++col) {
+        os << std::setw(GEMX_FLOAT_WIDTH) << std::fixed << std::setprecision(3) << getVal(row, col) << " ";
+      }
+      os << "\n";
+    }
+  }
+
+
+template<>
+void
+SpMatType_ForFloat::fillMod(float p_Max) {
+  std::vector<MtxRow> l_rows;
+  
+  float l_d = 17;
+  unsigned int row = 0, col = 0;
+  unsigned int numCols =  nnz() / rows();
+  assert(numCols > 0);
+  unsigned int colStep = cols() / numCols - 1;
+  assert(colStep > 0);
+  for (unsigned int i = 0; i < m_Nnz; ++i) {
+    l_d += 0.3;
+    if (l_d > p_Max) {
+      l_d -= p_Max;
+    }
+    assert(row < rows());
+    assert(col < cols());
+    MtxRow l_m(l_d, row, col);
+    l_rows.push_back(l_m);
+    if (i % numCols == numCols - 1) {
+      row++;
+      col = 0;
+    }
+    col += colStep;
+    if (row >= rows()) {
+      row--;
+    }
+  }
+  fillFromVector(l_rows);
+}
+
+typedef MatUram<GEMX_dataType, GEMX_idxType> MatType;
+typedef MatUram<GEMX_XdataType, GEMX_idxType> XMatType;
+typedef SpMatUram<GEMX_dataType, GEMX_idxType > SpMatType;
+
+class GenSpmvUram
+{
+  public:
+    bool
+    check(
+      unsigned int &p_M,  // The check() modifies the dimensions when loading from a file
+      unsigned int &p_K,
+      unsigned int &p_Nnz,
+      MtxFileUram &p_MtxFile
+    ) {
+        bool ok = true;
+        
+        // m_C
+        const unsigned int l_mEdge = GEMX_ddrWidth * GEMX_nnzBlocks;
+        const unsigned int l_mMax = GEMX_ddrWidth * GEMX_spmvMmaxBlocks * GEMX_spmvUramGroups;
+        // m_B
+        const unsigned int l_kEdge = GEMX_ddrWidth;
+        const unsigned int l_kMax = l_kEdge * GEMX_spmvKmaxBlocks;
+        
+        if (!p_MtxFile.good() && (p_MtxFile.fileName() != "none")) {
+          std::cerr << "ERROR: spmv  mtxFile " << p_MtxFile.fileName()
+                    << " must exist or use none for auto-generated data"
+                    << "\n";
+          ok = false;
+        }
+        
+        // Use the file only
+        if (p_MtxFile.good()) {
+          if ((p_M != 0) || (p_K != 0) || (p_Nnz != 0)) {
+            std::cerr << "ERROR: spmv  M, K, Nnz must be 0 when using mtx file: "
+                      << "  M " << p_M
+                      << "  K " << p_K
+                      << "  Nnz " << p_Nnz
+                      << "\n";
+          }
+          p_M = p_MtxFile.rows();
+          p_K = p_MtxFile.cols();
+          p_Nnz = p_MtxFile.nnz();
+        }
+        
+        if (p_Nnz == 0) {
+          std::cerr << "ERROR: spmv  Nnz must be non-0, it is " << p_Nnz << "\n";
+          ok = false;
+        }
+        if (p_Nnz % (GEMX_ddrWidth * GEMX_nnzBlocks)!= 0) {
+          std::cerr << "ERROR: spmv  Nnz " << p_Nnz << " must be multiple of GEMX_ddrWidth * GEMX_nnzBlocks "
+                    << GEMX_ddrWidth << "*" << GEMX_nnzBlocks << "\n";
+          ok = false;
+        }
+        
+				if (p_M > l_mMax) {
+          std::cerr << "ERROR: spmv  M dimension " << p_M << " is larger than max supported " << l_mMax
+                    << "   Recompile the kernel with larger GEMX_spmvMmaxBlocks\n";
+          ok = false;
+        }
+        if (p_K > l_kMax) {
+          std::cerr << "ERROR: spmv  K dimension " << p_K << " is larger than max supported " << l_kMax
+                    << "  Recompile the kernel with larger GEMX_spmvKmaxBlocks\n";
+          ok = false;
+        }        
+        if (p_M % l_mEdge != 0) {
+          std::cerr << "ERROR: spmv  M dimension " << p_M << " must be multiple of "
+                    << l_mEdge << "\n";
+          ok = false;
+        }
+        if (p_K % (l_kEdge) != 0) {
+          std::cerr << "ERROR: spmv  K dimension " << p_K << " must be multiple of "
+                    << l_kEdge << "\n";
+          ok = false;
+        }        
+        return(ok);
+      }
+
+    void
+    addInstr(
+      ProgramType &p_Program,
+      unsigned int p_M,
+      unsigned int p_K,
+      unsigned int p_Nnz,
+      MtxFileUram p_MtxFile,
+      std::string p_handleA,
+      std::string p_handleB,
+      std::string p_handleC,
+      bool p_WithGolden
+    ) {
+    
+    // Allocate all pages before getting any address
+    bool l_newAllocA, l_newAllocB, l_newAllocC;
+    
+		unsigned int l_pageA = p_Program.allocPages(p_handleA, l_newAllocA, p_Nnz+p_Nnz*2*sizeof(GEMX_idxType)/sizeof(GEMX_dataType));
+    // B, C
+    unsigned int l_pageB = p_Program.allocPages(p_handleB, l_newAllocB, p_K * 1);
+    unsigned int l_pageC = p_Program.allocPages(p_handleC, l_newAllocC, p_M * 1);
+    
+    // Get addresses where matrices are stored
+    SpMatType l_matA(p_M, p_K, p_Nnz, p_Program.getPageAddr(l_pageA));
+    MatType l_matB(p_K, 1, 1,       p_Program.getPageAddr(l_pageB));
+    MatType l_matC(p_M, 1, 1,       p_Program.getPageAddr(l_pageC));
+    
+    // Instruction
+    SpmvArgsType l_spmvArgs(
+        l_pageA, l_pageB, l_pageC,
+        p_M, p_K, p_Nnz, 0, 0
+      );
+    KargsType l_kargs;
+    l_kargs.setSpmvArgs(l_spmvArgs);
+    l_kargs.store(p_Program.addInstr(), 0);
+    
+    if (l_newAllocA) {
+      if (p_MtxFile.good()) {
+				if (p_MtxFile.isDiag()) {
+        	l_matA.fillFromVector(p_MtxFile.getRows());
+				}
+				else {
+					l_matA.fillFromVectorWithReorder(p_MtxFile.getRows());
+				}
+      } else {
+        l_matA.fillMod(std::numeric_limits<GEMX_dataType>::max());
+      }
+    }
+    if (l_newAllocB) {
+      l_matB.fillMod(9);
+    }
+    
+    // Calculate reference C = A * B
+    if (p_WithGolden) {
+      l_matC.multiplySpmv(l_matA, l_matB);
+    }
+    std::cout << "Added SPMV " << p_M << "x" << p_K << " Nnz=" << p_Nnz << "  ";
+    //std::cout << "DEBUG A:\n" << l_matA << "\n";
+  }
+  
+  void
+  show(
+      ProgramType &p_Program,
+      SpmvArgsType p_SpmvArgs
+    ) {
+      unsigned int l_M = p_SpmvArgs.m_M,
+                   l_K = p_SpmvArgs.m_K,
+                   l_Nnz = p_SpmvArgs.m_Nnz;
+      SpMatType l_matA(l_M, l_K, l_Nnz, p_Program.getPageAddr(p_SpmvArgs.m_Aoffset));
+      MatType l_matB(l_K, 1,   1,   p_Program.getPageAddr(p_SpmvArgs.m_Boffset));
+      MatType l_matC(l_M, 1,   1,   p_Program.getPageAddr(p_SpmvArgs.m_Coffset));
+      std::cout << "\n###########  Op Spmv  ###########\n"
+        << "  C = A * B  "
+        << l_M << "x" << 1 << " = " << l_M << "x" << l_K << " * " << l_K << "x" << 1
+        << "  Nnz=" << l_Nnz << "\n"
+        << "  A\n" << l_matA << "\n"
+        << "  B " << l_matB << "\n"
+        << "  C " << l_matC << "\n";
+    }
+  bool
+  compare(
+      float p_TolRel, float p_TolAbs, 
+      ProgramType &p_Program0, ProgramType &p_Program1,
+      SpmvArgsType p_SpmvArgs
+    ) {
+      unsigned int l_M = p_SpmvArgs.m_M,
+                   l_K = p_SpmvArgs.m_K,
+                   l_Nnz = p_SpmvArgs.m_Nnz;
+      MatType l_matC0(l_M, 1,   1,   p_Program0.getPageAddr(p_SpmvArgs.m_Coffset)),
+              l_matC1(l_M, 1,   1,   p_Program1.getPageAddr(p_SpmvArgs.m_Coffset));
+      std::cout << "\n###########  Op Spmv  ###########\n"
+        << "  C = A * B  "
+        << l_M << "x" << 1 << " = " << l_M << "x" << l_K << " * " << l_K << "x" << 1
+        << "  Nnz=" << l_Nnz << "\n"
+        << "  Comparing ...\n";
+      bool ok = l_matC1.cmp(p_TolRel, p_TolAbs, l_matC0);
+      std::cout << "Spmv C " << (ok ? "Matches" : "Differs") << "\n";
+      return(ok);
+    }
+      
+};
+#endif
 
 ////////////////////////  CONTROL  ////////////////////////
 class GenControl
@@ -1370,8 +2272,8 @@ class GenGemm
       unsigned int p_LdA,
       unsigned int p_LdB,
       unsigned int p_LdC,
-			unsigned int p_LdX,
-			int32_t p_postScale,
+      unsigned int p_LdX,
+      int32_t p_postScale,
       std::string p_handleA,
       std::string p_handleB,
       std::string p_handleC,
@@ -1409,9 +2311,9 @@ class GenGemm
     if (l_newAllocB) {
       l_matB.fillMod(129, 65);
     }
-		if (l_newAllocX) {
-			l_matX.fillMod(1, 0);
-		}
+    if (l_newAllocX) {
+      l_matX.fillMod(1, 0);
+    }
   
     // Calculate reference C = postScale(A * B + X)
     if (p_WithGolden) {
@@ -1419,6 +2321,146 @@ class GenGemm
     }
     std::cout << "Added GEMM " << p_M << "x" << p_K << "x" << p_N << "  ";
   }
+  void 
+  addInstrFromFiles(
+	unsigned int l_instrIndex,
+	ProgramType &p_Program,
+	std::string p_InsName, std::string p_MatAName, std::string p_MatBName, std::string p_MatXName,
+	bool p_WithGolden
+	) {
+	unsigned int l_M, l_K, l_N, l_LdA, l_LdB, l_LdC, l_LdX;
+	unsigned int l_pageA, l_pageB, l_pageC, l_pageX;
+	int32_t l_postScale;
+	std::string l_handleA, l_handleB, l_handleC, l_handleX;
+	bool l_newAllocA, l_newAllocB, l_newAllocC, l_newAllocX;
+	
+	std::cout <<"INFO: loading input matrices files " 
+	<< p_InsName <<" "<<p_MatAName<<" "<<p_MatBName<<" "<<p_MatXName<<"\n";
+	std::ifstream l_fs_ins(p_InsName.c_str(),   std::ios_base::in | std::ios_base::binary);
+	std::ifstream l_fs_matA(p_MatAName.c_str(), std::ios_base::in | std::ios_base::binary);
+	std::ifstream l_fs_matB(p_MatBName.c_str(), std::ios_base::in | std::ios_base::binary);
+	std::ifstream l_fs_matX(p_MatXName.c_str(), std::ios_base::in | std::ios_base::binary);
+
+	boost::iostreams::filtering_istream l_bs_ins;
+	l_bs_ins.push(l_fs_ins);
+	boost::iostreams::filtering_istream l_bs_matA;
+	l_bs_matA.push(l_fs_matA);
+	boost::iostreams::filtering_istream l_bs_matB;
+	l_bs_matB.push(l_fs_matB);
+	boost::iostreams::filtering_istream l_bs_matX;
+	l_bs_matX.push(l_fs_matX);
+	
+	bool l_good = l_bs_ins.good() && l_bs_matA.good() && l_bs_matB.good() && l_bs_matX.good();
+
+	bool ok=true;
+	const unsigned int l_Edge = GEMX_ddrWidth;
+	const unsigned int l_kMin = 2 * GEMX_ddrWidth;
+
+	if (l_good) {
+		unsigned int l_index;
+		while (l_bs_ins.peek()=='#') l_bs_ins.ignore(2048, '\n');
+		l_bs_ins >> l_index;
+		while (l_index < l_instrIndex){
+		  l_bs_ins.ignore(2048, '\n');
+		  l_bs_ins >> l_index;		
+		}
+		std::cout<<"INFO instr number : "<<l_index<<"\n";
+		l_bs_ins >> l_postScale;
+		std::cout << "INFO " << l_postScale << "\n";
+		//read A dimensions
+		l_bs_ins >> l_handleA >> l_M >> l_K >> l_LdA;
+		std::cout << "INFO " << l_handleA << " " << l_M << " " << l_K << " " << l_LdA << "\n";
+		//check A dimention
+		ok = checkDim("M", l_M, l_Edge, 1) &&
+				  checkDim("K", l_K, l_Edge, 2*l_Edge) &&
+				  checkDim("LdA", l_LdA, l_Edge, l_K);
+		if (!ok) {
+		  return;
+		}
+		//allocate host memory and initialize it with data from the file
+		l_pageA = p_Program.allocPages(l_handleA, l_newAllocA, l_M * l_LdA);
+		MatType l_matA(l_M, l_K, l_LdA, p_Program.getPageAddr(l_pageA));
+		while (l_bs_matA.peek()=='#') l_bs_matA.ignore(2048, '\n');
+		if (l_newAllocA) {
+		  l_matA.fillFromFile(l_bs_matA);	
+		}
+	
+		//read matrix B dimensions
+		unsigned int l_bK;
+		l_bs_ins >> l_handleB >> l_bK >> l_N >> l_LdB;
+		std::cout << "INFO " << l_handleB << " " << l_bK << " " << l_N << " " << l_LdB << "\n";
+		assert(l_bK == l_K);
+		ok = checkDim("N", l_N, l_Edge, 1) &&
+				  checkDim("LdB", l_LdB, l_Edge, l_N);
+		if (!ok) {
+		  boost::iostreams::close(l_bs_ins);
+		  return;
+		}
+
+		l_pageB = p_Program.allocPages(l_handleB, l_newAllocB, l_K * l_LdB);
+		MatType l_matB(l_K, l_N, l_LdB, p_Program.getPageAddr(l_pageB));
+		while (l_bs_matB.peek()=='#') l_bs_matB.ignore(2048, '\n');
+		if (l_newAllocB) {
+			l_matB.fillFromFile(l_bs_matB);	
+		}
+		
+		//read matrix X dimensions
+		unsigned int l_xM, l_xN;
+		l_bs_ins >> l_handleX >> l_xM >> l_xN >> l_LdX;
+		std::cout << "INFO " << l_handleX << " " << l_xM << " " << l_xN << " " << l_LdX << "\n";
+		assert(l_xM == l_M);
+		assert(l_xN == l_N);
+		ok = checkDim("LdX", l_LdX, l_Edge, l_N);
+		if (!ok) {
+			boost::iostreams::close(l_bs_ins);
+			return;
+		}
+
+		l_pageX = p_Program.allocPages(l_handleX, l_newAllocX, l_M*l_N*(sizeof(GEMX_XdataType)/sizeof(GEMX_dataType)));
+		XMatType l_matX(l_M, l_N, l_LdX, (GEMX_XdataType *) p_Program.getPageAddr(l_pageX));
+		while (l_bs_matX.peek()=='#') l_bs_matX.ignore(2048, '\n');
+		if (l_newAllocX) {
+			l_matX.fillFromFile(l_bs_matX);
+		}
+		//read matrix C dimensions
+		unsigned int l_cM, l_cN;
+		l_bs_ins >> l_handleC >> l_cM >> l_cN >> l_LdC;
+		std::cout << "INFO " << l_handleC << " " << l_cM << " " << l_cN << " " << l_LdC << "\n";
+		assert(l_cM == l_M);
+		assert(l_cN == l_N);
+		ok = checkDim("LdC", l_LdC, l_Edge, l_N);
+		if (!ok) {
+			boost::iostreams::close(l_bs_ins);
+			return;
+		}	
+		l_pageC = p_Program.allocPages(l_handleC, l_newAllocC, l_M * l_LdC);
+		MatType l_matC(l_M, l_N, l_LdC, p_Program.getPageAddr(l_pageC));
+
+		if (p_WithGolden){
+		  l_matC.multiplyAddScale(l_matA, l_matB, l_matX, l_postScale);
+		}
+
+		GemmArgsType l_gemmArgs(
+			l_pageA, l_pageB, l_pageC, l_pageX,
+			l_M, l_K, l_N,
+			l_LdA, l_LdB, l_LdC, l_LdX,
+			l_postScale
+		);
+		KargsType l_kargs;
+		l_kargs.setGemmArgs(l_gemmArgs);
+		l_kargs.store(p_Program.addInstr(),0);
+
+		std::cout << "Added GEMM" << l_M << "x" << l_K << "x" << l_N << " postScale: " << l_postScale << "  ";
+		
+		boost::iostreams::close(l_bs_ins);
+		boost::iostreams::close(l_bs_matA);
+		boost::iostreams::close(l_bs_matB);
+		boost::iostreams::close(l_bs_matX);
+		
+	} else {
+		std::cout << "ERROR: bad filename" << "\n";
+	}
+      }
   void
   show(
       ProgramType &p_Program,
@@ -1429,7 +2471,7 @@ class GenGemm
                    l_ldA = p_GemmArgs.m_Lda,
                    l_ldB = p_GemmArgs.m_Ldb,
                    l_ldC = p_GemmArgs.m_Ldc,
-									 l_ldX = p_GemmArgs.m_Ldx;
+		   l_ldX = p_GemmArgs.m_Ldx;
 			int32_t l_postScale = p_GemmArgs.m_postScale;
       MatType l_matA(l_M, l_K, l_ldA, p_Program.getPageAddr(p_GemmArgs.m_Aoffset));
       MatType l_matB(l_K, l_N, l_ldB, p_Program.getPageAddr(p_GemmArgs.m_Boffset));

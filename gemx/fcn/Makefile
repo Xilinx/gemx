@@ -115,6 +115,25 @@ else ifeq (${GEMX_part},ku115)
   XDEVICE_REPO_PATH=$(DSA_PATH)
   PLATFORM_REPO_PATH=$(DSA_PATH)/${DSA_PLATFORM}
   XOPENCL_LIB_PATH=${DSA_PATH}/../runtime/lib/x86_64
+else ifeq (${GEMX_part},vu9pf1)
+  #CLCC_OPT += --xp param:compiler.acceleratorBinaryContent="bitstream"
+  #CLCC_OPT += --xp vivado_param:hd.routingContainmentAreaExpansion=true 
+#  DSA=5_0
+#  XDEVICE_COLON=xilinx:aws-vu9p-f1:dynamic:$(subst _,.,${DSA})
+#  XDEVICE=xilinx_aws-vu9p-f1_dynamic_${DSA}
+#  DSA_PLATFORM=xilinx_aws-vu9p-f1_dynamic_${DSA}
+#  XDEVICE_REPO_PATH=$(XILINX_SDX)/../../../../internal_platforms
+#  PLATFORM_REPO_PATH=$(XILINX_SDX)/../../../../internal_platforms/${DSA_PLATFORM}
+#  XOPENCL_LIB_PATH=${PLATFORM_REPO_PATH}/sw/lib/x86_64
+##for 2017.1 F1
+  DSA=4_0
+  XDEVICE_COLON=xilinx:aws-vu9p-f1:4ddr-xpr-2pr:$(subst _,.,${DSA})
+  XDEVICE=xilinx_aws-vu9p-f1_4ddr-xpr-2pr_${DSA}
+  DSA_PLATFORM=xilinx_aws-vu9p-f1_4ddr-xpr-2pr_${DSA}
+  XDEVICE_REPO_PATH=$(XILINX_SDX)/platforms
+  PLATFORM_REPO_PATH=$(XILINX_SDX)/platforms/${DSA_PLATFORM}
+  XOPENCL_LIB_PATH=${XILINX_SDX}/runtime/lib/x86_64
+
 else
   $(error Unknown GEMX_part ${GEMX_part})
 endif
@@ -195,6 +214,7 @@ CFLAGS_K = $(GMEM_FLAGS) -I ./src -I ../src \
           -Wno-ignored-attributes \
            
 KERNEL_DEFS += $(CFLAGS_K)
+CONFIG_INFO = $(shell echo ${CFLAGS_K} | sed 's/.*TEST_SDX=1//; s/-D //g; s/ -Wno.*//')
 
 KEEP_TEMP=1
 KERNEL_DEBUG=1
@@ -222,7 +242,7 @@ endif
 
 CLCC_LINK_OPT += --kernel_frequency ${GEMX_kernelVivadoFreq}
 CLCC_OPT += --xp prop:solution.hls_pre_tcl=../hls_config.tcl
-HOST_CFLAGS = -g -O0 -std=c++11 \
+HOST_CFLAGS = -g -O2 -std=c++11 \
               -I $(BOOST_SRC) \
               -DCL_USE_DEPRECATED_OPENCL_1_1_APIS \
               -DBOOST_COMPUTE_DEBUG_KERNEL_COMPILATION \
@@ -266,9 +286,14 @@ else ifeq (${GEMX_part},kcu1500)
   K3_DDR = 3
 else ifeq (${GEMX_part},vcu1525)
   K0_DDR = 0
-  K1_DDR = 1
-  K2_DDR = 2
-  K3_DDR = 3
+  K1_DDR = 3
+  K2_DDR = 1
+  K3_DDR = 2
+else ifeq (${GEMX_part},vu9pf1)
+  K0_DDR = 3
+  K1_DDR = 2
+  K2_DDR = 0
+  K3_DDR = 1
 endif
 
 CLCC_LINK_OPT += --sp gemxKernel_0.m_axi_gmemm:bank${K0_DDR}
@@ -281,7 +306,11 @@ endif
 ifeq ($(shell test $(GEMX_numKernels) -gt 3; echo $$?),0)
   CLCC_LINK_OPT += --sp gemxKernel_3.m_axi_gmemm:bank${K3_DDR}
 endif
+ifeq (${GEMX_part},vu9pf1)
+GEMX_fpgaDdrBanks = XCL_MEM_DDR_BANK${K2_DDR},XCL_MEM_DDR_BANK${K1_DDR},XCL_MEM_DDR_BANK${K0_DDR},XCL_MEM_DDR_BANK${K3_DDR}
+else
 GEMX_fpgaDdrBanks = XCL_MEM_DDR_BANK${K0_DDR},XCL_MEM_DDR_BANK${K1_DDR},XCL_MEM_DDR_BANK${K2_DDR},XCL_MEM_DDR_BANK${K3_DDR}
+endif
 HOST_CFLAGS += -D GEMX_fpgaDdrBanks=${GEMX_fpgaDdrBanks}
 
 
@@ -400,7 +429,6 @@ ifeq ($(shell test $(GEMX_numKernels) -gt 2; echo $$?),0)
 	cmp -i 8192 ${APP_GOLD_BIN} ${OUT_DIR}/app_out2.bin || ${GEN_BIN_EXE} -compare 1e-3 3e-6 ${APP_GOLD_BIN} ${OUT_DIR}/app_out2.bin
 endif
 ifeq ($(shell test $(GEMX_numKernels) -gt 3; echo $$?),0)
-	
 	cmp -i 8192 ${APP_GOLD_BIN} ${OUT_DIR}/app_out3.bin || ${GEN_BIN_EXE} -compare 1e-3 3e-6 ${APP_GOLD_BIN} ${OUT_DIR}/app_out3.bin
 endif
 
@@ -427,6 +455,7 @@ ${OUT_HOST_DIR}/emconfig.json :
 	$(XILINX_SDX)/bin/emconfigutil --xdevice ${XDEVICE_COLON} ${DEVICE_REPO_OPT} --od ${OUT_HOST_DIR}
 
 xbin: ${XCLBIN}
+	+make dump_config
 
 ${XCLBIN}: ${KERNEL_XOS}
 	@echo "************* Compile XCLBIN ${XCLBIN}  from  ${KERNEL_XOS} *************"
@@ -448,6 +477,9 @@ clean :
 
 clean_int:
 	${RM} -rf ${OUT_DIR} log-run_${SDA_FLOW}.txt
+
+dump_config: ${OUT_DIR}
+	@echo ${CONFIG_INFO} GEMX_fpgaDdrBanks=${GEMX_fpgaDdrBanks} | tr " " "\n" > ${OUT_DIR}/config_info.dat
 
 ${OUT_DIR} :
 	@echo "************* Creating DIR $@ *************"

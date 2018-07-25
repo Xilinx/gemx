@@ -10,9 +10,16 @@
 GCC_VERSION=6.2.0
 
 HWEMUGUI = 0
+ifeq (${GEMX_part}, vu9pf1)
+	#set DSA_PATH to point to the directory that contains xilinx_aws-vu9p-f1-04261818_dynamic_5_0 folder. E.g.
+	#DSA_PATH=aws-fpga/SDAccel/aws_platform
+	DSA_PATH=aws-fpga/SDAccel/aws_platform
+	XBINST_PATH=${XILINX_SDX}/bin
+else
+	DSA_PATH=${XILINX_SDX}/platforms
+	XBINST_PATH = ${DSA_PATH}/../bin
+endif
 
-#DSA_PATH=/proj/xbuilds/2017.2_sdx_released/installs/lin64/SDx/2017.2/platforms
-DSA_PATH=${XILINX_SDX}/platforms
 GCC_PATH=${XILINX_VIVADO}/tps/lnx64
 #GCC_PATH=/tools/batonroot/rodin/devkits/lnx64
 BOOST_SRC=${PWD}/../boost/src
@@ -123,16 +130,14 @@ else ifeq (${GEMX_part},ku115)
   PLATFORM_REPO_PATH=$(DSA_PATH)/${DSA_PLATFORM}
   XOPENCL_LIB_PATH=${DSA_PATH}/../runtime/lib/x86_64
 else ifeq (${GEMX_part},vu9pf1)
-  CLCC_OPT += --xp param:compiler.acceleratorBinaryContent="bitstream"
   CLCC_OPT += --xp vivado_param:hd.routingContainmentAreaExpansion=true 
-##for 2017.1 F1
-  DSA=4_0
-  XDEVICE_COLON=xilinx:aws-vu9p-f1:4ddr-xpr-2pr:$(subst _,.,${DSA})
-  XDEVICE=xilinx_aws-vu9p-f1_4ddr-xpr-2pr_${DSA}
-  DSA_PLATFORM=xilinx_aws-vu9p-f1_4ddr-xpr-2pr_${DSA}
-  XDEVICE_REPO_PATH=$(XILINX_SDX)/platforms
-  PLATFORM_REPO_PATH=$(XILINX_SDX)/platforms/${DSA_PLATFORM}
-  XOPENCL_LIB_PATH=${XILINX_SDX}/runtime/lib/x86_64
+  DSA=5_0
+  XDEVICE_COLON=xilinx:aws-vu9p-f1-04261818:dynamic:$(subst _,.,${DSA})
+  XDEVICE=xilinx_aws-vu9p-f1-04261818_dynamic_${DSA}
+  DSA_PLATFORM=xilinx_aws-vu9p-f1-04261818_dynamic_${DSA}
+  XDEVICE_REPO_PATH=$(DSA_PATH)
+  PLATFORM_REPO_PATH=$(DSA_PATH)/${DSA_PLATFORM}
+  XOPENCL_LIB_PATH=${PLATFORM_REPO_PATH}/sw/lib/x86_64
 else
   $(error Unknown GEMX_part ${GEMX_part})
 endif
@@ -523,7 +528,7 @@ ${OUT_DIR}/k%dir/gemx.xo : src/* | ${OUT_DIR}/k%dir
 
 xbinst_hw:  host
 	@echo 'Running xbinst...'
-	$(DSA_PATH)/../bin/xbinst --platform_repo_paths=${PLATFORM_REPO_PATH} --platform $(XDEVICE) -d ${OUT_DIR}
+	${XBINST_PATH}/xbinst --platform_repo_paths=${PLATFORM_REPO_PATH} --platform ${XDEVICE} -d ${OUT_DIR}
 
 clean :
 	+make SDA_FLOW=sw_emu clean_int

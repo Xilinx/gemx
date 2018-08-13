@@ -305,11 +305,11 @@ endif
 ifeq ($(shell test $(GEMX_numKernels) -gt 3; echo $$?),0)
   CLCC_LINK_OPT += --sp gemxKernel_3.m_axi_gmemm:bank${K3_DDR}
 endif
-ifeq (${GEMX_part},vu9pf1)
-GEMX_fpgaDdrBanks = XCL_MEM_DDR_BANK${K2_DDR},XCL_MEM_DDR_BANK${K1_DDR},XCL_MEM_DDR_BANK${K0_DDR},XCL_MEM_DDR_BANK${K3_DDR}
-else
+#ifeq (${GEMX_part},vu9pf1)
+#GEMX_fpgaDdrBanks = XCL_MEM_DDR_BANK${K2_DDR},XCL_MEM_DDR_BANK${K1_DDR},XCL_MEM_DDR_BANK${K0_DDR},XCL_MEM_DDR_BANK${K3_DDR}
+#else
 GEMX_fpgaDdrBanks = XCL_MEM_DDR_BANK${K0_DDR},XCL_MEM_DDR_BANK${K1_DDR},XCL_MEM_DDR_BANK${K2_DDR},XCL_MEM_DDR_BANK${K3_DDR}
-endif
+#endif
 HOST_CFLAGS += -D GEMX_fpgaDdrBanks=${GEMX_fpgaDdrBanks}
 
 #################################################################

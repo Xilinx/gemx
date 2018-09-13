@@ -13,7 +13,7 @@ HWEMUGUI = 0
 ifeq (${GEMX_part}, vu9pf1)
 	#set DSA_PATH to point to the directory that contains xilinx_aws-vu9p-f1-04261818_dynamic_5_0 folder. E.g.
 	#DSA_PATH=aws-fpga/SDAccel/aws_platform
-	DSA_PATH=aws-fpga/SDAccel/aws_platform
+	DSA_PATH=${PWD}/dsa_f1
 	XBINST_PATH=${XILINX_SDX}/bin
 else
 	DSA_PATH=${XILINX_SDX}/platforms

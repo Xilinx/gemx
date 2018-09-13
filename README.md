@@ -7,10 +7,11 @@ This README file contains the following sections:
 2. SOFTWARE TOOLS AND SYSTEM REQUIREMENTS
 3. DESIGN FILE HIERARCHY
 4. BUILD GEMX-BASED EXAMPLE APPLICATIONS
-5. SUPPORT
-6. LICENSE AND CONTRIBUTING TO THE REPOSITORY
-7. ACKNOWLEDGEMENTS
-8. REVISION HISTORY
+5. BUILD GEMX IMAGE FOR AWS_F1
+6. SUPPORT
+7. LICENSE AND CONTRIBUTING TO THE REPOSITORY
+8. ACKNOWLEDGEMENTS
+9. REVISION HISTORY
 
 
 ## 1. OVERVIEW
@@ -21,6 +22,7 @@ Board | DSA Name | Software Version
 ------|-------------|-----------------
 Xilinx KCU1500|xilinx:kcu1500:dynamic:5_0|SDx 2017.4
 Xilinx VU9P|xilinx:vcu1525:dynamic:5_0|SDx 2017.4
+Xilinx AWS_VU9P_F1|xilinx:aws-vu9p-f1-04261818:dynamic:5_0|SDx 2017.4
 
 ## 3. DESIGN FILE HIERARCHY
 Source code for building FPGA and host code images is located in the gemx/src directory. boost/ directory provides implementation for OpenCL functions used to instantiate an accelerator, trasmit data between the host and the accelerator and etc. Please refer to gemx_api_gemm.cpp to see its usage. gemx/Makefile is used to build FPGA and host images with different configurations. gemx/hls_config.tcl is used to configure the hls compilation options. gemx/run-hls.tcl is used to create vivado_hls project from cpu emulation results. gemx/data includs input sparse matrices' data.
@@ -39,26 +41,39 @@ Before compiling and building FPGA and host images, make sure SDAccel 2017.4 env
 ```
 enter one of the four application names when the command line prompts for input. 
 
-## 5. SUPPORT
+## 5. BUILD GEMX IMAGE FOR AWS_F1
+To build GEMX image (.xclbin) file for AWS_F1, please follow the steps below.
+
+```
+1. git clone https://github.com/aws/aws-fpga.git
+2. cd aws_fpga
+3. source sdaccel_setup.sh
+4. cp -r SDAccel/aws_platform/xilinx_aws-vu9p-f1-04261818_dynamic_5_0 gemx/dsa_f1
+5. comment out line 530 ${XBINST_PATH}/xbinst --platform_repo_paths=${PLATFORM_REPO_PATH} --platform ${XDEVICE} -d ${OUT_DIR} in your Makefile
+6. run make command
+
+```
+## 6. SUPPORT
 For more information about SDAccel check the [SDAccel User Guides][]
 
 For questions and to get help on this project or your own projects, visit the [SDAccel Forums][].
 
 
-## 6. LICENSE AND CONTRIBUTING TO THE REPOSITORY
+## 7. LICENSE AND CONTRIBUTING TO THE REPOSITORY
 The source for this project is licensed under the [3-Clause BSD License][]
 
 To contribute to this project, follow the guidelines in the [Repository Contribution README][]
 
-## 7. ACKNOWLEDGEMENTS
+## 8. ACKNOWLEDGEMENTS
 This example is written by developers at
 - [Xilinx](http://www.xilinx.com)
 
-## 8. REVISION HISTORY
+## 9. REVISION HISTORY
 Date | README Version | Description
 -----|----------------|------------
 Oct2017|1.0|Initial Xilinx Release
 Mar2018|2.0|Updated to SDx 2017.4
+Sep2018|2.1|Updated to include aws_f1 support
 
 [GEMM_API_UG]: https://github.com/Xilinx/gemx/blob/master/gemx/doc/GEMM_API_UG.md
 [GEMX_ENGINE_UG]: https://github.com/Xilinx/gemx/blob/master/gemx/doc/GEMX_ENGINE_UG.md

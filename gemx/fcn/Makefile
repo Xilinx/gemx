@@ -1,10 +1,3 @@
-#Examples
-#
-#make run_sw_em GEMX_keepMacBits=1 GEMX_gemmMBlocks=4 GEMX_gemmKBlocks=4 GEMX_gemmNBlocks=1 GEMX_splitMesh=1 GEMX_part=kcu1500 GEN_BIN_PROGRAM=" fcn 512 512 32 512 32 32 32 1 0 1 0 A0 B0 C0 Bias0 fcn 512 512 32 512 32 32 32 1 0 1 0 A1 C0 C1 Bias1 fcn 2048 512 32 512 32 32 32 1 0 1 0 A2 C1 C2 Bias2 fcn 256 2048 32 2048 32 32 32 1 0 1 0 A3 C2 C3 Bias3 fcn 2048 256 32 256 32 32 32 1 0 1 0 A4 C3 C4 Bias4 fcn 512 2048 32 2048 32 32 32 1 0 1 0 A5 C4 C5 Bias5 fcn 512 512 32 512 32 32 32 1 0 1 0  A6 C5 C6 Bias6 fcn 512 512 32 512 32 32 32 1 0 1 0 A7 C6 C7 Bias7"
-#
-#make run_hw GEMX_keepMacBits=1 GEMX_gemmMBlocks=4 GEMX_gemmKBlocks=4 GEMX_gemmNBlocks=1 GEMX_splitMesh=1 GEMX_part=kcu1500 GEN_BIN_PROGRAM=" fcn 512 512 32 512 32 32 32 1 0 1 0 A0 B0 C0 Bias0 fcn 512 512 32 512 32 32 32 1 0 1 0 A1 C0 C1 Bias1 fcn 2048 512 32 512 32 32 32 1 0 1 0 A2 C1 C2 Bias2 fcn 256 2048 32 2048 32 32 32 1 0 1 0 A3 C2 C3 Bias3 fcn 2048 256 32 256 32 32 32 1 0 1 0 A4 C3 C4 Bias4 fcn 512 2048 32 2048 32 32 32 1 0 1 0 A5 C4 C5 Bias5 fcn 512 512 32 512 32 32 32 1 0 1 0  A6 C5 C6 Bias6 fcn 512 512 32 512 32 32 32 1 0 1 0 A7 C6 C7 Bias7"
-########
-
 GCC_VERSION=6.2.0
 # 
 HWEMUGUI = 0
@@ -16,7 +9,6 @@ HWEMUGUI = 0
 # 2. copy xilinx_aws-vu9p-f1-04261818_dynamic_5_0.dsa to dsa_f1/xilinx_aws-vu9p-f1-04261818_dynamic_5_0/hw/
 
 ifeq (${GEMX_part},vu9pf1)
-#DSA_PATH=/proj/xbuilds/2017.2_sdx_released/installs/lin64/SDx/2017.2/platforms
 DSA_PATH=${PWD}/../dsa_f1
 XBINST_PATH=${XILINX_SDX}/bin
 else
@@ -77,15 +69,7 @@ ifeq (${GEMX_dataType}, float)
     
 endif
 
-ifeq (${GEMX_part},kcu1500)
-  DSA=5_0
-  XDEVICE_COLON=xilinx:kcu1500:dynamic:$(subst _,.,${DSA})
-  XDEVICE=xilinx_kcu1500_dynamic_${DSA}
-  DSA_PLATFORM=xilinx_kcu1500_dynamic_${DSA}
-  XDEVICE_REPO_PATH=$(XILINX_SDX)/platforms
-  PLATFORM_REPO_PATH=$(XILINX_SDX)/platforms/${DSA_PLATFORM}
-  XOPENCL_LIB_PATH=${XILINX_SDX}/runtime/lib/x86_64
-else ifeq (${GEMX_part},vcu1525)
+ifeq (${GEMX_part},vcu1525)
   DSA=5_1
   XDEVICE_COLON=xilinx:vcu1525:dynamic:$(subst _,.,${DSA})
   XDEVICE=xilinx_vcu1525_dynamic_${DSA}
@@ -93,7 +77,6 @@ else ifeq (${GEMX_part},vcu1525)
   XDEVICE_REPO_PATH=$(XILINX_SDX)/platforms
   PLATFORM_REPO_PATH=$(XILINX_SDX)/platforms/${DSA_PLATFORM}
   XOPENCL_LIB_PATH=${XILINX_SDX}/runtime/lib/x86_64
-#for 2017.4 F1
 else ifeq (${GEMX_part},vu9pf1)
   CLCC_OPT += --xp vivado_param:hd.routingContainmentAreaExpansion=true 
   DSA=5_0
@@ -103,15 +86,6 @@ else ifeq (${GEMX_part},vu9pf1)
   XDEVICE_REPO_PATH=${DSA_PATH}
   PLATFORM_REPO_PATH=${DSA_PATH}/${DSA_PLATFORM}
   XOPENCL_LIB_PATH=${PLATFORM_REPO_PATH}/sw/lib/x86_64
-##for 2017.1 F1
-#  CLCC_OPT += --xp param:compiler.acceleratorBinaryContent="bitstream"
-#  DSA=4_0
-#  XDEVICE_COLON=xilinx:aws-vu9p-f1:4ddr-xpr-2pr:$(subst _,.,${DSA})
-#  XDEVICE=xilinx_aws-vu9p-f1_4ddr-xpr-2pr_${DSA}
-#  DSA_PLATFORM=xilinx_aws-vu9p-f1_4ddr-xpr-2pr_${DSA}
-#  XDEVICE_REPO_PATH=$(XILINX_SDX)/platforms
-#  PLATFORM_REPO_PATH=$(XILINX_SDX)/platforms/${DSA_PLATFORM}
-#  XOPENCL_LIB_PATH=${XILINX_SDX}/runtime/lib/x86_64
 else
   $(error Unknown GEMX_part ${GEMX_part})
 endif
@@ -242,17 +216,7 @@ CLCC_OPT += --xp param:compiler.worstNegativeSlack=-0.1
 
 HOST_ARGS = ${XCLBIN} ${APP_BIN} ${APP_OUT_BIN}
 
-ifeq (${GEMX_part},ku115)
-  K0_DDR = 0
-  K1_DDR = 1
-  K2_DDR = 2
-  K3_DDR = 3
-else ifeq (${GEMX_part},kcu1500)
-  K0_DDR = 0
-  K1_DDR = 1
-  K2_DDR = 2
-  K3_DDR = 3
-else ifeq (${GEMX_part},vcu1525)
+ifeq (${GEMX_part},vcu1525)
   K0_DDR = 0
   K1_DDR = 3
   K2_DDR = 1
@@ -274,11 +238,7 @@ endif
 ifeq ($(shell test $(GEMX_numKernels) -gt 3; echo $$?),0)
   CLCC_LINK_OPT += --sp gemxKernel_3.m_axi_gmemm:bank${K3_DDR}
 endif
-#ifeq (${GEMX_part},vu9pf1)
-#GEMX_fpgaDdrBanks = XCL_MEM_DDR_BANK${K2_DDR},XCL_MEM_DDR_BANK${K1_DDR},XCL_MEM_DDR_BANK${K0_DDR},XCL_MEM_DDR_BANK${K3_DDR}
-#else
 GEMX_fpgaDdrBanks = XCL_MEM_DDR_BANK${K0_DDR},XCL_MEM_DDR_BANK${K1_DDR},XCL_MEM_DDR_BANK${K2_DDR},XCL_MEM_DDR_BANK${K3_DDR}
-#endif
 HOST_CFLAGS += -D GEMX_fpgaDdrBanks=${GEMX_fpgaDdrBanks}
 
 
@@ -375,7 +335,7 @@ run_hw: host
 
 run_em_int: xconfig host xbin
 	@echo INFO: kernel xclbin frequency is $(shell ${XCLBIN_FREQ} ${XCLBIN}) MHz
-	XCL_EMULATION_MODE=${SDA_FLOW} XILINX_OPENCL=${XILINX_SDX} ${HOST_EXE} ${HOST_ARGS}
+	XCL_EMULATION_MODE=${SDA_FLOW} XILINX_OPENCL=${XILINX_SDX} LD_LIBRARY_PATH=${GCC_PATH}/gcc-${GCC_VERSION}/lib64:${LD_LIBRARY_PATH} ${HOST_EXE} ${HOST_ARGS}
 	+make check
 
 run_hw_int : xbin xbinst_hw

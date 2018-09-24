@@ -38,8 +38,8 @@
 // Fast run on board
 //  ( gdb --args ./gemx.exe k app.bin app_out.bin )
  
-// Fast CPU emu
-// ( setenv XCL_EMULATION_MODE true ; ./out_host/gemx_host.exe out_cpu_emu/gemx.xclbin out_host/app.bin out_cpu_emu/app_out.bin )
+// Fast sw emu
+// ( setenv XCL_EMULATION_MODE sw_emu ; ./out_host/gemx_host.exe out_cpu_emu/gemx.xclbin out_host/app.bin out_cpu_emu/app_out.bin )
 
  
 #include <stdio.h>

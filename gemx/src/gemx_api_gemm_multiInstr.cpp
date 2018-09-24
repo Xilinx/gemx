@@ -74,7 +74,7 @@ bool checkDim(unsigned int p_Val, unsigned int p_Mod, unsigned int p_Min) {
 }
 
 float getBoardFreqMHz(unsigned int p_BoardId) {
-    std::string l_freqCmd = "$XILINX_OPENCL/runtime/bin/xbsak query -d" + std::to_string(p_BoardId);;
+    std::string l_freqCmd = "$XILINX_XRT/bin/xbsak query -d" + std::to_string(p_BoardId);;
     float l_freq = -1;
     char l_lineBuf[256];
     std::shared_ptr<FILE> l_pipe(popen(l_freqCmd.c_str(), "r"), pclose);
@@ -96,9 +96,9 @@ float getBoardFreqMHz(unsigned int p_BoardId) {
         }
     }
     if (l_freq == -1) {
-        //if xbsak does not work, as happens on F1, put the XOCC achieved kernel frequcy here
-        l_freq = -1;
-        std::cout << "INFO: Failed to get board frequency by xbsak. This is normal for cpu and hw emulation, using -1 MHz for reporting.\n";
+        //if xbutil does not work, as happens on F1, put the XOCC achieved kernel frequcy here
+        l_freq = 250;
+        std::cout << "INFO: Failed to get board frequency by xbutil. This is normal for cpu and hw emulation, using 250 MHz for reporting.\n";
     }
     return(l_freq);
 }

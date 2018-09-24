@@ -36,6 +36,7 @@
 #define GEMX_GEMM_H
 
 #include <cassert>
+#include <iostream>
 #include "gemx_types.h"
 #include "gemx_transp.h"
 

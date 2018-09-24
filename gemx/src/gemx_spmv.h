@@ -84,7 +84,6 @@ class Spmv
     typedef hls::stream<bool> ControlStreamType;
     typedef WideType<SpmvAdesc, t_numDescPerDdr> SpmvWideDType;
     static const unsigned int t_RowsInCblock = t_SpmvWidth * t_MacGroups * t_mVectorBlocks * t_DdrWidth; // capacity of m_C; it should be less than the row idx range
-    //static const unsigned int t_RowsInCblock = SpmvAType::t_maxRowIdx;
     static const unsigned int getRowsInCblock() {return t_RowsInCblock;}
     static const unsigned int t_NumDdrPerSpmv = t_DdrWidth / t_SpmvWidth;
     
@@ -106,7 +105,6 @@ class Spmv
     
     t_FloatEqIntType
     float2bits(t_FloatType p_Val) {
-      //#pragma HLS inline self off
         union {
           t_FloatType f;
           t_FloatEqIntType b;
@@ -115,31 +113,6 @@ class Spmv
         return l_val.b;
       }
 
-    // HLS Cycle counts are for float c-67b
-    // C += A * B  57984x1 = 57984x57984 * 57984x1  Nnz=294960
-    // Loops  B 3624  C 604  A 36870
-    // Total SDx board cycle time should be 3800*3+37000 = 48400
-    
-    void
-    loadB(DdrWideType *p_bAddr, unsigned int p_kBlocks) {
-        // Load entire B into BRAM
-        assert(t_NumDdrPerSpmv * t_SpmvWidth == t_DdrWidth);
-        LOOP_GEMV_BLOAD:for(unsigned int l_kBlock = 0; l_kBlock < p_kBlocks; ++l_kBlock) {
-          #pragma HLS LOOP_TRIPCOUNT min=1 max=3624
-          #pragma HLS pipeline
-          DdrWideType l_val = p_bAddr[l_kBlock];
-          LOOP_D:for(int d = 0; d < t_NumDdrPerSpmv; ++d) {
-            LOOP_W:for(int w = 0; w < t_SpmvWidth; ++w) {
-              unsigned int l_bank = w;
-              unsigned int l_offset = d + t_NumDdrPerSpmv * l_kBlock;
-              m_B[l_bank][l_offset] = l_val[w + d * t_SpmvWidth];
-            }
-          }
-        }
-      }
-
-
-    
     t_FloatType
     getBval(unsigned int p_Col) {
         unsigned int l_colOffset = p_Col / t_SpmvWidth;
@@ -149,43 +122,17 @@ class Spmv
     
     SpmvWideAType
     ddrWideFloatToSpmvA(DdrWideType p_Val) {
-        //#pragma HLS inline self off
         SpmvWideAType l_ret;
-        //std::cout << "DEBUG ddrWideFloatToSpmvA  p_Val=" << p_Val << "\n";
         LOOP_W:for(int w = 0; w < t_SpmvWidth; ++w) {
         
-        //  union U {
-        //    SpmvAType    u_spmv;
-        //    //t_FloatType  u_ddrw[t_NumDdrPerSpmv];
-        //    t_FloatType  u_ddrw1, u_ddrw0;
-        //    U() {}
-        //  } l_val;
-          //LOOP_D:for(int d = 0; d < t_NumDdrPerSpmv; ++d) {
-          //  #pragma HLS UNROLL
-          //  t_FloatType l_tmp = p_Val[d + w * t_NumDdrPerSpmv];
-          //  l_val.u_ddrw[d] = l_tmp;
-          //}
-        //  l_val.u_ddrw0 = p_Val[0 + w * t_NumDdrPerSpmv];
-        //  l_val.u_ddrw1 = p_Val[1 + w * t_NumDdrPerSpmv];
-          
-       // 0 && std::cout << "DEBUG ddrWideFloatToSpmvA  p_Val=" << p_Val
-       //           << "u_spmv = " << l_val.u_spmv.getA()
-       //           << " " << l_val.u_spmv.getRow() << " " << l_val.u_spmv.getCol()
-       //           << "  u_ddrw[0] = " <<  l_val.u_ddrw0
-       //           << "  u_ddrw[1] = " <<  l_val.u_ddrw1
-       //           << "\n";
-       // //l_ret[w] = l_val.u_spmv;
-       
-       // Workaround: the above union did not work correctly in hw emu in C++03-based xocc
        #if GEMX_spmvPadA
           // Short
           assert(t_NumDdrPerSpmv == 4);
           t_FloatType l_Afloat = p_Val[0 + w * t_NumDdrPerSpmv];
           unsigned int l_row = float2bits(p_Val[3 + w * t_NumDdrPerSpmv]);
           unsigned int l_col = float2bits(p_Val[2 + w * t_NumDdrPerSpmv]);
-		  l_row = l_row & 0xFFFF;
-		  l_col = l_col & 0xFFFF;
-          //SpmvAType l_A(l_Afloat, l_row, l_col);
+		  		l_row = l_row & 0xFFFF;
+		  		l_col = l_col & 0xFFFF;
           SpmvAdType l_A(l_Afloat, l_row, l_col);
        #else
           // Float
@@ -196,9 +143,7 @@ class Spmv
           unsigned int l_col = l_rowCol & 0xFFFF;
           SpmvAdType l_A(l_Afloat, l_row, l_col);
        #endif
-          //std::cout << "DEBUG ddrWideFloatToSpmvA  l_A[" << w << "]  = " << l_A << "\n";
           l_ret[w] = SpmvAType(l_A);
-          //std::cout << "DEBUG ddrWideFloatToSpmvA  l_ret[" << w << "]  = " << l_ret[w] << "\n";
         }
                 
         return(l_ret);
@@ -225,7 +170,6 @@ class Spmv
         AREAD:for(int l_idxA = 0; l_idxA < p_numWordsA; ++l_idxA) {
           #pragma HLS LOOP_TRIPCOUNT min=1 max=36870
           #pragma HLS PIPELINE
-          //DdrWideType l_valDdr = p_aAddr[l_idxA];
           SpmvWideAType l_val;
           LOOP_W:for(int w = 0; w < t_SpmvWidth; ++w) {
             l_val[w] = SpmvAType((i/6+w) % 65535, (i+w) % 65535, i+w);
@@ -338,11 +282,7 @@ class Spmv
             t_Debug_colUnit && std::cout << "DEBUG: colUnit " << t_BankId << " read     " << l_val << "\n" << std::flush;
             unsigned int l_colOffset = l_val.getColOffset();
             t_FloatType l_valB = m_B[t_BankId][l_colOffset];
-						//t_FloatType l_valA_reg = reg(l_val.getA());
-						//t_FloatType l_valB_reg = reg(l_valB);
-						//unsigned int l_row_reg = reg(l_val.getRow());
             SpmvABType l_valOut(l_val.getA(), l_valB, l_val.getRow());
-            //SpmvABType l_valOut(l_valA_reg, l_valB_reg, l_row_reg);
             t_Debug_colUnit && std::cout << "DEBUG: colUnit " << t_BankId << " computed " << l_valOut << "\n" << std::flush;
             p_Sout.write(l_valOut);
           } else {
@@ -611,8 +551,6 @@ class Spmv
                                    << "  added " << cVal[g] << " to m_C "
                                    << getCref(t_BankId, g, l_rowOffset) << "\n";
               l_activity[g] = true;
-              //assert(cVal[g].getRowBank() == t_BankId);
-              //assert(cVal[g].getRowGroup() == g);
             }
           }
           
@@ -622,6 +560,24 @@ class Spmv
 
   public:
     
+    void
+    loadB(DdrWideType *p_bAddr, unsigned int p_kBlocks) {
+        // Load entire B into BRAM
+        assert(t_NumDdrPerSpmv * t_SpmvWidth == t_DdrWidth);
+        LOOP_GEMV_BLOAD:for(unsigned int l_kBlock = 0; l_kBlock < p_kBlocks; ++l_kBlock) {
+          #pragma HLS LOOP_TRIPCOUNT min=1 max=3624
+          #pragma HLS pipeline
+          DdrWideType l_val = p_bAddr[l_kBlock];
+          LOOP_D:for(int d = 0; d < t_NumDdrPerSpmv; ++d) {
+            LOOP_W:for(int w = 0; w < t_SpmvWidth; ++w) {
+              unsigned int l_bank = w;
+              unsigned int l_offset = d + t_NumDdrPerSpmv * l_kBlock;
+              m_B[l_bank][l_offset] = l_val[w + d * t_SpmvWidth];
+            }
+          }
+        }
+      }
+
     void
     loadC(DdrWideType *p_cAddr, unsigned int p_mgdBlocks) {
 			// Lengths in DDR words and groups respectively to store 1 lcm block
@@ -675,7 +631,7 @@ class Spmv
     }
     
 		void
-    storeC(DdrWideType *p_cAddr, unsigned int p_mgdBlocks) {
+    storeC(DdrWideType *p_cAddr, unsigned int p_mgdBlocks, bool p_pRelu) {
 			// Lengths in DDR words and groups respectively to store 1 lcm block
 			const unsigned int t_NumFloats = t_SpmvWidth * t_MacGroups;
 			const unsigned int t_ddrL = t_NumFloats / t_DdrWidth;
@@ -710,7 +666,7 @@ class Spmv
 						#pragma HLS UNROLL
 						unsigned int l_ddrIdx = l_di * t_DdrWidth + d;
 						assert(l_ddrIdx < t_NumFloats);
-						l_valDdr[l_di][d] = l_spmvVal[l_ddrIdx];
+						l_valDdr[l_di][d] = (p_pRelu && (l_spmvVal[l_ddrIdx] < 0))? 0: l_spmvVal[l_ddrIdx];
 					}
 				}
 				
@@ -808,8 +764,6 @@ class Spmv
 
 		void
     multA(DdrWideType *p_aAddr, unsigned int p_numWordsA) {
-      //#pragma HLS inline self off
-      
       static const unsigned int t_FifoDepthDeep = 16;
       static const unsigned int t_FifoDepthShallow = 1;
       
@@ -969,7 +923,7 @@ class Spmv
 				#pragma HLS DATA_PACK variable=m_Desc 
         // Load entire B into BRAM
         const unsigned int l_kBlocks = p_Args.m_Bblocks;
-        
+				bool l_pRelu = false;         
         // Load C block descriptors
         const unsigned int l_Cblocks = p_Args.m_Cblocks;
         const unsigned int l_descDdrWords = (l_kBlocks*l_Cblocks + t_numDescPerDdr - 1) / t_numDescPerDdr;
@@ -1006,7 +960,7 @@ class Spmv
 						multA(l_aAddr, l_numWordsA);
 
 						// Store C
-						storeC(l_cAddr, l_mgdBlocks);
+						storeC(l_cAddr, l_mgdBlocks, l_pRelu);
 					}
 					l_Bblock++;
 				}

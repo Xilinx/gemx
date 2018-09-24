@@ -63,7 +63,7 @@
 //#define VERBOSE 0 
 
 float getBoardFreqMHz(unsigned int p_BoardId) {
-  std::string l_freqCmd = "$XILINX_OPENCL/runtime/bin/xbsak query -d" + std::to_string(p_BoardId);;
+  std::string l_freqCmd = "$XILINX_XRT/bin/xbsak query -d" + std::to_string(p_BoardId);;
   float l_freq = -1;
   char l_lineBuf[256];
   std::shared_ptr<FILE> l_pipe(popen(l_freqCmd.c_str(), "r"), pclose);
@@ -84,9 +84,9 @@ float getBoardFreqMHz(unsigned int p_BoardId) {
     }
   }
   if (l_freq == -1) {
-	//if xbsak does not work, user could put the XOCC achieved kernel frequcy here
-	//l_freq = 200.2;
-    std::cout << "INFO: Failed to get board frequency by xbsak. This is normal for cpu and hw emulation, using -1 MHz for reporting.\n";
+	//if xbutil does not work, user could put the XOCC achieved kernel frequcy here
+    l_freq = 250;
+    std::cout << "INFO: Failed to get board frequency by xbutil. This is normal for cpu and hw emulation, using 250 MHz for reporting.\n";
   }
   return(l_freq);
 }
@@ -144,7 +144,11 @@ int main(int argc, char **argv)
   } 	
  	 	
   for (int i=0; i<GEMX_numKernels; ++i) {
-    l_spmv.addInstr(l_program[i], l_M, l_K, l_NNZ, l_mtxFile, l_handleA[i], l_handleB[i], l_handleC[i], false);
+    #if GEMX_useURAM
+    l_spmv.addInstr(l_program[i], l_M, l_K, l_NNZ, l_mtxFile, l_handleA[i], l_handleB[i], l_handleC[i],false);
+    #else	 
+    l_spmv.addInstr(l_program[i], l_M, l_K, l_NNZ, l_mtxFile, l_handleA[i], l_handleB[i], l_handleC[i], false, false);
+    #endif
   }
   std::string kernelNames[GEMX_numKernels];
   gemx::MemDesc l_memDesc[GEMX_numKernels];
@@ -265,6 +269,5 @@ int main(int argc, char **argv)
             << l_effCycles<<","<<l_effApiPct<<","
             << l_totalPerfKernelInGops << "," << l_perfApiInGops
             << std::endl;
-
   return EXIT_SUCCESS;
 }

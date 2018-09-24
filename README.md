@@ -19,25 +19,19 @@ GEMX is a General Matrix Operation library, which is used for accelerating BLAS-
 ## 2. SOFTWARE AND SYSTEM REQUIREMENTS
 Board | DSA Name | Software Version
 ------|-------------|-----------------
-Xilinx KCU1500|xilinx:kcu1500:dynamic:5_0|SDx 2017.4
-Xilinx VU9P|xilinx:vcu1525:dynamic:5_0|SDx 2017.4
+Xilinx VU9P|xilinx:vcu1525:dynamic:5_1|SDx 2018.2
+Xilinx AWS_VU9P_F1|xilinx:aws-vu9p-f1-04261818:dynamic:5_0|SDx 2017.4
 
 ## 3. DESIGN FILE HIERARCHY
 Source code for building FPGA and host code images is located in the gemx/src directory. boost/ directory provides implementation for OpenCL functions used to instantiate an accelerator, trasmit data between the host and the accelerator and etc. Please refer to gemx_api_gemm.cpp to see its usage. gemx/Makefile is used to build FPGA and host images with different configurations. gemx/hls_config.tcl is used to configure the hls compilation options. gemx/run-hls.tcl is used to create vivado_hls project from cpu emulation results. gemx/data includs input sparse matrices' data.
 
 ## 4.BUILD GEMX-BASED EXAMPLE APPLICATIONS 
-Following four GEMX-BASED applications are created for xilinx:vcu1525:dynamic:5_0 DSA to demonstrate the GEMX engine usage.
-* gemm_perf: dense matrix matrix multiplication performance measurement
-* spmv_perf: sparse matrix vector multiplication performance measurement
-* gemm_test_python: python-based densen matrix matrix multiplication testing
-* gemx_func_test: GEMX engine testing in sofware emulation
-
-Before compiling and building FPGA and host images, make sure SDAccel 2017.4 envioronment variales are set up properly and navigate to gemx/ directory, and enter command:
+A set of make commands are used in the verify.sh to demonstrate the GEMX engine usage with xilinx:vcu1525:dynamic:5_1 DSA. Before compiling and building FPGA and host images, make sure SDAccel 2018.2 envioronment variales are set up properly and navigate to gemx/ directory, and enter command:
   
 ```
-./run_app.sh
+./verify.sh
 ```
-enter one of the four application names when the command line prompts for input. 
+enter one of the build process names (sw_em, hw_em or hw) and one of the four engine names (gemm, spmv or fcn) when the command line prompts for input. 
 
 ## 5. SUPPORT
 For more information about SDAccel check the [SDAccel User Guides][]
@@ -59,6 +53,7 @@ Date | README Version | Description
 -----|----------------|------------
 Oct2017|1.0|Initial Xilinx Release
 Mar2018|2.0|Updated to SDx 2017.4
+Sep2018|2.1|Updated to SDx 2018.2
 
 [GEMM_API_UG]: https://github.com/Xilinx/gemx/blob/master/gemx/doc/GEMM_API_UG.md
 [GEMX_ENGINE_UG]: https://github.com/Xilinx/gemx/blob/master/gemx/doc/GEMX_ENGINE_UG.md

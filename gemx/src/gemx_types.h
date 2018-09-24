@@ -38,7 +38,7 @@
 #include <stdint.h>
 #include <ostream>
 #include <iomanip>
-
+#include <iostream>
 #include "ap_int.h"
 #include "ap_shift_reg.h"
 
@@ -799,13 +799,18 @@ class BoolArr {
   public:
 		BoolArr(){}
     BoolArr(bool p_Init) {
+		#pragma HLS inline self
         for(unsigned int i = 0; i < W; ++i) {
           #pragma HLS UNROLL
           m_Val[i] = p_Init;
         }
       }
-    bool & operator[](unsigned int p_Idx) {return m_Val[p_Idx];}
+    bool & operator[](unsigned int p_Idx) {
+		#pragma HLS inline self
+			return m_Val[p_Idx];
+		}
     bool And() {
+		#pragma HLS inline self
         bool l_ret = true;
         for(unsigned int i = 0; i < W; ++i) {
           #pragma HLS UNROLL
@@ -815,6 +820,7 @@ class BoolArr {
         return(l_ret);
       }
     bool Or() {
+		#pragma HLS inline self
         bool l_ret = false;
         for(unsigned int i = 0; i < W; ++i) {
           #pragma HLS UNROLL
@@ -824,6 +830,7 @@ class BoolArr {
         return(l_ret);
       }
     void Reset() {
+		#pragma HLS inline self
         for(unsigned int i = 0; i < W; ++i) {
           #pragma HLS UNROLL
           #pragma HLS ARRAY_PARTITION variable=m_Val COMPLETE

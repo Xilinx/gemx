@@ -1628,23 +1628,23 @@ public:
       #pragma HLS data_pack variable=p_CEdgeS
       #pragma HLS data_pack variable=p_COutS
 
-      #pragma HLS STREAM variable=p_Bs0_0 depth=1
-      #pragma HLS STREAM variable=p_Bs0_1 depth=1
-      #pragma HLS STREAM variable=p_Bs1_0 depth=1
-      #pragma HLS STREAM variable=p_Bs1_1 depth=1
-      #pragma HLS STREAM variable=p_Bs1 depth=1//4
-      #pragma HLS STREAM variable=p_As1 depth=1//4
+      #pragma HLS STREAM variable=p_Bs0_0 depth=2
+      #pragma HLS STREAM variable=p_Bs0_1 depth=2
+      #pragma HLS STREAM variable=p_Bs1_0 depth=2
+      #pragma HLS STREAM variable=p_Bs1_1 depth=2
+      #pragma HLS STREAM variable=p_Bs1 depth=2//4
+      #pragma HLS STREAM variable=p_As1 depth=2//4
       #pragma HLS STREAM variable=p_As1_1 depth=t_aColMemWords*t_aMH//4
       #pragma HLS STREAM variable=p_As1_2 depth=t_aColMemWords*t_aMH//4
-      #pragma HLS STREAM variable=p_As2_1 depth=1//t_aColMemWords*t_DdrWidth*t_bColMemWords/2//4
-      #pragma HLS STREAM variable=p_As2_2 depth=1//t_aColMemWords*t_DdrWidth*t_bColMemWords/2//4
+      #pragma HLS STREAM variable=p_As2_1 depth=2//t_aColMemWords*t_DdrWidth*t_bColMemWords/2//4
+      #pragma HLS STREAM variable=p_As2_2 depth=2//t_aColMemWords*t_DdrWidth*t_bColMemWords/2//4
       #pragma HLS STREAM variable=p_As2 depth=4
       #pragma HLS STREAM variable=p_As3 depth=4
 
-      #pragma HLS STREAM variable=p_AEdgeS0 depth=1//4
-      #pragma HLS STREAM variable=p_BEdgeS0 depth=1//4
+      #pragma HLS STREAM variable=p_AEdgeS0 depth=2//4
+      #pragma HLS STREAM variable=p_BEdgeS0 depth=2//4
       #pragma HLS STREAM variable=p_CEdgeS depth=t_DdrWidth*2*t_bColMemWords
-      #pragma HLS STREAM variable=p_COutS depth=1
+      #pragma HLS STREAM variable=p_COutS depth=2
 
 	  	Transp<t_FloatType, t_DdrWidth, t_aColMemWords, 1> l_transp;
 
@@ -1691,9 +1691,9 @@ public:
       #pragma HLS data_pack variable=l_As
       #pragma HLS data_pack variable=l_Bs
 
-      #pragma HLS STREAM variable=l_As depth=1//t_aColMemWords*t_aMH
-      #pragma HLS STREAM variable=l_Bs depth=1//t_bColMemWords*t_bKD
-      #pragma HLS STREAM variable=l_Xs depth=1//t_xColMemWords*t_aMH
+      #pragma HLS STREAM variable=l_As depth=32//t_aColMemWords*t_aMH
+      #pragma HLS STREAM variable=l_Bs depth=32//t_bColMemWords*t_bKD
+      #pragma HLS STREAM variable=l_Xs depth=32//t_xColMemWords*t_aMH
 
       GemmReadABX(p_aAddr, p_bAddr, p_xAddr, p_aColBlocks, p_aRowBlocks, p_bColBlocks, p_aLd, p_bLd, p_xLd, l_As, l_Bs, l_Xs);
 			GemmBlockStream(l_As, l_Bs, l_Xs, p_Cs, p_aColBlocks, p_aRowBlocks, p_bColBlocks, p_transpBlocks, p_postScale);
@@ -1726,10 +1726,10 @@ public:
       #pragma HLS data_pack variable=l_Xs
       #pragma HLS data_pack variable=l_Cs
 
-      #pragma HLS STREAM variable=l_As depth=1//t_aColMemWords*t_aMH
-      #pragma HLS STREAM variable=l_Xs depth=1//t_xColMemWords*t_DdrWidth
-      #pragma HLS STREAM variable=l_Bs depth=1//t_bColMemWords*t_bKD
-      #pragma HLS STREAM variable=l_Cs depth=1
+      #pragma HLS STREAM variable=l_As depth=32//t_aColMemWords*t_aMH
+      #pragma HLS STREAM variable=l_Xs depth=32//t_xColMemWords*t_DdrWidth
+      #pragma HLS STREAM variable=l_Bs depth=32//t_bColMemWords*t_bKD
+      #pragma HLS STREAM variable=l_Cs depth=32
 
       GemmReadABX(p_aAddr, p_bAddr, p_xAddr, p_aColBlocks, p_aRowBlocks, p_bColBlocks, p_aLd, p_bLd, p_xLd, l_As, l_Bs, l_Xs);
 			GemmBlockStream(l_As, l_Bs, l_Xs, l_Cs, p_aColBlocks, p_aRowBlocks, p_bColBlocks, p_transpBlocks, p_postScale);

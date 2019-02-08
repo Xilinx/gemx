@@ -1,5 +1,5 @@
 ########################################
-# brief: This python code test the python interface for GEMM engine 
+# Brief: This example demonstrates Python interface to GEMM matrix math engine run on Xilinx FPGA
 # Usage: 
 #  export PYTHONPATH=./python  #point the PYTHONPATH to the location of gemx.py file
 #  python tests/test_gemm.py --xclbin ./xclbins/u200_201830_1/gemm_short/gemx.xclbin --cfg ./xclbins/u200_201830_1/gemm_short/config_info.dat --gemxlib ./C++/lib/libgemxhost.so

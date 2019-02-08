@@ -1,5 +1,5 @@
 ########################################
-# brief: thie python code test the python interface for GEMM engine 
+# brief: This python code test the python interface for GEMM engine 
 # Usage: 
 #  export PYTHONPATH=./python  #point the PYTHONPATH to the location of gemx.py file
 #  python tests/test_gemm.py --xclbin ./xclbins/u200_201830_1/gemm_short/gemx.xclbin --cfg ./xclbins/u200_201830_1/gemm_short/config_info.dat --gemxlib ./C++/lib/libgemxhost.so

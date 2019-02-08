@@ -13,23 +13,26 @@
 # Users could add more testcases with different parameters in main function to run them. The Common test functions in test.py could be used as examples to create customised test functions. 
 # In test.py, test_basic_randint randomly initializes input matrices with given matrix sizes.
 # def test_basic_randint (self,PE, m, k, n, post_scale):
+#
 #   int16_max = np.iinfo(np.int16).max
 #   int16_min = np.iinfo(np.int16).min
 #   int32_max = np.iinfo(np.int32).max
-#    int32_min = np.iinfo(np.int32).min
-#    mat_A = np.random.randint(low=int16_min, high=int16_max, size=(m, k), dtype=np.int16)
-#    mat_B = np.random.randint(low=int16_min, high=int16_max, size=(k, n), dtype=np.int16)  
-#    bias = np.random.randint(low=int32_min, high=int32_max, size=(m, n), dtype=np.int32)      
-#    self.test_basic(PE,mat_A, mat_B, bias, post_scale)
+#   int32_min = np.iinfo(np.int32).min
+#   mat_A = np.random.randint(low=int16_min, high=int16_max, size=(m, k), dtype=np.int16)
+#   mat_B = np.random.randint(low=int16_min, high=int16_max, size=(k, n), dtype=np.int16)  
+#   bias = np.random.randint(low=int32_min, high=int32_max, size=(m, n), dtype=np.int32)      
+#   self.test_basic(PE,mat_A, mat_B, bias, post_scale)
+# 
 # test_basic function takes input matrices, sends matrices and operation instructions to the engine/kernel running on and FPGA card, launches the kernel and then reads the results back. It also calls multiply_and_cmp function to calculate golden results locally and compares golden results to the results from the FPGA.
-# gemx.sendMat(mat_A,PE)
-# gemx.sendMat(mat_B,PE)
-# gemx.sendMat(C_fpga,PE)    
-# gemx.sendMat(bias, PE)
-# gemx.addGEMMOp ( mat_A, mat_B, C_fpga, bias, post_scale[0], post_scale[1], PE) # default test_basic will call addGEMMOp
-# gemx.execute(PE)
-# gemx.getMat(C_fpga,PE)
-# self.multiply_and_cmp(C_fpga, mat_A, mat_B, bias, m, n, post_scale)
+# 
+#   gemx.sendMat(mat_A,PE)
+#   gemx.sendMat(mat_B,PE)
+#   gemx.sendMat(C_fpga,PE)    
+#   gemx.sendMat(bias, PE)
+#   gemx.addGEMMOp ( mat_A, mat_B, C_fpga, bias, post_scale[0], post_scale[1], PE) # default test_basic will call addGEMMOp
+#   gemx.execute(PE)
+#   gemx.getMat(C_fpga,PE)
+#   self.multiply_and_cmp(C_fpga, mat_A, mat_B, bias, m, n, post_scale)
 
 import numpy as np
 import gemx

@@ -432,7 +432,7 @@ run_em_int: xconfig host xbin
 
 run_apiGemm_em_int: xconfig api_gemm xbin
 	@echo INFO: kernel xclbin frequency is $(shell ${XCLBIN_FREQ} ${XCLBIN}) MHz
-	XCL_EMULATION_MODE=hw_emu XILINX_OPENCL=${XILINX_SDX} ${API_GEMM_EXE} ${XCLBIN} ${GEN_BIN_PROGRAM} 
+	XCL_EMULATION_MODE=${SDA_FLOW} XILINX_OPENCL=${XILINX_SDX} ${API_GEMM_EXE} ${XCLBIN} ${GEN_BIN_PROGRAM} 
 
 run_hw_int : xbin xbinst_hw
 	@echo INFO: kernel xclbin frequency is $(shell ${XCLBIN_FREQ} ${XCLBIN}) MHz

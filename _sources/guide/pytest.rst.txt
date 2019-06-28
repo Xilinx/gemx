@@ -1,0 +1,21 @@
+.. toctree::
+   :maxdepth: 2
+
+
+Python test functions
+======================
+
+**test.py**
+
+
+.. autoclass:: test.Test
+    :members:
+
+
+.. autoclass:: test.FcnTest
+    :members:
+      
+      
+.. autoclass:: test.SpmvTest
+    :members:
+

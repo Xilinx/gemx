@@ -1,0 +1,504 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>gemx.py &mdash; GEMX Python APIs 1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../../_static/jquery.js"></script>
+        <script type="text/javascript" src="../../_static/underscore.js"></script>
+        <script type="text/javascript" src="../../_static/doctools.js"></script>
+        <script type="text/javascript" src="../../_static/language_data.js"></script>
+        <script type="text/javascript" src="../../_static/target-highlight.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/doxyrest-pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/doxyrest-sphinx_rtd_theme.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="gemx_rt.py" href="gemx_rt_api.html" />
+    <link rel="prev" title="API definitions" href="../pyapi.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> GEMX Python APIs
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../pyguide.html">User guide</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../pyapi.html">API definitions</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">gemx.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gemx_rt_api.html">gemx_rt.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="keras_rt_api.html">keras_rt.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="keras_spmv_rt_api.html">keras_spmv_rt.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gemx_uspmv_rt_api.html">gemx_uspmv_rt.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="keras_uspmv_rt_api.html">keras_uspmv_rt.py</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../pytest.html">Python test functions</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">GEMX Python APIs</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../pyapi.html">API definitions</a> &raquo;</li>
+        
+      <li>gemx.py</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../../_sources/guide/python_api_detail/gemx_api.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="toctree-wrapper compound">
+</div>
+<div class="section" id="gemx-py">
+<h1>gemx.py<a class="headerlink" href="#gemx-py" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="gemx.GEMXManager">
+<em class="property">class </em><code class="descclassname">gemx.</code><code class="descname">GEMXManager</code><span class="sig-paren">(</span><em>libFile</em><span class="sig-paren">)</span><a class="headerlink" href="#gemx.GEMXManager" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class will load the C++ shared library and then specify the required argument and return types for each function in the shared library to use in python side.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>All the PE in the functions has default value = 0, so no need to put them when xclbin is built with one kernel in it.</p>
+</div>
+<dl class="method">
+<dt id="gemx.GEMXManager.createFCNHandle">
+<code class="descname">createFCNHandle</code><span class="sig-paren">(</span><em>xclbin</em>, <em>numHandles</em><span class="sig-paren">)</span><a class="headerlink" href="#gemx.GEMXManager.createFCNHandle" title="Permalink to this definition">¶</a></dt>
+<dd><p>create FCN Handle</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xclbin</strong> – file path to FPGA bitstream</p></li>
+<li><p><strong>numHandles</strong> – number of kernels in the xclbin</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="gemx.GEMXManager.createGEMMHandle">
+<code class="descname">createGEMMHandle</code><span class="sig-paren">(</span><em>xclbin</em>, <em>numHandles</em><span class="sig-paren">)</span><a class="headerlink" href="#gemx.GEMXManager.createGEMMHandle" title="Permalink to this definition">¶</a></dt>
+<dd><p>create GEMM Handle</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xclbin</strong> – file path to FPGA bitstream</p></li>
+<li><p><strong>numHandles</strong> – number of kernels in the xclbin</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="gemx.GEMXManager.createUSPMVHandle">
+<code class="descname">createUSPMVHandle</code><span class="sig-paren">(</span><em>xclbin</em>, <em>numHandles</em><span class="sig-paren">)</span><a class="headerlink" href="#gemx.GEMXManager.createUSPMVHandle" title="Permalink to this definition">¶</a></dt>
+<dd><p>create USPMV Handle</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xclbin</strong> – file path to FPGA bitstream</p></li>
+<li><p><strong>numHandles</strong> – number of kernels in the xclbin</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="gemx.GEMXManager.createSPMVHandle">
+<code class="descname">createSPMVHandle</code><span class="sig-paren">(</span><em>xclbin</em>, <em>numHandles</em><span class="sig-paren">)</span><a class="headerlink" href="#gemx.GEMXManager.createSPMVHandle" title="Permalink to this definition">¶</a></dt>
+<dd><p>create SPMV Handle</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xclbin</strong> – file path to FPGA bitstream</p></li>
+<li><p><strong>numHandles</strong> – number of kernels in the xclbin</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="gemx.GEMXManager.sendMat">
+<code class="descname">sendMat</code><span class="sig-paren">(</span><em>A</em>, <em>PE</em>, <em>sync_send=False</em><span class="sig-paren">)</span><a class="headerlink" href="#gemx.GEMXManager.sendMat" title="Permalink to this definition">¶</a></dt>
+<dd><p>send dense matrix to kernel
+if sync_send is true, will only create the buffer for that matrix, and will need to send it when executing the kernel</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+<li><p><strong>PE</strong> (<em>int</em>) – index of kernel</p></li>
+<li><p><strong>sync_send</strong> (<em>boolean</em>) – <p>controls when to send the data to kernel.</p>
+<p>If false, send immediately, else need to send together when executing the kernel. Default value is false.</p>
+</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="gemx.GEMXManager.sendSpMat">
+<code class="descname">sendSpMat</code><span class="sig-paren">(</span><em>row</em>, <em>col</em>, <em>data</em>, <em>m</em>, <em>k</em>, <em>nnz</em>, <em>xclbin_opts</em>, <em>PE</em><span class="sig-paren">)</span><a class="headerlink" href="#gemx.GEMXManager.sendSpMat" title="Permalink to this definition">¶</a></dt>
+<dd><p>send sparse matrix to kernel (for spmv engine).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>row</strong> (<em>ndarray</em>) – sparse matrix’s row indices</p></li>
+<li><p><strong>col</strong> (<em>ndarray</em>) – sparse matrix’s col indices</p></li>
+<li><p><strong>data</strong> (<em>ndarray</em>) – sparse matrix’s non-zero elements</p></li>
+<li><p><strong>m</strong> (<em>int</em>) – number of rows for this sparse matrix</p></li>
+<li><p><strong>k</strong> (<em>int</em>) – number of cols for this sparse matrix</p></li>
+<li><p><strong>nnz</strong> (<em>int</em>) – number of non-zero elements of this sparse matrix</p></li>
+<li><p><strong>xclbin_opts</strong> (<em>dictionary</em>) – information read from config_info.dat used to build the xclbin</p></li>
+<li><p><strong>PE</strong> (<em>int</em>) – index of kernel</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>pointer to the start of the host memory for the sparse matrix</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>c_void_p</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="gemx.GEMXManager.sendUSpMat">
+<code class="descname">sendUSpMat</code><span class="sig-paren">(</span><em>rows</em>, <em>cols</em>, <em>datas</em>, <em>ms</em>, <em>ks</em>, <em>nnzs</em>, <em>pRelus</em>, <em>xclbin_opts</em>, <em>PE</em><span class="sig-paren">)</span><a class="headerlink" href="#gemx.GEMXManager.sendUSpMat" title="Permalink to this definition">¶</a></dt>
+<dd><p>send sparse matrices to kernel (for uspmv engine).</p>
+<p>Uspmv engine supports multi-stages usage, so if the prebuilt xclbin is for multi-stages, use this function to send multiple sparse matrices together.</p>
+<p>For each matrix, its row index array, col index array and value array need to be sorted to avoid overhead on kernel side.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>rows</strong> (<em>ndarray</em>) – <p>all the sparse matrices row indices</p>
+<p>when xclbin is multi-stages, rows should be a concatenated ndarray of all the row indices</p>
+</p></li>
+<li><p><strong>cols</strong> (<em>ndarray</em>) – <p>all the sparse matrices col indices</p>
+<p>when xclbin is multi-stages, cols should be a concatenated ndarray of all the col indices</p>
+</p></li>
+<li><p><strong>datas</strong> (<em>ndarray</em>) – <p>all the sparse matrices non-zero elements</p>
+<p>when xclbin is multi-stages, it should be a concatenated ndarray of all the non-zero elements</p>
+</p></li>
+<li><p><strong>ms</strong> (<em>ndarray</em>) – numbers of rows for all the sparse matrices</p></li>
+<li><p><strong>ks</strong> (<em>ndarray</em>) – numbers of cols for all the sparse matrices</p></li>
+<li><p><strong>nnzs</strong> (<em>ndarray</em>) – numbers of non-zero elements for all the sparse matrices</p></li>
+<li><p><strong>pRelus</strong> (<em>ndarray</em>) – numbers to multiply with the output values when output values &lt; 0</p></li>
+<li><p><strong>xclbin_opts</strong> (<em>dictionary</em>) – information read from config_info.dat used to build the xclbin</p></li>
+<li><p><strong>PE</strong> (<em>int</em>) – index of kernel</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>pointer to the start of the host memory for the sparse matrices</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>c_void_p</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="gemx.GEMXManager.addFCNOp">
+<code class="descname">addFCNOp</code><span class="sig-paren">(</span><em>A</em>, <em>B</em>, <em>C</em>, <em>bias</em>, <em>postScale</em>, <em>postShift</em>, <em>PReLUScale</em>, <em>PReLUAlpha</em>, <em>PE</em><span class="sig-paren">)</span><a class="headerlink" href="#gemx.GEMXManager.addFCNOp" title="Permalink to this definition">¶</a></dt>
+<dd><p>create FCN instruction for C = relu ((A * B + bias) * postScale &gt;&gt; postShift)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+<li><p><strong>B</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+<li><p><strong>C</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+<li><p><strong>bias</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+<li><p><strong>postScale</strong> (<em>int</em>) – multiply the output values with specific scalar</p></li>
+<li><p><strong>postShift</strong> (<em>int</em>) – shift the output values with specific scalar</p></li>
+<li><p><strong>PReLUScale</strong> (<em>int</em>) – multiply the output values with specific scalar when output values &lt; 0</p></li>
+<li><p><strong>PReLUAlpha</strong> (<em>int</em>) – shift the output values with specific scalar when output values &lt; 0</p></li>
+<li><p><strong>PE</strong> (<em>int</em>) – index of kernel</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="gemx.GEMXManager.addGEMMOp">
+<code class="descname">addGEMMOp</code><span class="sig-paren">(</span><em>A</em>, <em>B</em>, <em>C</em>, <em>bias</em>, <em>postScale</em>, <em>postShift</em>, <em>PE</em><span class="sig-paren">)</span><a class="headerlink" href="#gemx.GEMXManager.addGEMMOp" title="Permalink to this definition">¶</a></dt>
+<dd><p>create GEMM instruction for C = (A * B + bias) * postScale &gt;&gt; postShift</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+<li><p><strong>B</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+<li><p><strong>C</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+<li><p><strong>bias</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+<li><p><strong>postScale</strong> (<em>int</em>) – multiply the output values with specific scalar</p></li>
+<li><p><strong>postShift</strong> (<em>int</em>) – shift the output values with specific scalar</p></li>
+<li><p><strong>PE</strong> (<em>int</em>) – index of kernel</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="gemx.GEMXManager.addSPMVOp">
+<code class="descname">addSPMVOp</code><span class="sig-paren">(</span><em>A</em>, <em>B</em>, <em>C</em>, <em>nnz</em>, <em>xclbin_opts</em>, <em>relu</em>, <em>PE</em><span class="sig-paren">)</span><a class="headerlink" href="#gemx.GEMXManager.addSPMVOp" title="Permalink to this definition">¶</a></dt>
+<dd><p>create SPMV instruction for C = relu (A (sparse matrix) * B (dense vector) )</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<em>c_void_p</em>) – pointer to the sparse matrix in the host memory</p></li>
+<li><p><strong>B</strong> (<em>ndarray</em>) – dense vector in the host memory</p></li>
+<li><p><strong>C</strong> (<em>ndarray</em>) – dense vector in the host memory</p></li>
+<li><p><strong>nnz</strong> (<em>int</em>) – number of non-zero elements of this sparse matrix</p></li>
+<li><p><strong>relu</strong> (<em>boolean</em>) – when relu is true, for output values &lt; 0, output values = 0</p></li>
+<li><p><strong>PE</strong> (<em>int</em>) – index of kernel</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="gemx.GEMXManager.addUSPMVOp">
+<code class="descname">addUSPMVOp</code><span class="sig-paren">(</span><em>A</em>, <em>B</em>, <em>C</em>, <em>numRuns</em>, <em>PE</em><span class="sig-paren">)</span><a class="headerlink" href="#gemx.GEMXManager.addUSPMVOp" title="Permalink to this definition">¶</a></dt>
+<dd><p>create USPMV instruction for C = A (sparse matrix) * B (dense matrix)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<em>ndarray of c_void_p</em>) – pointers to all the sparse matrices in the host memory</p></li>
+<li><p><strong>B</strong> (<em>ndarray</em>) – dense matrice in the host memory</p></li>
+<li><p><strong>C</strong> (<em>ndarray</em>) – dense matrice in the host memory</p></li>
+<li><p><strong>numRuns</strong> (<em>int</em>) – col size of the first dense matrix B</p></li>
+<li><p><strong>PE</strong> (<em>int</em>) – index of kernel</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="gemx.GEMXManager.execute">
+<code class="descname">execute</code><span class="sig-paren">(</span><em>PE</em>, <em>sync_exec=True</em><span class="sig-paren">)</span><a class="headerlink" href="#gemx.GEMXManager.execute" title="Permalink to this definition">¶</a></dt>
+<dd><p>send instructions created before to kernel, then start.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>PE</strong> (<em>int</em>) – index of kernel</p></li>
+<li><p><strong>sync_exec</strong> (<em>boolean</em>) – <p>Default is True.</p>
+<p>If send some matrices with sync_send = True before, then here need to set sync_exec = False, otherwise those matrices won’t be sent to the kernel.</p>
+<p>It is suggested to use the default value for sync_send and sync_exec.</p>
+</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="gemx.GEMXManager.wait">
+<code class="descname">wait</code><span class="sig-paren">(</span><em>PE</em><span class="sig-paren">)</span><a class="headerlink" href="#gemx.GEMXManager.wait" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wait until all events have completed.
+If using default value for sync_send, sync_exec and sync_get before, there is no need to call this function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>PE</strong> (<em>int</em>) – index of kernel</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="gemx.GEMXManager.clearInstrBuf">
+<code class="descname">clearInstrBuf</code><span class="sig-paren">(</span><em>PE</em><span class="sig-paren">)</span><a class="headerlink" href="#gemx.GEMXManager.clearInstrBuf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clear the instruction buffer in kernel.</p>
+<p>The maximum instructions could be saved in the kernel is 16. Only call this function when previous instructions sent to kernel is &gt; 16.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>PE</strong> (<em>int</em>) – index of kernel</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="gemx.GEMXManager.getMat">
+<code class="descname">getMat</code><span class="sig-paren">(</span><em>A</em>, <em>PE</em>, <em>sync_get=True</em><span class="sig-paren">)</span><a class="headerlink" href="#gemx.GEMXManager.getMat" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get the dense matrix from kernel to host memory</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+<li><p><strong>PE</strong> (<em>int</em>) – index of kernel</p></li>
+<li><p><strong>sync_get</strong> (<em>boolean</em>) – <p>Default is True.</p>
+<p>If true, it indicates that getMat will wait for the end of the transfer.</p>
+<p>If false, the wait function call is needed to have received all the data.</p>
+</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="gemx.GEMXManager.printStats">
+<code class="descname">printStats</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#gemx.GEMXManager.printStats" title="Permalink to this definition">¶</a></dt>
+<dd><p>print time used by functions in C++ side</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="gemx_rt_api.html" class="btn btn-neutral float-right" title="gemx_rt.py" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="../pyapi.html" class="btn btn-neutral float-left" title="API definitions" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017-2019, Xilinx Inc.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

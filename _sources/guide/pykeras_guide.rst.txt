@@ -1,0 +1,120 @@
+GEMX based Keras MLP Acceleration
+=============================================
+
+Keras is Python based machine learning framework. It provides high level neural network APIs. It is written in Python and can run on top of other low level neural network frameworks for numerical computations like TensorFlow, Theano, and CNTK etc. Keras supports neural as well as
+recurrent networks and hybrid solutions. It is assumed to be very user friendly and allows for easy and rapid prototyping and experimentation through a modular and extensible approach.
+
+In examples/keras folder, there are three examples using GEMX Python APIs in Keras. One is a simple local example reading data from a csv file. The other two are modified from the `Keras examples`_. One is a simple deep MLP on the MNIST dataset and the other one is a simple MLP on the Reuters newswire topic classification task.
+
+.. _Keras examples: https://github.com/keras-team/keras/tree/master/examples
+
+**1. Simple example**
+
+The Simple Keras example in folder examples/keras/simple is based on a neural network which is 3 layers deep. The inference part is accelerated using FPGA based hardware engines. The choice of three different engines is given to allow the trade-off between performance and hardware resource utilization. Application is launched with different arguments as shown below:
+
+.. code-block:: bash
+
+  python ./example/keras/simple/mlp.py --data ./example/keras/simple/data/SansEC_Train_Data.csv --model ./example/keras/simple/best_model.h5 --xclbin ./xclbins/u200_201830_1/fcn_short/gemx.xclbin --cfg ./xclbins/u200_201830_1/fcn_short/config_info.dat --gemxlib ./C++/lib/libgemxhost.so --engine fcn
+
+Multiple command line arguments are passed to provide path to data to be used for prediction, network model stored in hdf5 format, Xilinx FPGA configuration binary which contains FPGA acceleration kernel, .dat file which provides GEMX engine configuration parameters, --engine makes the selection of FPGA engine to be used and finally .so files which is the path to the shared library written in C++ and accessed in Python application using a C type Python wrapper.
+
+The application starts by parsing these command line arguments:
+
+.. code-block:: Python
+
+  parser.add_argument('--cfg', required = True, help='file describing properties of .xclbin')
+  parser.add_argument('--gemxlib', required = True, help='file path to GEMX host code shared library')
+  parser.add_argument('--engine', default = 'fcn', choices=['fcn','spmv','uspmv'], help='choose fcn, spmv, uspmv engine')
+  args = parser.parse_args()
+
+After parsing argument, the application parses FPGA engine configuration file and creates a handle to FPGA device with appropriate arguments and the .xclbin file.
+
+.. code-block:: Python
+
+  if args.engine == 'fcn':
+    gemx.createFCNHandle( args, xclbin_prop )
+  elif args.engine == 'uspmv':
+    gemx.createUSPMVHandle( args, xclbin_prop )
+  else:
+    gemx.createSPMVHandle( args, xclbin_prop )
+
+The input data and labels are loaded from a .csv file which stores data as a comma separated list. Input data is labeled with class numbers. The application loads this data to a dictionary and encodes labels using one-hot encoding technique.
+
+.. code-block:: Python
+
+  train_fd = pd.read_csv(args.data)
+  IDcol = 'Run'
+  target = 'Class'
+  predictors = [x for x in train_fd.columns if x not in [target, IDcol]]
+  encoder = LabelEncoder()
+  encoder.fit(train_fd[target])
+  encoded_Y = encoder.transform(train_fd[target])
+  train_y = np_utils.to_categorical(encoded_Y)
+
+The application is used to perform multi-level classification using 3-level deep neural network, with fully connected layers. The network is
+trained offline and trained model is stored in hdf5 format. All the layers are dense and final layer uses softmax classifier enabling the
+calculation of score or confidence for each prediction. The softmax calculation are done using CPU. The first layer consists of 100 neurons
+and the 2\ :sup:`nd` layer is composed of 25 neurons, both these layers use “relu” type activation. The input data used for classification consist of 5 classes with 128 features per input and hence the final layer is composed of 5 Neuron with softmax activation.
+
+.. code-block:: Python
+
+  model = Sequential()
+  model.add(Dense(100, input_dim=in_dims, activation='relu', name='d1'))
+  model.add(Dense(25, activation='relu', name='d2'))
+  model.add(Dense(num_classes, activation='softmax', name='d3'))
+
+  model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+  modelcheckpoint_callback = ModelCheckpoint("./best_model.h5", monitor='val_loss',mode='min', save_best_only=True, save_weights_only=True)
+  model.fit(train_fd[predictors], train_data, epochs=200, batch_size=50, callbacks=[modelcheckpoint_callback], validation_split=0.20, shuffle=True)
+
+The actual function which calls for prediction on input data is predit_fpga or predict_spmv or predict_uspmv depending on the user
+engine choice made by passing command line argument.
+
+.. code-block:: Python
+
+  if args.engine == 'fcn':
+    fpga_out = predict_fpga( args.model, train_fd[predictors], len(train_fd[target].unique()), xclbin_prop)
+  elif args.engine == 'uspmv':
+    fpga_out = predict_uspmv_fpga( args.model, train_fd[predictors], len(train_fd[target].unique()), xclbin_prop)
+  else:
+    fpga_out = predict_spmv_fpga( args.model, train_fd[predictors], len(train_fd[target].unique()), xclbin_prop)
+
+This function call will build Keras sequential model using dense layers and weight matrices loaded from hdf5 file. For predict_fpga case where
+integer types are used to represent and process data, model weights and biases are quantized using scaling constants. These constants are
+determined offline by performing range and max-min analysis on the data. With given 3-layer network application can make prediction in 5ms using FCN engine which is based on dense matrix multiplication and with SPMV engine which is based on sparse matrix multiplication it takes 138ms for prediction and uses 10x less DSP48 resources on FPGA. USPMV is more optimized implementation for sparse matrix multiplication engine which takes 4ms for the prediction and it uses 4x less DSPs and 8x less BRAMs when compared to original FCN engine, but uses more URAMs. The table
+below gives more details.
+
+============= ======================== ======== ========= ========= ======== =======
+**Engine**    **Prediction time (ms)** **DSPs** **BRAMs** **URAMs** **LUTs** **FFs**
+============= ======================== ======== ========= ========= ======== =======
+FCN(int16)    5                        1166     321       0         69044    211631                                                                     
+SPMV          138                      108      571       8         59381    101391
+3-stage USPMV 4                        304      41        96        231194   271055
+CPU           20                       n/a      n/a       n/a       n/a      n/a
+============= ======================== ======== ========= ========= ======== =======
+
+**2. MNIST**
+
+| This is an example for running MLP model on the MNIST dataset. The model is trained on CPU side and saved in best_mnist_model.h5. Users can also train it locally by adding this option '--train True'.
+| In this example, the final classification results will be compared to CPU predict results and the real data. For FCN, the FPGA results have accuracy very close to the CPU results with quantization from fp32 to int16. USPMV's input datatype is fp32 so there is no need to do quantization. Spmv engine is not supported because it will be very slow for large dataset.
+
+.. code-block:: bash
+
+  # Using FCN engine
+  python examples/keras/mnist/mlp_mnist.py --gemxlib ./C++/lib/libgemxhost.so --xclbin ./xclbins/u200_201830_1/fcn_short/gemx.xclbin --cfg ./xclbins/u200_201830_1/fcn_short/config_info.dat --model examples/keras/mnist/best_mnist_model.h5
+  # Using USPMV engine
+  python examples/keras/mnist/mlp_mnist.py --gemxlib ./C++/lib/libgemxhost.so --xclbin ./xclbins/u200_201830_1/uspmv_1stage/gemx.xclbin --cfg ./xclbins/u200_201830_1/uspmv_1stage/config_info.dat --model examples/keras/mnist/best_mnist_model.h5 --engine uspmv
+
+**3. Reuters**
+
+| This is an example for running MLP model on the Reuters dataset. The model is trained on CPU side and saved in best_reuters_model.h5. Users can also train it locally by adding this option '--train True'.
+| In this example, the final classification results will be compared to CPU predict results and the real data. For FCN, the FPGA results have accuracy very close to the CPU results with quantization from fp32 to int16. USPMV's input datatype is fp32 so there is no need to do quantization. Spmv engine is not supported because it will be very slow for large dataset.
+
+.. code-block:: bash
+
+  # Using FCN engine
+  python examples/keras/reuters/mlp_reuters.py --gemxlib ./C++/lib/libgemxhost.so --xclbin ./xclbins/u200_201830_1/fcn_short/gemx.xclbin --cfg ./xclbins/u200_201830_1/fcn_short/config_info.dat --model examples/keras/reuters/best_reuters_model.h5
+  # Using USPMV engine
+  python examples/keras/reuters/mlp_reuters.py --gemxlib ./C++/lib/libgemxhost.so --xclbin ./xclbins/u200_201830_1/uspmv_1stage/gemx.xclbin --cfg ./xclbins/u200_201830_1/uspmv_1stage/config_info.dat --model examples/keras/reuters/best_reuters_model.h5 --engine uspmv
+
+FCN engine doesn't support fp32, so offline quantization is needed to bring fp32 ranges to fit into int16. Please see helper_script/quantize.py for more details. Currently, quantization scales in each example is for the pre-trained model, so if re-training the model, users can use this script to get new quantization scales. Local simple example is good with Quantization().compute_quantize_scale_16, mnist_mlp is good with Quantization().compute_quantize_scale_8 and reuters_mlp is good with common_quantize.

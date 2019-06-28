@@ -1,0 +1,43 @@
+User guide
+===========================
+
+To use the Python APIs provided here, please first follow the steps below to set up your environment
+
+**1. Set up Anaconda environment**
+
+Please follow the instructions described in :doc:`Python environment setup guide <pyenvguide>` to install anaconda2 and set up gemx environment. All test functions and examples should be run under gemx environment. Please deactivate gemx environment after testing.
+
+**2. Build library libgemxhost.so**
+
+In order to build libgemxhost.so, you need to either have Xilinx Runtime (`XRT`_) installed.
+
+.. _XRT: https://github.com/Xilinx/XRT
+
+.. code-block:: bash
+
+  $ pushd C++
+  $ make 
+  $ popd
+
+**3. Set PYTHONPATH environment variable to point to gemx python bindings**
+
+.. code-block:: bash
+
+  $ export PYTHONPATH=./python
+
+You can run the following command to verify if your environment is set up correctly.
+
+.. code-block:: bash
+
+  $ python ./tests/test_gemm.py --xclbin ./xclbins/u200_201830_1/gemm_short/gemx.xclbin --cfg ./xclbins/u200_201830_1/gemm_short/config_info.dat --gemxlib ./C++/lib/libgemxhost.so
+
+More details for testing and benchmarking GEMX Python APIs can be found in the :doc:`User guide for testing and benchmarking GEMX Python APIs <pytest_guide>`. 
+
+To find more about how to use GEMX Python APIs for offloading MLP model based inference process, please refer to document :doc:`GEMX based Keras MLP Acceleration <pykeras_guide>`.
+
+.. toctree::
+   :maxdepth: 2
+
+   pyenvguide.rst
+   pytest_guide.rst
+   pykeras_guide.rst

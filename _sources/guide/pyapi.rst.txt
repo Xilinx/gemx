@@ -1,0 +1,28 @@
+API definitions
+====================
+
+**gemx.py**
+
+:doc:`gemx.py <python_api_detail/gemx_api>` describes all the functions you could use to work with the GEMX library realized on an FPGA board.
+The functions are all written in C++ and python/gemx.py provide a wrapper to use them in Python. 
+
+**python APIs for keras example and their classes Inheritance**
+
+.. image:: /images/python_Inheritance.jpg
+   :alt: doc tool flow
+   :width: 100%
+   :align: center
+   
+   
+:doc:`gemx_rt.py <python_api_detail/gemx_rt_api>` describes base class for using the GEMX library in the machine learning examples.
+
+
+.. toctree::
+   :maxdepth: 2
+  
+   python_api_detail/gemx_api.rst
+   python_api_detail/gemx_rt_api.rst
+   python_api_detail/keras_rt_api.rst
+   python_api_detail/keras_spmv_rt_api.rst
+   python_api_detail/gemx_uspmv_rt_api.rst
+   python_api_detail/keras_uspmv_rt_api.rst

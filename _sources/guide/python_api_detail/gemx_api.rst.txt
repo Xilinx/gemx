@@ -1,0 +1,10 @@
+
+
+.. toctree::
+   :maxdepth: 2
+
+gemx.py
+========
+
+.. autoclass:: gemx.GEMXManager
+    :members:

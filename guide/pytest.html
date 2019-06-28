@@ -1,0 +1,367 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Python test functions &mdash; GEMX Python APIs 1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+        <script type="text/javascript" src="../_static/target-highlight.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/doxyrest-pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/doxyrest-sphinx_rtd_theme.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="keras_uspmv_rt.py" href="python_api_detail/keras_uspmv_rt_api.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> GEMX Python APIs
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="pyguide.html">User guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pyapi.html">API definitions</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Python test functions</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">GEMX Python APIs</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+      <li>Python test functions</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/guide/pytest.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="toctree-wrapper compound">
+</div>
+<div class="section" id="python-test-functions">
+<h1>Python test functions<a class="headerlink" href="#python-test-functions" title="Permalink to this headline">¶</a></h1>
+<p><strong>test.py</strong></p>
+<dl class="class">
+<dt id="test.Test">
+<em class="property">class </em><code class="descclassname">test.</code><code class="descname">Test</code><a class="headerlink" href="#test.Test" title="Permalink to this definition">¶</a></dt>
+<dd><p>class provide helper functions to create test cases</p>
+<dl class="method">
+<dt id="test.Test.cmp">
+<code class="descname">cmp</code><span class="sig-paren">(</span><em>A</em>, <em>B</em><span class="sig-paren">)</span><a class="headerlink" href="#test.Test.cmp" title="Permalink to this definition">¶</a></dt>
+<dd><p>compare if two arrays are totally the same</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+<li><p><strong>B</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="test.Test.cmpWithinTolerance">
+<code class="descname">cmpWithinTolerance</code><span class="sig-paren">(</span><em>A</em>, <em>B</em><span class="sig-paren">)</span><a class="headerlink" href="#test.Test.cmpWithinTolerance" title="Permalink to this definition">¶</a></dt>
+<dd><p>compare if two arrays are equal within tolerance</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+<li><p><strong>B</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="test.Test.multiply_and_cmp">
+<code class="descname">multiply_and_cmp</code><span class="sig-paren">(</span><em>C, A, B, X, m, n, post_scale, pRelu_val=[1, 0]</em><span class="sig-paren">)</span><a class="headerlink" href="#test.Test.multiply_and_cmp" title="Permalink to this definition">¶</a></dt>
+<dd><p>calculate matrix multiply golden result matrix C ( C = relu ((A * B + bias) * postScale &gt;&gt; postShift) ) on CPU and compare result to FPGA result.</p>
+<p>will save the results to text files if not equal</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>C</strong> (<em>ndarray</em>) – output dense matrix in the host memory</p></li>
+<li><p><strong>A</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+<li><p><strong>B</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+<li><p><strong>X</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+<li><p><strong>post_scale</strong> (<em>(</em><em>int</em><em>,</em><em>int</em><em>)</em>) – (postScale, postShift)</p></li>
+<li><p><strong>pRelu_val</strong> (<em>(</em><em>int</em><em>,</em><em>int</em><em>)</em>) – (PReLUScale, PReLUAlpha)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="test.Test.test_basic_randint">
+<code class="descname">test_basic_randint</code><span class="sig-paren">(</span><em>PE</em>, <em>xclbin_opts</em>, <em>post_scale</em>, <em>max_dim</em><span class="sig-paren">)</span><a class="headerlink" href="#test.Test.test_basic_randint" title="Permalink to this definition">¶</a></dt>
+<dd><p>generate random input matrices with random sizes and run the test</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>PE</strong> (<em>int</em>) – number of kernels - 1</p></li>
+<li><p><strong>post_scale</strong> (<em>(</em><em>int</em><em>,</em><em>int</em><em>)</em>) – (postScale, postShift)</p></li>
+<li><p><strong>max_dim</strong> (<em>int</em>) – control the max size generated by the test</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="test.Test.test_basic_size">
+<code class="descname">test_basic_size</code><span class="sig-paren">(</span><em>m, k, n, xclbin_opts, PE=0, post_scale=[1, 0]</em><span class="sig-paren">)</span><a class="headerlink" href="#test.Test.test_basic_size" title="Permalink to this definition">¶</a></dt>
+<dd><p>generate random input matrices with given sizes and run the test</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>m</strong> (<em>int</em>) – number of rows of first dense matrix</p></li>
+<li><p><strong>k</strong> (<em>int</em>) – number of cols of first dense matrix</p></li>
+<li><p><strong>n</strong> (<em>int</em>) – number of cols of second dense matrix</p></li>
+<li><p><strong>xclbin_opts</strong> (<em>dictionary</em>) – information read from config_info.dat used to build the xclbin</p></li>
+<li><p><strong>PE</strong> (<em>int</em>) – number of kernels - 1</p></li>
+<li><p><strong>post_scale</strong> (<em>(</em><em>int</em><em>,</em><em>int</em><em>)</em>) – (postScale, postShift)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="test.Test.get_freq">
+<code class="descname">get_freq</code><span class="sig-paren">(</span><em>command</em><span class="sig-paren">)</span><a class="headerlink" href="#test.Test.get_freq" title="Permalink to this definition">¶</a></dt>
+<dd><p>return frequency of the xclbin</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>command</strong> (<em>string</em>) – path to the xbutil in the machine</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="test.FcnTest">
+<em class="property">class </em><code class="descclassname">test.</code><code class="descname">FcnTest</code><a class="headerlink" href="#test.FcnTest" title="Permalink to this definition">¶</a></dt>
+<dd><p>class provide helper functions to create FCN test cases</p>
+<dl class="method">
+<dt id="test.FcnTest.test_basic_randint">
+<code class="descname">test_basic_randint</code><span class="sig-paren">(</span><em>PE</em>, <em>xclbin_opts</em>, <em>post_scale</em>, <em>RELU_scale</em>, <em>max_dim</em><span class="sig-paren">)</span><a class="headerlink" href="#test.FcnTest.test_basic_randint" title="Permalink to this definition">¶</a></dt>
+<dd><p>generate random input matrices with random sizes and run the test</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>PE</strong> (<em>int</em>) – number of kernels - 1</p></li>
+<li><p><strong>post_scale</strong> (<em>(</em><em>int</em><em>,</em><em>int</em><em>)</em>) – (postScale, postShift)</p></li>
+<li><p><strong>RELU_scale</strong> (<em>(</em><em>int</em><em>,</em><em>int</em><em>)</em>) – (PReLUScale, PReLUAlpha)</p></li>
+<li><p><strong>max_dim</strong> (<em>int</em>) – control the max size generated by the test</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="test.SpmvTest">
+<em class="property">class </em><code class="descclassname">test.</code><code class="descname">SpmvTest</code><a class="headerlink" href="#test.SpmvTest" title="Permalink to this definition">¶</a></dt>
+<dd><p>class provide helper functions to create spmv test cases</p>
+<dl class="method">
+<dt id="test.SpmvTest.multiply_and_cmp_spmv">
+<code class="descname">multiply_and_cmp_spmv</code><span class="sig-paren">(</span><em>row</em>, <em>col</em>, <em>data</em>, <em>m</em>, <em>k</em>, <em>nnz</em>, <em>B</em>, <em>C</em><span class="sig-paren">)</span><a class="headerlink" href="#test.SpmvTest.multiply_and_cmp_spmv" title="Permalink to this definition">¶</a></dt>
+<dd><p>calculate sparse matrix multiply golden result matrix C on CPU and compare result to FPGA result.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>row</strong> (<em>ndarray</em>) – sparse matrix’s row indices</p></li>
+<li><p><strong>col</strong> (<em>ndarray</em>) – sparse matrix’s col indices</p></li>
+<li><p><strong>data</strong> (<em>ndarray</em>) – sparse matrix’s non-zero elements</p></li>
+<li><p><strong>m</strong> (<em>int</em>) – number of rows for this sparse matrix</p></li>
+<li><p><strong>k</strong> (<em>int</em>) – number of cols for this sparse matrix</p></li>
+<li><p><strong>nnz</strong> (<em>int</em>) – number of non-zero elements of this sparse matrix</p></li>
+<li><p><strong>C</strong> (<em>ndarray</em>) – output dense matrix in the host memory</p></li>
+<li><p><strong>B</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="test.SpmvTest.fillMod">
+<code class="descname">fillMod</code><span class="sig-paren">(</span><em>B</em>, <em>size</em>, <em>Max=32764</em><span class="sig-paren">)</span><a class="headerlink" href="#test.SpmvTest.fillMod" title="Permalink to this definition">¶</a></dt>
+<dd><p>fill array with values (not random)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>B</strong> (<em>ndarray</em>) – dense matrix in the host memory</p></li>
+<li><p><strong>size</strong> (<em>int</em>) – size of the array</p></li>
+<li><p><strong>Max</strong> (<em>int</em>) – control the max value filled to the array</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="python_api_detail/keras_uspmv_rt_api.html" class="btn btn-neutral float-left" title="keras_uspmv_rt.py" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017-2019, Xilinx Inc.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

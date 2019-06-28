@@ -1,0 +1,50 @@
+Python environment setup guide
+===============================
+
+**1. Installing Anaconda2**
+
+1) Download Anaconda2
+
+.. code-block:: bash
+
+  $ wget https://repo.anaconda.com/archive/Anaconda2-5.1.0-Linux-x86_64.sh
+
+2) Run the installer (Installer requires bzip, please install it if you don't have it)
+
+.. code-block:: bash
+
+  $ bash ./Anaconda2-5.1.0-Linux-x86_64.sh
+
+More information about Anaconda can be found from `Anaconda Documentation`_.
+
+.. _Anaconda Documentation: https://docs.anaconda.com/anaconda/
+
+3) Add Anaconda2 to PATH
+
+.. code-block:: bash
+
+  $ export PATH=/home/<user>/anaconda2/bin:$PATH
+  $ . /home/<user>/anaconda2/etc/profile.d/conda.sh
+
+
+**2. Setting up gemx environment to include all conda packages used by GEMX Python APIs.**
+
+.. code-block:: bash
+
+  $ conda config --add channels anaconda
+  $ conda create --name gemx python=2.7.14 numpy=1.14.5 scipy=1.2.1 -c defaults
+  $ conda activate gemx
+  $ conda install pandas=0.24.1
+  $ conda install keras=2.2.4
+  $ conda install scikit-learn=0.20.2
+
+Note: above three installation steps are only needed when you first activate the gemx environment. 
+
+**3. Deactivate gemx environment after testing**
+
+Note: Please don't take this step if you intend to test/use GEMX Python APIs. 
+You only take it after you've finished all testing.
+
+.. code-block:: bash
+
+  $ conda deactivate

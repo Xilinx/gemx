@@ -1,0 +1,372 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>User guide for testing and benchmarking GEMX Python APIs &mdash; GEMX Python APIs 1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+        <script type="text/javascript" src="../_static/target-highlight.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/doxyrest-pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/doxyrest-sphinx_rtd_theme.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="GEMX based Keras MLP Acceleration" href="pykeras_guide.html" />
+    <link rel="prev" title="Python environment setup guide" href="pyenvguide.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> GEMX Python APIs
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="pyguide.html">User guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="pyenvguide.html">Python environment setup guide</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">User guide for testing and benchmarking GEMX Python APIs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pykeras_guide.html">GEMX based Keras MLP Acceleration</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pyapi.html">API definitions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pytest.html">Python test functions</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">GEMX Python APIs</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="pyguide.html">User guide</a> &raquo;</li>
+        
+      <li>User guide for testing and benchmarking GEMX Python APIs</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/guide/pytest_guide.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="user-guide-for-testing-and-benchmarking-gemx-python-apis">
+<h1>User guide for testing and benchmarking GEMX Python APIs<a class="headerlink" href="#user-guide-for-testing-and-benchmarking-gemx-python-apis" title="Permalink to this headline">¶</a></h1>
+<p>GEMX Python APIs allow Python developers to offload matrix operations to the following hardware engines implemented in the pre-built .xclbin files, the FPGA configuration files. All engines are running at 250MHz clock rate.</p>
+<ul>
+<li><p>GEMM (GEneral dense Matrix Matrix multiplication)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Supported operations</dt>
+<dd class="field-odd"><p>C = ((A * B + X) * alpha) &gt;&gt; beta; where A, B, X and C are dense matrices, alpha and beta are integers used to define the post scale value.</p>
+</dd>
+<dt class="field-even">Supported data types</dt>
+<dd class="field-even"><p>int16</p>
+</dd>
+</dl>
+</li>
+<li><p>FCN (Fully Connected Network)</p>
+<dl class="field-list">
+<dt class="field-odd">Supported operations</dt>
+<dd class="field-odd"><p>C = pRelu(((A * B + X) * alpha) &gt;&gt; beta; where A, B, X and C are dense matrices, alpha and beta are integers.</p>
+<p>pRelu: for each c in C; c = (c &lt; 0)? ((c * pRelu_alpha) &gt;&gt; pRelu_beta): c; where pRelu_alpha and pRelu_beta are integers.</p>
+</dd>
+<dt class="field-even">Supported data types</dt>
+<dd class="field-even"><p>int16</p>
+</dd>
+</dl>
+</li>
+<li><p>SPMV (SParse Matrix dense Vector multiplication)</p>
+<dl class="field-list">
+<dt class="field-odd">Supported operations</dt>
+<dd class="field-odd"><p>C = pRelu(C + A * B); where A is a sparse matrix, B and C are dense vectors;</p>
+<p>pRelu: for each c in c; c = (c &lt; 0)? 0: c;</p>
+</dd>
+<dt class="field-even">Supported data types</dt>
+<dd class="field-even"><p>fp32</p>
+</dd>
+</dl>
+</li>
+<li><p>USPMV (URAM based SParse Matrix dense Vector multiplication)</p>
+<dl class="field-list">
+<dt class="field-odd">Supported operations</dt>
+<dd class="field-odd"><p>C0 = pRelu(A0 * B0)</p>
+<p>C1 = pRelu(A1 * C0)</p>
+<p>…</p>
+<p>Cn-1 = pRelu(An-1 * Cn-2)</p>
+<p>where n is the number of stages supported by the .xclbin file. A0, …, An-1 are sparse matrices, B0 is the input dense matrix, Cn-1 is the output dense matrix; pRelu: for each c in C; c = (c&lt;0)? f*c: c; where f is an fp32 value;</p>
+</dd>
+<dt class="field-even">Supported data types</dt>
+<dd class="field-even"><p>fp32</p>
+</dd>
+</dl>
+</li>
+</ul>
+<p>The general options for running test functions and benchmarks are:</p>
+<div class="line-block">
+<div class="line">–xclbin: path to the xclbin</div>
+<div class="line">–cfg: path to the config_info.dat file</div>
+<div class="line">–gemxlib: path to the library libgemxhost.so</div>
+</div>
+<p><strong>1. Test and benchmark the GEMM engine</strong></p>
+<pre class="highlight literal-block"><span></span>$ python ./tests/test_gemm.py --xclbin ./xclbins/u200_201830_1/gemm_short/gemx.xclbin --cfg ./xclbins/u200_201830_1/gemm_short/config_info.dat --gemxlib ./C++/lib/libgemxhost.so</pre>
+<p>Inside test_gemm.py’s main function, users can add or modify the cases to run different or extra tests, for example:</p>
+<pre class="highlight literal-block"><span></span><span class="n">test</span><span class="o">.</span><span class="n">test_basic_size</span><span class="p">(</span><span class="mi">512</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="n">xclbin_opts</span><span class="p">)</span>
+<span class="n">test</span><span class="o">.</span><span class="n">test_basic_randint</span><span class="p">(</span> <span class="mi">0</span><span class="p">,</span> <span class="n">xclbin_opts</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span> <span class="mi">2048</span><span class="p">)</span></pre>
+<div class="line-block">
+<div class="line">The above examples run following two tests:</div>
+<div class="line">1) dense matrix (512*512) * dense matrix (512*512), values are randomly filled, using default post scale value [1,0], meaning alpha=1 beta=0</div>
+<div class="line">2) generate two matrices with random size with range from smallest size the engine can take to 2048, post scale=[1,0]</div>
+</div>
+<p>In order to see the functional correctness and the performance of the API, users could run this test function and see the outputs:</p>
+<pre class="highlight literal-block"><span></span><span class="n">test_perf_gemm</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span><span class="mi">256</span><span class="p">,</span><span class="mi">256</span><span class="p">,</span> <span class="n">xclbin_opts</span><span class="p">)</span></pre>
+<p>For example, the following output indicates, for the GEMM operation of dense matrix A (M x K) * B (K x N), where M=256, K=256 and N=256,  with default post scale value (1,0) works correctly, the API time (TimeAPiMs), including FPGA engine run time and data transfer between the host and the FPGA, is 1.708031 ms, the performance of the API is 0.019760 TeraOps/Sec. The number of operations (Ops) is calculated by equation M*K*N*2. The PerfKernelTops (TeraOps/Sec) is calculated by Ops / TimeApiMs / 1000000.</p>
+<pre class="highlight literal-block"><span></span><span class="n">DATA_CSV</span><span class="p">:</span><span class="n">DdrWidth</span><span class="p">,</span><span class="n">M</span><span class="p">,</span><span class="n">K</span><span class="p">,</span><span class="n">N</span><span class="p">,</span><span class="n">Ops</span><span class="p">,</span><span class="n">TimeApiMs</span><span class="p">,</span><span class="n">PerfApiTops</span>
+<span class="n">DATA_CSV</span><span class="p">:</span><span class="mi">32</span><span class="p">,</span><span class="mi">256</span><span class="p">,</span><span class="mi">256</span><span class="p">,</span><span class="mi">256</span><span class="p">,</span><span class="mi">33751040</span><span class="p">,</span><span class="mf">1.708031</span><span class="p">,</span><span class="mf">0.019760</span></pre>
+<p><strong>2. Test and benchmark the FCN engine</strong></p>
+<pre class="highlight literal-block"><span></span>$ python ./tests/test_fcn.py --xclbin ./xclbins/u200_201830_1/fcn_short/gemx.xclbin --cfg ./xclbins/u200_201830_1/fcn_short/config_info.dat --gemxlib ./C++/lib/libgemxhost.so</pre>
+<p>Inside test_fcn.py’s main function, users can add or modify the cases to run different or extra tests.</p>
+<pre class="highlight literal-block"><span></span><span class="n">test</span><span class="o">.</span><span class="n">test_basic_size</span><span class="p">(</span><span class="mi">512</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="n">xclbin_opts</span><span class="p">)</span>
+<span class="n">test</span><span class="o">.</span><span class="n">test_basic_randint</span><span class="p">(</span> <span class="mi">0</span><span class="p">,</span> <span class="n">xclbin_opts</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">],</span> <span class="mi">2048</span><span class="p">)</span></pre>
+<div class="line-block">
+<div class="line">The above examples run these tests:</div>
+<div class="line">1) dense matrix (512*512) * dense matrix (512*512), values are randomly filled, using default post scale and relu scale</div>
+<div class="line">2) generate two matrices with random size with range from smallest size engine can take to 2048, post scale=[1,0], pRelu scale=[1,0]</div>
+</div>
+<p>Similar to the outputs of test_gemm.py, test_perf_fcn also reports the API runtime and the corresponding performance of this API in terms of TeraOps/sec.</p>
+<p>For small matrices, the time of single API call is dominated by the data transfer time between the host the device. To get a better measurement of the compute time or the FCN engine run time, users can run the FCN benchmarking Python code as shown below.</p>
+<pre class="highlight literal-block"><span></span>$ python ./tests/benchmark_fcn.py --xclbin ./xclbins/u200_201830_1/fcn_short/gemx.xclbin --cfg ./xclbins/u200_201830_1/fcn_short/config_info.dat --gemxlib ./C++/lib/libgemxhost.so --matrix <span class="m">128</span>,128,128 --numiter <span class="m">10</span></pre>
+<p>In the above command, the FCN engine is launched 10 times, indicated by option –numiter, to carry out the FCN operation between dense matrices A (MxK) and B (KxN), where M,K,N = 128,128,128; The default post scale value and pRelu scale value are used in this benchmarking code. The output shows the average execution time of the API.</p>
+<p><strong>3. Test and benchmark the SPMV engine</strong></p>
+<pre class="highlight literal-block"><span></span>$ python ./tests/test_spmv.py --xclbin ./xclbins/u200_201830_1/spmv_float/gemx.xclbin --cfg ./xclbins/u200_201830_1/spmv_float/config_info.dat --gemxlib ./C++/lib/libgemxhost.so</pre>
+<p>Inside test_spmv.py’s main function, users can add or modify the cases to run different or extra tests.</p>
+<pre class="highlight literal-block"><span></span><span class="n">test_spmv_random</span><span class="p">(</span><span class="mi">96</span><span class="p">,</span><span class="mi">128</span><span class="p">,</span><span class="mi">256</span><span class="p">,</span><span class="mi">32764</span><span class="p">)</span>
+<span class="n">test_spmv_random</span><span class="p">(</span><span class="mi">12800</span><span class="p">,</span><span class="mi">12800</span><span class="p">,</span><span class="mi">1400000</span><span class="p">,</span><span class="mi">32764</span><span class="p">)</span></pre>
+<div class="line-block">
+<div class="line">The above examples run following tests:</div>
+<div class="line">1) sparse matrix (96*128, NNZs=256) * vector (128*1), none-zero elements are randomly filled with range from -32764 to 32764.</div>
+<div class="line">2) sparse matrix (12800*12800, NNZs=1400000) * vector (12800*1), non-zero elements are randomly filled with range from -32764 to 32764.</div>
+</div>
+<p>The outputs of this test function give the sparse matrix size, the number of none-zero elements and whether the tests pass.</p>
+<p>To benchmark the average run time of the SPMV engine, users can run benchmark_spmv.py. Following command shows an usage example.</p>
+<pre class="highlight literal-block"><span></span>$ python ./tests/benchmark_spmv.py --xclbin ./xclbins/u200_201830_1/spmv_float/gemx.xclbin --cfg ./xclbins/u200_201830_1/spmv_float/config_info.dat --gemxlib ./C++/lib/libgemxhost.so --matrix <span class="m">100</span> <span class="m">128</span> <span class="m">12800</span> --vectors <span class="m">300</span></pre>
+<p>The output of the above command gives the average time of runing 300 SPMV operation between a sparse matrix (100x128 with NNZs=12800) and a dense vector.</p>
+<p><strong>4. Test and benchmark the USPMV engine</strong></p>
+<pre class="highlight literal-block"><span></span>$ Python ./tests/test_uspmv.py --xclbin ./xclbins/u200_201830_1/uspmv_1stage/gemx.xclbin --cfg ./xclbins/u200_201830_1/uspmv_1stage/config_info.dat --gemxlib ./C++/lib/libgemxhost.so</pre>
+<p>Inside test_uspmv.py’s main function, users can add or modify the cases to run different or extra tests.</p>
+<pre class="highlight literal-block"><span></span><span class="n">test_uspmv_random</span><span class="p">([</span><span class="mi">100</span><span class="p">],[</span><span class="mi">128</span><span class="p">],[</span><span class="mi">12800</span><span class="p">],</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">32764</span><span class="p">)</span></pre>
+<div class="line-block">
+<div class="line">The above example runs the test below:</div>
+<div class="line">sparse matrix (100*128, NNZs=12800) * dense matrix (128 * 300), the value of non-zero elements are randomly generated.</div>
+<div class="line"><br /></div>
+<div class="line">If the xclbin file is built with GEMX_uspmvStages &gt; 1, USPMV can support cascaded Sparse dense matrix matrix multiplications in parallel. The number of cascaded operations is configured via  GEMX_uspmvStages. Also, multiple sparse matrices have to be sent to the FPGA device memory.</div>
+<div class="line">For each sparse matrix,  its row index array, col index array and value array need to be sorted along column indices. For dense matrices, they have to be stored in column-major order.</div>
+</div>
+<p>The output of test_uspmv.py indicates whether the USPMV engine and API works correctly. To benchmark the USPMV engine, users can run commands similar to the one given below.</p>
+<pre class="highlight literal-block"><span></span>$ python ./tests/benchmark_uspmv.py --xclbin ./xclbins/u200_201830_1/uspmv_1stage/gemx.xclbin --cfg ./xclbins/u200_201830_1/uspmv_1stage/config_info.dat --gemxlib ./C++/lib/libgemxhost.so --matrix <span class="m">100</span> <span class="m">128</span> <span class="m">12800</span> <span class="m">25</span> <span class="m">100</span> <span class="m">2500</span> <span class="m">5</span> <span class="m">25</span> <span class="m">125</span> --vectors <span class="m">300</span></pre>
+<p>The above command launches USPMV engine to compute following operations and reports the average API run time. Sizes will be padded to multiple of GEMX_uspmvInterleaves * GEMX_ddrWidth</p>
+<div class="line-block">
+<div class="line">C0(100x300) = A0(100x128, nnz:12800) * B0(128x300)</div>
+<div class="line">C1(25x300) = A1(25x100, nnz:2500) * C0(100x300)</div>
+<div class="line">C2(5x300) = A2(5x25 nnz:125) * C1(25x300)</div>
+</div>
+<p><strong>5. The code structure of the testing code</strong></p>
+<p>The Python test code also provides an example usage of GEMX Python APIs. The main function in the Python test code takes the steps below to offload matrix operations:</p>
+<div class="line-block">
+<div class="line">1. Read command line options information to args and config_info.dat information to xclbin_opts</div>
+<div class="line">2. Create a handle using the above information</div>
+<div class="line">3. Run test function</div>
+<div class="line">4. Users can add more testcases with different parameters in main function to run them</div>
+<div class="line">5. Common test functions in test.py can be used as examples to create customised test functions</div>
+</div>
+<p>Here is an sample code:</p>
+<pre class="highlight literal-block"><span></span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">123</span><span class="p">)</span>  <span class="c1"># for reproducibility</span>
+<span class="n">test</span> <span class="o">=</span> <span class="n">GemmTest</span><span class="p">()</span>
+<span class="n">args</span><span class="p">,</span> <span class="n">xclbin_opts</span> <span class="o">=</span> <span class="n">gemx</span><span class="o">.</span><span class="n">processCommandLine</span><span class="p">()</span>
+<span class="n">gemx</span><span class="o">.</span><span class="n">createGEMMHandle</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">xclbin_opts</span><span class="p">)</span>
+<span class="n">test</span><span class="o">.</span><span class="n">test_basic_size</span><span class="p">(</span><span class="mi">512</span><span class="p">,</span><span class="mi">512</span><span class="p">,</span><span class="mi">512</span><span class="p">,</span><span class="n">xclbin_opts</span><span class="p">)</span></pre>
+<p>More details about the Python APIs and test functions can be found in <a class="reference internal" href="python_api_detail/gemx_api.html"><span class="doc">gemx.py</span></a> and <a class="reference internal" href="pytest.html"><span class="doc">test.py</span></a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When users are developing the test cases, it is required to pad the matrices accordingly based on the config_info.dat. Otherwise, the results will have unexpected mismatches.</p>
+</div>
+<p>Here are the padding requirements for each engine. The value for the parameters GEMX_ddrWidth, GEMX_gemmMBlocks and etc. can be found in the corresponding config_info.dat:</p>
+<p><strong>FCN and GEMM</strong></p>
+<div class="line-block">
+<div class="line">For A (m * k) * B (k * n)</div>
+<div class="line">1. m % (GEMX_ddrWidth * GEMX_gemmMBlocks) = 0</div>
+<div class="line">2. k % (GEMX_ddrWidth * GEMX_gemmKBlocks) = 0</div>
+<div class="line">3. n % (GEMX_ddrWidth * GEMX_gemmNBlocks) = 0</div>
+</div>
+<p><strong>SPMV</strong></p>
+<div class="line-block">
+<div class="line">For A (m * k) * B (k * 1)</div>
+<div class="line">1. m % (GEMX_spmvWidth * GEMX_spmvMacGroups) = 0</div>
+<div class="line">2. k % GEMX_ddrWidth = 0</div>
+</div>
+<p><strong>USPMV</strong></p>
+<div class="line-block">
+<div class="line">For A (m * k) * B (k * n)</div>
+<div class="line">1. m % (GEMX_ddrWidth * GEMX_uspmvInterleaves) = 0, m &lt;= GEMX_ddrWidth * GEMX_uspmvMvectorBlocks</div>
+<div class="line">2. k % GEMX_ddrWidth = 0</div>
+<div class="line">3. nnz % GEMX_ddrWidth = 0, 0 &lt; nnz &lt;= GEMX_ddrWidth * GEMX_uspmvNnzVectorBlocks</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="pykeras_guide.html" class="btn btn-neutral float-right" title="GEMX based Keras MLP Acceleration" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="pyenvguide.html" class="btn btn-neutral float-left" title="Python environment setup guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017-2019, Xilinx Inc.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

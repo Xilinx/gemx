@@ -1,0 +1,217 @@
+User guide for testing and benchmarking GEMX Python APIs
+=========================================================
+
+GEMX Python APIs allow Python developers to offload matrix operations to the following hardware engines implemented in the pre-built .xclbin files, the FPGA configuration files. All engines are running at 250MHz clock rate.
+
+- GEMM (GEneral dense Matrix Matrix multiplication)
+
+  :Supported operations:
+    C = ((A * B + X) * alpha) >> beta; where A, B, X and C are dense matrices, alpha and beta are integers used to define the post scale value.
+
+  :Supported data types: int16
+
+- FCN (Fully Connected Network)
+
+  :Supported operations:
+    C = pRelu(((A * B + X) * alpha) >> beta; where A, B, X and C are dense matrices, alpha and beta are integers.
+    
+    pRelu: for each c in C; c = (c < 0)? ((c * pRelu_alpha) >> pRelu_beta): c; where pRelu_alpha and pRelu_beta are integers.
+
+  :Supported data types: int16
+
+- SPMV (SParse Matrix dense Vector multiplication)
+
+  :Supported operations:
+
+    C = pRelu(C + A * B); where A is a sparse matrix, B and C are dense vectors;
+
+    pRelu: for each c in c; c = (c < 0)? 0: c;
+
+  :Supported data types: fp32
+    
+- USPMV (URAM based SParse Matrix dense Vector multiplication)
+
+  :Supported operations:
+
+    C0 = pRelu(A0 * B0)
+
+    C1 = pRelu(A1 * C0)
+
+    ...
+
+    Cn-1 = pRelu(An-1 * Cn-2)
+
+    where n is the number of stages supported by the .xclbin file. A0, ..., An-1 are sparse matrices, B0 is the input dense matrix, Cn-1 is the output dense matrix; pRelu: for each c in C; c = (c<0)? f*c: c; where f is an fp32 value;
+
+  :Supported data types: fp32
+
+
+The general options for running test functions and benchmarks are:
+
+| --xclbin: path to the xclbin
+| --cfg: path to the config_info.dat file
+| --gemxlib: path to the library libgemxhost.so 
+
+
+**1. Test and benchmark the GEMM engine**
+
+.. code-block:: bash
+
+  $ python ./tests/test_gemm.py --xclbin ./xclbins/u200_201830_1/gemm_short/gemx.xclbin --cfg ./xclbins/u200_201830_1/gemm_short/config_info.dat --gemxlib ./C++/lib/libgemxhost.so
+
+Inside test_gemm.py's main function, users can add or modify the cases to run different or extra tests, for example:
+
+.. code-block:: Python
+
+  test.test_basic_size(512, 512, 512, xclbin_opts) 
+  test.test_basic_randint( 0, xclbin_opts, [1,0], 2048)
+
+| The above examples run following two tests:
+| 1) dense matrix (512*512) * dense matrix (512*512), values are randomly filled, using default post scale value [1,0], meaning alpha=1 beta=0
+| 2) generate two matrices with random size with range from smallest size the engine can take to 2048, post scale=[1,0]
+
+In order to see the functional correctness and the performance of the API, users could run this test function and see the outputs:
+
+.. code-block:: Python
+
+  test_perf_gemm(256,256,256, xclbin_opts)
+
+For example, the following output indicates, for the GEMM operation of dense matrix A (M x K) * B (K x N), where M=256, K=256 and N=256,  with default post scale value (1,0) works correctly, the API time (TimeAPiMs), including FPGA engine run time and data transfer between the host and the FPGA, is 1.708031 ms, the performance of the API is 0.019760 TeraOps/Sec. The number of operations (Ops) is calculated by equation M*K*N*2. The PerfKernelTops (TeraOps/Sec) is calculated by Ops / TimeApiMs / 1000000.
+
+.. code-block:: 
+  
+  DATA_CSV:DdrWidth,M,K,N,Ops,TimeApiMs,PerfApiTops
+  DATA_CSV:32,256,256,256,33751040,1.708031,0.019760
+
+
+**2. Test and benchmark the FCN engine**
+
+.. code-block:: bash
+
+  $ python ./tests/test_fcn.py --xclbin ./xclbins/u200_201830_1/fcn_short/gemx.xclbin --cfg ./xclbins/u200_201830_1/fcn_short/config_info.dat --gemxlib ./C++/lib/libgemxhost.so
+
+Inside test_fcn.py's main function, users can add or modify the cases to run different or extra tests.
+
+.. code-block:: Python
+
+  test.test_basic_size(512, 512, 512, xclbin_opts) 
+  test.test_basic_randint( 0, xclbin_opts, [1,0], [1,0], 2048)
+
+| The above examples run these tests:
+| 1) dense matrix (512*512) * dense matrix (512*512), values are randomly filled, using default post scale and relu scale
+| 2) generate two matrices with random size with range from smallest size engine can take to 2048, post scale=[1,0], pRelu scale=[1,0]
+
+Similar to the outputs of test_gemm.py, test_perf_fcn also reports the API runtime and the corresponding performance of this API in terms of TeraOps/sec.
+
+For small matrices, the time of single API call is dominated by the data transfer time between the host the device. To get a better measurement of the compute time or the FCN engine run time, users can run the FCN benchmarking Python code as shown below.
+
+.. code-block:: bash
+
+  $ python ./tests/benchmark_fcn.py --xclbin ./xclbins/u200_201830_1/fcn_short/gemx.xclbin --cfg ./xclbins/u200_201830_1/fcn_short/config_info.dat --gemxlib ./C++/lib/libgemxhost.so --matrix 128,128,128 --numiter 10
+
+In the above command, the FCN engine is launched 10 times, indicated by option --numiter, to carry out the FCN operation between dense matrices A (MxK) and B (KxN), where M,K,N = 128,128,128; The default post scale value and pRelu scale value are used in this benchmarking code. The output shows the average execution time of the API.
+ 
+
+**3. Test and benchmark the SPMV engine**
+
+.. code-block:: bash
+
+  $ python ./tests/test_spmv.py --xclbin ./xclbins/u200_201830_1/spmv_float/gemx.xclbin --cfg ./xclbins/u200_201830_1/spmv_float/config_info.dat --gemxlib ./C++/lib/libgemxhost.so
+
+Inside test_spmv.py's main function, users can add or modify the cases to run different or extra tests.
+
+.. code-block:: Python
+
+  test_spmv_random(96,128,256,32764)
+  test_spmv_random(12800,12800,1400000,32764) 
+
+| The above examples run following tests:
+| 1) sparse matrix (96*128, NNZs=256) * vector (128*1), none-zero elements are randomly filled with range from -32764 to 32764. 
+| 2) sparse matrix (12800*12800, NNZs=1400000) * vector (12800*1), non-zero elements are randomly filled with range from -32764 to 32764.
+
+The outputs of this test function give the sparse matrix size, the number of none-zero elements and whether the tests pass.
+
+To benchmark the average run time of the SPMV engine, users can run benchmark_spmv.py. Following command shows an usage example.
+
+.. code-block:: bash
+
+  $ python ./tests/benchmark_spmv.py --xclbin ./xclbins/u200_201830_1/spmv_float/gemx.xclbin --cfg ./xclbins/u200_201830_1/spmv_float/config_info.dat --gemxlib ./C++/lib/libgemxhost.so --matrix 100 128 12800 --vectors 300
+
+The output of the above command gives the average time of runing 300 SPMV operation between a sparse matrix (100x128 with NNZs=12800) and a dense vector.
+
+**4. Test and benchmark the USPMV engine**
+
+.. code-block:: bash
+
+  $ Python ./tests/test_uspmv.py --xclbin ./xclbins/u200_201830_1/uspmv_1stage/gemx.xclbin --cfg ./xclbins/u200_201830_1/uspmv_1stage/config_info.dat --gemxlib ./C++/lib/libgemxhost.so
+  
+Inside test_uspmv.py's main function, users can add or modify the cases to run different or extra tests.  
+
+.. code-block:: Python
+
+  test_uspmv_random([100],[128],[12800], 300, 32764)
+
+| The above example runs the test below:
+| sparse matrix (100*128, NNZs=12800) * dense matrix (128 * 300), the value of non-zero elements are randomly generated.
+|
+| If the xclbin file is built with GEMX_uspmvStages > 1, USPMV can support cascaded Sparse dense matrix matrix multiplications in parallel. The number of cascaded operations is configured via  GEMX_uspmvStages. Also, multiple sparse matrices have to be sent to the FPGA device memory. 
+| For each sparse matrix,  its row index array, col index array and value array need to be sorted along column indices. For dense matrices, they have to be stored in column-major order.
+
+The output of test_uspmv.py indicates whether the USPMV engine and API works correctly. To benchmark the USPMV engine, users can run commands similar to the one given below.
+
+.. code-block:: bash
+
+  $ python ./tests/benchmark_uspmv.py --xclbin ./xclbins/u200_201830_1/uspmv_1stage/gemx.xclbin --cfg ./xclbins/u200_201830_1/uspmv_1stage/config_info.dat --gemxlib ./C++/lib/libgemxhost.so --matrix 100 128 12800 25 100 2500 5 25 125 --vectors 300
+
+The above command launches USPMV engine to compute following operations and reports the average API run time. Sizes will be padded to multiple of GEMX_uspmvInterleaves * GEMX_ddrWidth
+
+| C0(100x300) = A0(100x128, nnz:12800) * B0(128x300)
+| C1(25x300) = A1(25x100, nnz:2500) * C0(100x300)
+| C2(5x300) = A2(5x25 nnz:125) * C1(25x300)
+
+**5. The code structure of the testing code**
+
+The Python test code also provides an example usage of GEMX Python APIs. The main function in the Python test code takes the steps below to offload matrix operations:
+  
+| 1. Read command line options information to args and config_info.dat information to xclbin_opts
+| 2. Create a handle using the above information
+| 3. Run test function
+| 4. Users can add more testcases with different parameters in main function to run them
+| 5. Common test functions in test.py can be used as examples to create customised test functions
+
+Here is an sample code:
+
+.. code-block:: Python
+
+  np.random.seed(123)  # for reproducibility
+  test = GemmTest()
+  args, xclbin_opts = gemx.processCommandLine()
+  gemx.createGEMMHandle(args, xclbin_opts) 
+  test.test_basic_size(512,512,512,xclbin_opts)   
+
+More details about the Python APIs and test functions can be found in :doc:`gemx.py <python_api_detail/gemx_api>` and :doc:`test.py <pytest>`.
+
+.. NOTE::
+  When users are developing the test cases, it is required to pad the matrices accordingly based on the config_info.dat. Otherwise, the results will have unexpected mismatches.
+
+Here are the padding requirements for each engine. The value for the parameters GEMX_ddrWidth, GEMX_gemmMBlocks and etc. can be found in the corresponding config_info.dat:
+  
+**FCN and GEMM**
+
+| For A (m * k) * B (k * n)
+| 1. m % (GEMX_ddrWidth * GEMX_gemmMBlocks) = 0
+| 2. k % (GEMX_ddrWidth * GEMX_gemmKBlocks) = 0
+| 3. n % (GEMX_ddrWidth * GEMX_gemmNBlocks) = 0
+
+**SPMV**
+
+| For A (m * k) * B (k * 1)
+| 1. m % (GEMX_spmvWidth * GEMX_spmvMacGroups) = 0
+| 2. k % GEMX_ddrWidth = 0
+
+**USPMV**
+
+| For A (m * k) * B (k * n)
+| 1. m % (GEMX_ddrWidth * GEMX_uspmvInterleaves) = 0, m <= GEMX_ddrWidth * GEMX_uspmvMvectorBlocks
+| 2. k % GEMX_ddrWidth = 0
+| 3. nnz % GEMX_ddrWidth = 0, 0 < nnz <= GEMX_ddrWidth * GEMX_uspmvNnzVectorBlocks

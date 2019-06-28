@@ -1,0 +1,241 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Python environment setup guide &mdash; GEMX Python APIs 1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+        <script type="text/javascript" src="../_static/target-highlight.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/doxyrest-pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/doxyrest-sphinx_rtd_theme.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="User guide for testing and benchmarking GEMX Python APIs" href="pytest_guide.html" />
+    <link rel="prev" title="User guide" href="pyguide.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> GEMX Python APIs
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="pyguide.html">User guide</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Python environment setup guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pytest_guide.html">User guide for testing and benchmarking GEMX Python APIs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pykeras_guide.html">GEMX based Keras MLP Acceleration</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pyapi.html">API definitions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pytest.html">Python test functions</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">GEMX Python APIs</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="pyguide.html">User guide</a> &raquo;</li>
+        
+      <li>Python environment setup guide</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/guide/pyenvguide.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="python-environment-setup-guide">
+<h1>Python environment setup guide<a class="headerlink" href="#python-environment-setup-guide" title="Permalink to this headline">¶</a></h1>
+<p><strong>1. Installing Anaconda2</strong></p>
+<ol class="arabic simple">
+<li><p>Download Anaconda2</p></li>
+</ol>
+<pre class="highlight literal-block"><span></span>$ wget https://repo.anaconda.com/archive/Anaconda2-5.1.0-Linux-x86_64.sh</pre>
+<ol class="arabic simple" start="2">
+<li><p>Run the installer (Installer requires bzip, please install it if you don’t have it)</p></li>
+</ol>
+<pre class="highlight literal-block"><span></span>$ bash ./Anaconda2-5.1.0-Linux-x86_64.sh</pre>
+<p>More information about Anaconda can be found from <a class="reference external" href="https://docs.anaconda.com/anaconda/">Anaconda Documentation</a>.</p>
+<ol class="arabic simple" start="3">
+<li><p>Add Anaconda2 to PATH</p></li>
+</ol>
+<pre class="highlight literal-block"><span></span>$ <span class="nb">export</span> <span class="nv">PATH</span><span class="o">=</span>/home/&lt;user&gt;/anaconda2/bin:<span class="nv">$PATH</span>
+$ . /home/&lt;user&gt;/anaconda2/etc/profile.d/conda.sh</pre>
+<p><strong>2. Setting up gemx environment to include all conda packages used by GEMX Python APIs.</strong></p>
+<pre class="highlight literal-block"><span></span>$ conda config --add channels anaconda
+$ conda create --name gemx <span class="nv">python</span><span class="o">=</span><span class="m">2</span>.7.14 <span class="nv">numpy</span><span class="o">=</span><span class="m">1</span>.14.5 <span class="nv">scipy</span><span class="o">=</span><span class="m">1</span>.2.1 -c defaults
+$ conda activate gemx
+$ conda install <span class="nv">pandas</span><span class="o">=</span><span class="m">0</span>.24.1
+$ conda install <span class="nv">keras</span><span class="o">=</span><span class="m">2</span>.2.4
+$ conda install scikit-learn<span class="o">=</span><span class="m">0</span>.20.2</pre>
+<p>Note: above three installation steps are only needed when you first activate the gemx environment.</p>
+<p><strong>3. Deactivate gemx environment after testing</strong></p>
+<p>Note: Please don’t take this step if you intend to test/use GEMX Python APIs.
+You only take it after you’ve finished all testing.</p>
+<pre class="highlight literal-block"><span></span>$ conda deactivate</pre>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="pytest_guide.html" class="btn btn-neutral float-right" title="User guide for testing and benchmarking GEMX Python APIs" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="pyguide.html" class="btn btn-neutral float-left" title="User guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017-2019, Xilinx Inc.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

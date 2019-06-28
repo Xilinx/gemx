@@ -1,0 +1,28 @@
+.. Project documentation master file, created by
+   sphinx-quickstart on Tue Oct 30 18:39:21 2018.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+GEMX Python APIs 
+==========================
+
+Xilinx's GEMX library provides a set of high performance engines for accelerating applications that heavily depend on matrix operations. This library comes with a set of Python APIs to enable software, especially Python developers to easily leverage the performance advantage of those engines. 
+
+The :doc:`User guide <guide/pyguide>` section explains the usage of the APIs.
+
+The :doc:`API definitions <guide/pyapi>` section describes the definitions of the APIs.
+
+The :doc:`Test functions <guide/pytest>` section describes the test functions for benchmarking the APIs.
+
+.. toctree::
+   :maxdepth: 2
+
+   guide/pyguide.rst
+   guide/pyapi.rst
+   guide/pytest.rst
+
+Indices and tables
+------------------
+
+* :ref:`genindex`
+* :ref:`search`

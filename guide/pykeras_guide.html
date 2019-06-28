@@ -1,0 +1,340 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>GEMX based Keras MLP Acceleration &mdash; GEMX Python APIs 1.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+        <script type="text/javascript" src="../_static/target-highlight.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/doxyrest-pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/doxyrest-sphinx_rtd_theme.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="API definitions" href="pyapi.html" />
+    <link rel="prev" title="User guide for testing and benchmarking GEMX Python APIs" href="pytest_guide.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> GEMX Python APIs
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="pyguide.html">User guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="pyenvguide.html">Python environment setup guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pytest_guide.html">User guide for testing and benchmarking GEMX Python APIs</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">GEMX based Keras MLP Acceleration</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pyapi.html">API definitions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pytest.html">Python test functions</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">GEMX Python APIs</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="pyguide.html">User guide</a> &raquo;</li>
+        
+      <li>GEMX based Keras MLP Acceleration</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/guide/pykeras_guide.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="gemx-based-keras-mlp-acceleration">
+<h1>GEMX based Keras MLP Acceleration<a class="headerlink" href="#gemx-based-keras-mlp-acceleration" title="Permalink to this headline">¶</a></h1>
+<p>Keras is Python based machine learning framework. It provides high level neural network APIs. It is written in Python and can run on top of other low level neural network frameworks for numerical computations like TensorFlow, Theano, and CNTK etc. Keras supports neural as well as
+recurrent networks and hybrid solutions. It is assumed to be very user friendly and allows for easy and rapid prototyping and experimentation through a modular and extensible approach.</p>
+<p>In examples/keras folder, there are three examples using GEMX Python APIs in Keras. One is a simple local example reading data from a csv file. The other two are modified from the <a class="reference external" href="https://github.com/keras-team/keras/tree/master/examples">Keras examples</a>. One is a simple deep MLP on the MNIST dataset and the other one is a simple MLP on the Reuters newswire topic classification task.</p>
+<p><strong>1. Simple example</strong></p>
+<p>The Simple Keras example in folder examples/keras/simple is based on a neural network which is 3 layers deep. The inference part is accelerated using FPGA based hardware engines. The choice of three different engines is given to allow the trade-off between performance and hardware resource utilization. Application is launched with different arguments as shown below:</p>
+<pre class="highlight literal-block"><span></span>python ./example/keras/simple/mlp.py --data ./example/keras/simple/data/SansEC_Train_Data.csv --model ./example/keras/simple/best_model.h5 --xclbin ./xclbins/u200_201830_1/fcn_short/gemx.xclbin --cfg ./xclbins/u200_201830_1/fcn_short/config_info.dat --gemxlib ./C++/lib/libgemxhost.so --engine fcn</pre>
+<p>Multiple command line arguments are passed to provide path to data to be used for prediction, network model stored in hdf5 format, Xilinx FPGA configuration binary which contains FPGA acceleration kernel, .dat file which provides GEMX engine configuration parameters, –engine makes the selection of FPGA engine to be used and finally .so files which is the path to the shared library written in C++ and accessed in Python application using a C type Python wrapper.</p>
+<p>The application starts by parsing these command line arguments:</p>
+<pre class="highlight literal-block"><span></span><span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--cfg&#39;</span><span class="p">,</span> <span class="n">required</span> <span class="o">=</span> <span class="bp">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;file describing properties of .xclbin&#39;</span><span class="p">)</span>
+<span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--gemxlib&#39;</span><span class="p">,</span> <span class="n">required</span> <span class="o">=</span> <span class="bp">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;file path to GEMX host code shared library&#39;</span><span class="p">)</span>
+<span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--engine&#39;</span><span class="p">,</span> <span class="n">default</span> <span class="o">=</span> <span class="s1">&#39;fcn&#39;</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;fcn&#39;</span><span class="p">,</span><span class="s1">&#39;spmv&#39;</span><span class="p">,</span><span class="s1">&#39;uspmv&#39;</span><span class="p">],</span> <span class="n">help</span><span class="o">=</span><span class="s1">&#39;choose fcn, spmv, uspmv engine&#39;</span><span class="p">)</span>
+<span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span></pre>
+<p>After parsing argument, the application parses FPGA engine configuration file and creates a handle to FPGA device with appropriate arguments and the .xclbin file.</p>
+<pre class="highlight literal-block"><span></span><span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">engine</span> <span class="o">==</span> <span class="s1">&#39;fcn&#39;</span><span class="p">:</span>
+  <span class="n">gemx</span><span class="o">.</span><span class="n">createFCNHandle</span><span class="p">(</span> <span class="n">args</span><span class="p">,</span> <span class="n">xclbin_prop</span> <span class="p">)</span>
+<span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">engine</span> <span class="o">==</span> <span class="s1">&#39;uspmv&#39;</span><span class="p">:</span>
+  <span class="n">gemx</span><span class="o">.</span><span class="n">createUSPMVHandle</span><span class="p">(</span> <span class="n">args</span><span class="p">,</span> <span class="n">xclbin_prop</span> <span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+  <span class="n">gemx</span><span class="o">.</span><span class="n">createSPMVHandle</span><span class="p">(</span> <span class="n">args</span><span class="p">,</span> <span class="n">xclbin_prop</span> <span class="p">)</span></pre>
+<p>The input data and labels are loaded from a .csv file which stores data as a comma separated list. Input data is labeled with class numbers. The application loads this data to a dictionary and encodes labels using one-hot encoding technique.</p>
+<pre class="highlight literal-block"><span></span><span class="n">train_fd</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+<span class="n">IDcol</span> <span class="o">=</span> <span class="s1">&#39;Run&#39;</span>
+<span class="n">target</span> <span class="o">=</span> <span class="s1">&#39;Class&#39;</span>
+<span class="n">predictors</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">train_fd</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">x</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="n">target</span><span class="p">,</span> <span class="n">IDcol</span><span class="p">]]</span>
+<span class="n">encoder</span> <span class="o">=</span> <span class="n">LabelEncoder</span><span class="p">()</span>
+<span class="n">encoder</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_fd</span><span class="p">[</span><span class="n">target</span><span class="p">])</span>
+<span class="n">encoded_Y</span> <span class="o">=</span> <span class="n">encoder</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">train_fd</span><span class="p">[</span><span class="n">target</span><span class="p">])</span>
+<span class="n">train_y</span> <span class="o">=</span> <span class="n">np_utils</span><span class="o">.</span><span class="n">to_categorical</span><span class="p">(</span><span class="n">encoded_Y</span><span class="p">)</span></pre>
+<p>The application is used to perform multi-level classification using 3-level deep neural network, with fully connected layers. The network is
+trained offline and trained model is stored in hdf5 format. All the layers are dense and final layer uses softmax classifier enabling the
+calculation of score or confidence for each prediction. The softmax calculation are done using CPU. The first layer consists of 100 neurons
+and the 2<sup>nd</sup> layer is composed of 25 neurons, both these layers use “relu” type activation. The input data used for classification consist of 5 classes with 128 features per input and hence the final layer is composed of 5 Neuron with softmax activation.</p>
+<pre class="highlight literal-block"><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">Sequential</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Dense</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="n">input_dim</span><span class="o">=</span><span class="n">in_dims</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">&#39;relu&#39;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;d1&#39;</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Dense</span><span class="p">(</span><span class="mi">25</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">&#39;relu&#39;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;d2&#39;</span><span class="p">))</span>
+<span class="n">model</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Dense</span><span class="p">(</span><span class="n">num_classes</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="s1">&#39;softmax&#39;</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;d3&#39;</span><span class="p">))</span>
+
+<span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">loss</span><span class="o">=</span><span class="s1">&#39;categorical_crossentropy&#39;</span><span class="p">,</span> <span class="n">optimizer</span><span class="o">=</span><span class="s1">&#39;adam&#39;</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;accuracy&#39;</span><span class="p">])</span>
+<span class="n">modelcheckpoint_callback</span> <span class="o">=</span> <span class="n">ModelCheckpoint</span><span class="p">(</span><span class="s2">&quot;./best_model.h5&quot;</span><span class="p">,</span> <span class="n">monitor</span><span class="o">=</span><span class="s1">&#39;val_loss&#39;</span><span class="p">,</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;min&#39;</span><span class="p">,</span> <span class="n">save_best_only</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">save_weights_only</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_fd</span><span class="p">[</span><span class="n">predictors</span><span class="p">],</span> <span class="n">train_data</span><span class="p">,</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">callbacks</span><span class="o">=</span><span class="p">[</span><span class="n">modelcheckpoint_callback</span><span class="p">],</span> <span class="n">validation_split</span><span class="o">=</span><span class="mf">0.20</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span></pre>
+<p>The actual function which calls for prediction on input data is predit_fpga or predict_spmv or predict_uspmv depending on the user
+engine choice made by passing command line argument.</p>
+<pre class="highlight literal-block"><span></span><span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">engine</span> <span class="o">==</span> <span class="s1">&#39;fcn&#39;</span><span class="p">:</span>
+  <span class="n">fpga_out</span> <span class="o">=</span> <span class="n">predict_fpga</span><span class="p">(</span> <span class="n">args</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">train_fd</span><span class="p">[</span><span class="n">predictors</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_fd</span><span class="p">[</span><span class="n">target</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()),</span> <span class="n">xclbin_prop</span><span class="p">)</span>
+<span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">engine</span> <span class="o">==</span> <span class="s1">&#39;uspmv&#39;</span><span class="p">:</span>
+  <span class="n">fpga_out</span> <span class="o">=</span> <span class="n">predict_uspmv_fpga</span><span class="p">(</span> <span class="n">args</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">train_fd</span><span class="p">[</span><span class="n">predictors</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_fd</span><span class="p">[</span><span class="n">target</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()),</span> <span class="n">xclbin_prop</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+  <span class="n">fpga_out</span> <span class="o">=</span> <span class="n">predict_spmv_fpga</span><span class="p">(</span> <span class="n">args</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">train_fd</span><span class="p">[</span><span class="n">predictors</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_fd</span><span class="p">[</span><span class="n">target</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()),</span> <span class="n">xclbin_prop</span><span class="p">)</span></pre>
+<p>This function call will build Keras sequential model using dense layers and weight matrices loaded from hdf5 file. For predict_fpga case where
+integer types are used to represent and process data, model weights and biases are quantized using scaling constants. These constants are
+determined offline by performing range and max-min analysis on the data. With given 3-layer network application can make prediction in 5ms using FCN engine which is based on dense matrix multiplication and with SPMV engine which is based on sparse matrix multiplication it takes 138ms for prediction and uses 10x less DSP48 resources on FPGA. USPMV is more optimized implementation for sparse matrix multiplication engine which takes 4ms for the prediction and it uses 4x less DSPs and 8x less BRAMs when compared to original FCN engine, but uses more URAMs. The table
+below gives more details.</p>
+<table class="docutils align-center">
+<colgroup>
+<col style="width: 17%" />
+<col style="width: 31%" />
+<col style="width: 10%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 10%" />
+<col style="width: 9%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p><strong>Engine</strong></p></th>
+<th class="head"><p><strong>Prediction time (ms)</strong></p></th>
+<th class="head"><p><strong>DSPs</strong></p></th>
+<th class="head"><p><strong>BRAMs</strong></p></th>
+<th class="head"><p><strong>URAMs</strong></p></th>
+<th class="head"><p><strong>LUTs</strong></p></th>
+<th class="head"><p><strong>FFs</strong></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>FCN(int16)</p></td>
+<td><p>5</p></td>
+<td><p>1166</p></td>
+<td><p>321</p></td>
+<td><p>0</p></td>
+<td><p>69044</p></td>
+<td><p>211631</p></td>
+</tr>
+<tr class="row-odd"><td><p>SPMV</p></td>
+<td><p>138</p></td>
+<td><p>108</p></td>
+<td><p>571</p></td>
+<td><p>8</p></td>
+<td><p>59381</p></td>
+<td><p>101391</p></td>
+</tr>
+<tr class="row-even"><td><p>3-stage USPMV</p></td>
+<td><p>4</p></td>
+<td><p>304</p></td>
+<td><p>41</p></td>
+<td><p>96</p></td>
+<td><p>231194</p></td>
+<td><p>271055</p></td>
+</tr>
+<tr class="row-odd"><td><p>CPU</p></td>
+<td><p>20</p></td>
+<td><p>n/a</p></td>
+<td><p>n/a</p></td>
+<td><p>n/a</p></td>
+<td><p>n/a</p></td>
+<td><p>n/a</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>2. MNIST</strong></p>
+<div class="line-block">
+<div class="line">This is an example for running MLP model on the MNIST dataset. The model is trained on CPU side and saved in best_mnist_model.h5. Users can also train it locally by adding this option ‘–train True’.</div>
+<div class="line">In this example, the final classification results will be compared to CPU predict results and the real data. For FCN, the FPGA results have accuracy very close to the CPU results with quantization from fp32 to int16. USPMV’s input datatype is fp32 so there is no need to do quantization. Spmv engine is not supported because it will be very slow for large dataset.</div>
+</div>
+<pre class="highlight literal-block"><span></span><span class="c1"># Using FCN engine</span>
+python examples/keras/mnist/mlp_mnist.py --gemxlib ./C++/lib/libgemxhost.so --xclbin ./xclbins/u200_201830_1/fcn_short/gemx.xclbin --cfg ./xclbins/u200_201830_1/fcn_short/config_info.dat --model examples/keras/mnist/best_mnist_model.h5
+<span class="c1"># Using USPMV engine</span>
+python examples/keras/mnist/mlp_mnist.py --gemxlib ./C++/lib/libgemxhost.so --xclbin ./xclbins/u200_201830_1/uspmv_1stage/gemx.xclbin --cfg ./xclbins/u200_201830_1/uspmv_1stage/config_info.dat --model examples/keras/mnist/best_mnist_model.h5 --engine uspmv</pre>
+<p><strong>3. Reuters</strong></p>
+<div class="line-block">
+<div class="line">This is an example for running MLP model on the Reuters dataset. The model is trained on CPU side and saved in best_reuters_model.h5. Users can also train it locally by adding this option ‘–train True’.</div>
+<div class="line">In this example, the final classification results will be compared to CPU predict results and the real data. For FCN, the FPGA results have accuracy very close to the CPU results with quantization from fp32 to int16. USPMV’s input datatype is fp32 so there is no need to do quantization. Spmv engine is not supported because it will be very slow for large dataset.</div>
+</div>
+<pre class="highlight literal-block"><span></span><span class="c1"># Using FCN engine</span>
+python examples/keras/reuters/mlp_reuters.py --gemxlib ./C++/lib/libgemxhost.so --xclbin ./xclbins/u200_201830_1/fcn_short/gemx.xclbin --cfg ./xclbins/u200_201830_1/fcn_short/config_info.dat --model examples/keras/reuters/best_reuters_model.h5
+<span class="c1"># Using USPMV engine</span>
+python examples/keras/reuters/mlp_reuters.py --gemxlib ./C++/lib/libgemxhost.so --xclbin ./xclbins/u200_201830_1/uspmv_1stage/gemx.xclbin --cfg ./xclbins/u200_201830_1/uspmv_1stage/config_info.dat --model examples/keras/reuters/best_reuters_model.h5 --engine uspmv</pre>
+<p>FCN engine doesn’t support fp32, so offline quantization is needed to bring fp32 ranges to fit into int16. Please see helper_script/quantize.py for more details. Currently, quantization scales in each example is for the pre-trained model, so if re-training the model, users can use this script to get new quantization scales. Local simple example is good with Quantization().compute_quantize_scale_16, mnist_mlp is good with Quantization().compute_quantize_scale_8 and reuters_mlp is good with common_quantize.</p>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="pyapi.html" class="btn btn-neutral float-right" title="API definitions" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="pytest_guide.html" class="btn btn-neutral float-left" title="User guide for testing and benchmarking GEMX Python APIs" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017-2019, Xilinx Inc.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

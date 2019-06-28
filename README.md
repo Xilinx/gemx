@@ -19,25 +19,19 @@ GEMX is a General Matrix Operation library, which is used for accelerating BLAS-
 ## 2. SOFTWARE AND SYSTEM REQUIREMENTS
 Board | DSA Name | Software Version
 ------|-------------|-----------------
-Xilinx KCU1500|xilinx:kcu1500:dynamic:5_0|SDx 2017.4
-Xilinx VU9P|xilinx:vcu1525:dynamic:5_0|SDx 2017.4
+Xilinx VU9P|xilinx:vcu1525:dynamic:5_1|SDx 2018.2
+Xilinx ALVEO|xilinx:u200:xdma:201830_2|SDx 2019.1
 
 ## 3. DESIGN FILE HIERARCHY
-Source code for building FPGA and host code images is located in the gemx/src directory. boost/ directory provides implementation for OpenCL functions used to instantiate an accelerator, trasmit data between the host and the accelerator and etc. Please refer to gemx_api_gemm.cpp to see its usage. gemx/Makefile is used to build FPGA and host images with different configurations. gemx/hls_config.tcl is used to configure the hls compilation options. gemx/run-hls.tcl is used to create vivado_hls project from cpu emulation results. gemx/data includs input sparse matrices' data.
+Source code for building FPGA and host code images is located in the gemx/src directory. gemx/Makefile is used to build FPGA and host images with different configurations. gemx/hls_config.tcl is used to configure the hls compilation options. gemx/run-hls.tcl is used to create vivado_hls project from cpu emulation results. gemx/MLsuite_MLP provides Python bindings for GEMX engines. Those python bindings allow users to offload Python-based Matrix operations to GEMX engines. Please refer to [GEMX Python APIs] to see its usage.
 
 ## 4.BUILD GEMX-BASED EXAMPLE APPLICATIONS 
-Following four GEMX-BASED applications are created for xilinx:vcu1525:dynamic:5_0 DSA to demonstrate the GEMX engine usage.
-* gemm_perf: dense matrix matrix multiplication performance measurement
-* spmv_perf: sparse matrix vector multiplication performance measurement
-* gemm_test_python: python-based densen matrix matrix multiplication testing
-* gemx_func_test: GEMX engine testing in sofware emulation
-
-Before compiling and building FPGA and host images, make sure SDAccel 2017.4 envioronment variales are set up properly and navigate to gemx/ directory, and enter command:
+A set of make commands are used in the verify.sh to demonstrate the GEMX engine usage with xilinx:u200:xdma:201830_2 DSA. Before compiling and building FPGA and host images, make sure SDAccel 2019.1 envioronment variales are set up properly and navigate to gemx/ directory, and enter command:
   
 ```
-./run_app.sh
+./verify.sh
 ```
-enter one of the four application names when the command line prompts for input. 
+enter one of the build process names (sw_em, hw_em or hw) and one of the four engine names (gemm, spmv or fcn) when the command line prompts for input. File gemx/set_env.sh provides an example about how to set up SDAccel 2019.1 environment variables. 
 
 ## 5. SUPPORT
 For more information about SDAccel check the [SDAccel User Guides][]
@@ -46,7 +40,7 @@ For questions and to get help on this project or your own projects, visit the [S
 
 
 ## 6. LICENSE AND CONTRIBUTING TO THE REPOSITORY
-The source for this project is licensed under the [3-Clause BSD License][]
+The source for this project is licensed under the [Apache 2.0 license][]
 
 To contribute to this project, follow the guidelines in the [Repository Contribution README][]
 
@@ -59,10 +53,12 @@ Date | README Version | Description
 -----|----------------|------------
 Oct2017|1.0|Initial Xilinx Release
 Mar2018|2.0|Updated to SDx 2017.4
+Sep2018|2.1|Updated to SDx 2018.2
+May2019|2.2|Updated to SDx 2019.1
 
-[GEMM_API_UG]: https://github.com/Xilinx/gemx/blob/master/gemx/doc/GEMM_API_UG.md
-[GEMX_ENGINE_UG]: https://github.com/Xilinx/gemx/blob/master/gemx/doc/GEMX_ENGINE_UG.md
-[3-Clause BSD License]: https://github.com/Xilinx/SDAccel_Examples/blob/master/LICENSE.txt
+[GEMM_API_UG]: /docs/GEMM_API_UG.md
+[GEMX_ENGINE_UG]: /docs/GEMX_ENGINE_UG.md
+[Apache 2.0 license]: https://www.apache.org/licenses/LICENSE-2.0
 [SDAccel Forums]: https://forums.xilinx.com/t5/SDAccel/bd-p/SDx
 [SDAccel User Guides]: http://www.xilinx.com/support/documentation-navigation/development-tools/software-development/sdaccel.html?resultsTablePreSelect=documenttype:SeeAll#documentation
 [Nimbix Getting Started Guide]: http://www.xilinx.com/support/documentation/sw_manuals/xilinx2016_2/ug1240-sdaccel-nimbix-getting-started.pdf
@@ -70,3 +66,4 @@ Mar2018|2.0|Updated to SDx 2017.4
 [Nimbix Application Submission README]: https://github.com/Xilinx/SDAccel_Examples/blob/master/utility/nimbix/README.md
 [Repository Contribution README]: https://github.com/Xilinx/SDAccel_Examples/blob/master/CONTRIBUTING.md
 [AWS F1 Application Execution on Xilinx Virtex UltraScale Devices]: https://github.com/aws/aws-fpga/blob/master/SDAccel/README.md
+[GEMX Python APIs]: https://www.xilinx.com/products/acceleration-solutions/python-based-matrix-operation-accelerator.html

@@ -1,31 +1,18 @@
 
 /**********
- * Copyright (c) 2017, Xilinx, Inc.
- * All rights reserved.
+ * Copyright 2019 Xilinx, Inc.
  *
- * Redistribution and use in source and binary forms, with or without modification,
- * are permitted provided that the following conditions are met:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * 1. Redistributions of source code must retain the above copyright notice,
- * this list of conditions and the following disclaimer.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its contributors
- * may be used to endorse or promote products derived from this software
- * without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
- * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * **********/
 /**
  *  @brief Simple SPMV example of C++ API client interaction with SPMV linear algebra accelerator on Xilinx FPGA 
@@ -35,7 +22,6 @@
  */
 
 // Prerequisites:
-//  - Boost installation (edit the Makefile with your boost path)
 //  - Compiled C++ to bitstream accelerator kernel
 //     - use "make run_hw"
 //     - or get a pre-compiled copy of the out_hw/gemx.xclbin)
@@ -46,50 +32,10 @@
 // You can also test it with a cpu emulation accelerator kernel (faster to combile, make run_cpu_em)
 //   ( setenv XCL_EMULATION_MODE true ; out_host/gemx_api_spmv.exe out_cpu_emu/gemx.xclbin )
  
-#include <stdio.h>
-#include <string>
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <vector>
-#include <iomanip>
-#include <chrono>
-#include <stdio.h>  // fgets for popen
-
 #include "gemx_kernel.h"
-#include "gemx_fpga.h"
-#include "gemx_gen_bin.h"
+#include "gemx_gen_spmv.h"
+#include "gemx_api_test.h"
 
-//#define VERBOSE 0 
-
-float getBoardFreqMHz(unsigned int p_BoardId) {
-  std::string l_freqCmd = "$XILINX_OPENCL/runtime/bin/xbsak query -d" + std::to_string(p_BoardId);;
-  float l_freq = -1;
-  char l_lineBuf[256];
-  std::shared_ptr<FILE> l_pipe(popen(l_freqCmd.c_str(), "r"), pclose);
-  if (!l_pipe) std::cout << ("ERROR: popen(" + l_freqCmd + ") failed");
-  bool l_nextLine_isFreq = false;
-  while (l_pipe && fgets(l_lineBuf, 256, l_pipe.get()) ) {
-    std::string l_line(l_lineBuf);
-    //std::cout << "DEBUG: read line " << l_line << std::endl;
-    if (l_nextLine_isFreq) {
-      std::string l_prefix, l_val, l_mhz;
-      std::stringstream l_ss(l_line);
-      l_ss >> l_prefix >> l_val >> l_mhz;
-      l_freq = std::stof(l_val);
-      assert(l_mhz == "MHz");
-      break;
-    } else if (l_line.find("OCL Frequency:") != std::string::npos) {
-      l_nextLine_isFreq = true;
-    }
-  }
-  if (l_freq == -1) {
-	//if xbsak does not work, user could put the XOCC achieved kernel frequcy here
-	//l_freq = 200.2;
-    std::cout << "INFO: Failed to get board frequency by xbsak. This is normal for cpu and hw emulation, using -1 MHz for reporting.\n";
-  }
-  return(l_freq);
-}
 
 int main(int argc, char **argv)
 {
@@ -97,9 +43,9 @@ int main(int argc, char **argv)
   if (argc < 5) {
     std::cerr << "Usage:\n"
               <<  "  gemx_api_spmv.exe <path/gemx.xclbin> [M K Nnz [mtxFile]]\n"
-	      <<  "  Examples:\n"
-	      <<  "    gemx_api_spmv.exe   out_hw/gemx.xclbin  96 128 256\n"
-	      <<  "    gemx_api_spmv.exe   out_hw/gemx.xclbin  0 0 0 data/spmv/diag16.mtx\n";
+              <<  "  Examples:\n"
+              <<  "    gemx_api_spmv.exe   out_hw/gemx.xclbin  96 128 256\n"
+              <<  "    gemx_api_spmv.exe   out_hw/gemx.xclbin  0 0 0 data/spmv/diag16.mtx\n";
     exit(2);
   }
   unsigned int l_argIdx = 1;
@@ -112,12 +58,19 @@ int main(int argc, char **argv)
   l_M = atoi(argv[++l_argIdx]);
   l_K = atoi(argv[++l_argIdx]);
   l_NNZ = atoi(argv[++l_argIdx]);
-  //std::string l_mtxFileName = argv[++l_argIdx];
   std::string l_mtxFileName("none");
+  std::string l_vectorFileName("none");
   if (argc > ++l_argIdx) {l_mtxFileName = argv[l_argIdx];}
+  //this is a debug only option, not necessary 
+  if (argc > ++l_argIdx) {l_vectorFileName = argv[l_argIdx];}
   
+  #if GEMX_useURAM
+  MtxFileUram l_mtxFile(l_mtxFileName);
+  GenSpmvUram l_spmv;
+  #else	 
   MtxFile l_mtxFile(l_mtxFileName);
   GenSpmv l_spmv;
+  #endif
   //The check() modifies the dimensions when loading from a matrix file. Please use 0 for l_M, l_K and l_NNZ when provding matrix file
   l_spmv.check(l_M, l_K, l_NNZ, l_mtxFile);
   
@@ -128,6 +81,7 @@ int main(int argc, char **argv)
     
   //############  Client code - prepare the spmv problem input  ############
   ProgramType l_program[GEMX_numKernels];  // Holds instructions and controls memory allocation
+  ProgramType l_program_golden;
   std::string l_handleA[GEMX_numKernels];
   std::string l_handleB[GEMX_numKernels];
   std::string l_handleC[GEMX_numKernels];
@@ -136,78 +90,32 @@ int main(int argc, char **argv)
     l_handleA[i] = "A"+std::to_string(i);
     l_handleB[i] = "B"+std::to_string(i);
     l_handleC[i] = "C"+std::to_string(i);
-  } 	
- 	 	
+  } 
+
   for (int i=0; i<GEMX_numKernels; ++i) {
-    l_spmv.addInstr(l_program[i], l_M, l_K, l_NNZ, l_mtxFile, l_handleA[i], l_handleB[i], l_handleC[i], false);
+    #if GEMX_useURAM
+    l_spmv.addInstr(l_program[i], l_M, l_K, l_NNZ, l_mtxFile, l_handleA[i], l_handleB[i], l_handleC[i],false);
+    #else
+    if (l_vectorFileName == "none") {
+       l_spmv.addInstr(l_program[i], l_M, l_K, l_NNZ, l_mtxFile, l_handleA[i], l_handleB[i], l_handleC[i], false, false);
+    }else{
+       l_spmv.addInstrReadVector(l_program[i], l_M, l_K, l_NNZ, l_mtxFile, l_vectorFileName, l_handleA[i], l_handleB[i], l_handleC[i], false, false);
+    }
+    #endif
   }
-  std::string kernelNames[GEMX_numKernels];
-  gemx::MemDesc l_memDesc[GEMX_numKernels];
- 
-  for (int i=0; i<GEMX_numKernels; ++i) { 
-    l_memDesc[i] = l_program[i].getMemDesc();
-  }
-  
-  //############  Runtime reporting Infra  ############
-  TimePointType l_tp[10];
-  unsigned int l_tpIdx = 0;
-  l_tp[l_tpIdx] = std::chrono::high_resolution_clock::now(); 
-
+  #if GEMX_useURAM
+  l_spmv.addInstr(l_program_golden, l_M, l_K, l_NNZ, l_mtxFile, l_handleA[0], l_handleB[0], l_handleC[0], true);
+  #else	
+  if (l_vectorFileName == "none") {
+    l_spmv.addInstr(l_program_golden, l_M, l_K, l_NNZ, l_mtxFile, l_handleA[0], l_handleB[0], l_handleC[0], false, true);
+  }else{
+    l_spmv.addInstrReadVector(l_program_golden, l_M, l_K, l_NNZ, l_mtxFile, l_vectorFileName, l_handleA[0], l_handleB[0], l_handleC[0], false, true);
+  } 
+  #endif
+    
   //############  Run FPGA accelerator  ############
-  // Init FPGA
-  gemx::Fpga l_fpga;
 
-  for (int i=0; i<GEMX_numKernels; ++i){
-	kernelNames[i] = "gemxKernel_" + std::to_string(i);
-  }
-  if (l_fpga.loadXclbin(l_xclbinFile, kernelNames)) {
-    std::cout << "INFO: created kernels" << std::endl;
-  } else {
-    std::cerr << "ERROR: failed to load " + l_xclbinFile + "\n";
-    return EXIT_FAILURE;
-  }
-  showTimeData("loadXclbin", l_tp[l_tpIdx], l_tp[l_tpIdx+1]); l_tpIdx++;
-
-  //create buffers for transferring data to FPGA
-  if (!l_fpga.createBuffers(l_memDesc)) {
-    std::cerr << "ERROR: failed to create buffers for transffering data to FPGA DDR\n";
-    return EXIT_FAILURE;
-  }
-  showTimeData("created buffers", l_tp[l_tpIdx], l_tp[l_tpIdx+1]); l_tpIdx++;
-  
-  // Transfer data to FPGA
-  if (l_fpga.copyToFpga()) {
-    (VERBOSE > 0) && std::cout << "INFO: transferred data to FPGA" << std::endl;
-  } else {
-    std::cerr << "ERROR: failed to copy data to FPGA DDR\n";
-    return EXIT_FAILURE;
-  }
-  showTimeData("copyToFpga", l_tp[l_tpIdx], l_tp[l_tpIdx+1]); l_tpIdx++;
-
-  // Gemx kernel ops
-  if (l_fpga.callKernels()) {
-    (VERBOSE > 0) && std::cout << "INFO: Executed kernel" << std::endl;
-  } else {
-    std::cerr << "ERROR: failed to call kernels ";
-	for (int i=0; i<GEMX_numKernels; ++i) {
-		std::cerr << kernelNames[i] << " ";
-	}
-	std::cerr << "\n";
-    return EXIT_FAILURE;
-  }
-  showTimeData("callKernel", l_tp[l_tpIdx], l_tp[l_tpIdx+1]); l_tpIdx++;
-
-  // Transfer data back to host - due to lazy evaluation this is generally wheer the accelerator performs the work
-  if (l_fpga.copyFromFpga()) {
-    (VERBOSE > 0) && std::cout << "INFO: Transferred data from FPGA" << std::endl;
-  } else {
-    std::cerr << "ERROR: failed to copy data from FPGA DDR\n";
-    return EXIT_FAILURE;
-  }
-  showTimeData("copyFromFpga", l_tp[l_tpIdx], l_tp[l_tpIdx+1]); l_tpIdx++;
-  showTimeData("total", l_tp[0], l_tp[l_tpIdx]); l_tpIdx++;
-  double l_timeApiInMs = -1;
-  showTimeData("subtotalFpga", l_tp[2], l_tp[l_tpIdx], &l_timeApiInMs); l_tpIdx++; // Host->DDR, kernel, DDR->host
+  double l_timeApiInMs = run_hw_test(l_xclbinFile, l_program);
   
   //############  Get the exact kernel time from HW cycle counters on the accelerator  ############
   float l_boardFreqMHz = getBoardFreqMHz(0);
@@ -246,19 +154,26 @@ int main(int argc, char **argv)
   //l_effKernelPct = 100 * l_timeMsAt100pctEff / l_maxTimeKernelInMs;
   l_effCycles = 100 * theory_cycles / l_maxCycleCount;
   l_effApiPct = 100 * l_timeMsAt100pctEff / l_timeApiInMs;
+  std::string matrixName = l_mtxFileName.substr(l_mtxFileName.find_last_of("/")+1);
   // Show time, Gops in csv format
-  std::cout << std::string("DATA_CSV:,DdrWidth,Freq,M,K,NNZ,")
+  std::cout << std::string("DATA_CSV:,DdrWidth,Freq,M,K,NNZ,MatrixName,")
              + "KernelCycles,"
              + "TimeKernelMs,TimeApiMs,"
              + "EffKernelPct,EffApiPct,"
              + "PerfKernelGops,PerfApiGops\n"
             << "DATA_CSV:," <<  GEMX_ddrWidth << "," << l_boardFreqMHz << ","
-            << l_M << "," << l_K << "," << l_NNZ << ","
+            << l_M << "," << l_K << "," << l_NNZ << "," << matrixName << ","
             << l_maxCycleCount << ","
             << l_maxTimeKernelInMs << "," << l_timeApiInMs << ","
             << l_effCycles<<","<<l_effApiPct<<","
             << l_totalPerfKernelInGops << "," << l_perfApiInGops
             << std::endl;
 
+  if(!getenv("SKIPPED_GOLD_CAL")){
+        float  l_TolRel = 1e-3,  l_TolAbs = 1e-5;
+        compareMultiInstrs(l_TolRel, l_TolAbs, l_program_golden, l_program[0]);
+    }else{
+        std::cout << "INFO: skipped gold calculation on host since it may take too long\n" << std::endl;
+    }    
   return EXIT_SUCCESS;
 }

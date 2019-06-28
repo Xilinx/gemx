@@ -1,30 +1,17 @@
 /**********
- * Copyright (c) 2017, Xilinx, Inc.
- * All rights reserved.
+ * Copyright 2019 Xilinx, Inc.
  *
- * Redistribution and use in source and binary forms, with or without modification,
- * are permitted provided that the following conditions are met:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * 1. Redistributions of source code must retain the above copyright notice,
- * this list of conditions and the following disclaimer.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its contributors
- * may be used to endorse or promote products derived from this software
- * without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
- * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * **********/
 /**
  *  @brief Kernet argrument handling
@@ -37,7 +24,7 @@
 
 #include "assert.h"
 #include "hls_stream.h"
-#include "hls/utils/x_hls_utils.h"
+#include "utils/x_hls_utils.h"
 #include "gemx_types.h"
 #include <ap_fixed.h>
 #include <stdio.h>
@@ -48,13 +35,25 @@ namespace gemx {
 typedef unsigned long int TimeBaseType;
 
 //////////////////////////// TIMESTAMP ////////////////////////////
+/*
+ * TimeStamp Class provides a function runTs which can be used to
+ * calculate the number cycles for which runTs functions is running
+ * It is controlled by template parameter that is provided with number
+ * of instruction the connected engine will execute.
+ * Assumption :: The engine is connected to runTs through a FIFO and
+ * reads an element from FIFO per execution of one instruction.
+ * */
 template <unsigned int t_NumInstr>
 class TimeStamp
 {
   public:
     //typedef enum {OpQuit, OpStamp, OpNoop} OpType;
     typedef TimeBaseType TimeType;
-    static const unsigned int t_FifoDepth = 2;
+    //#if GEMX_part==vu9pf1
+    //static const unsigned int t_FifoDepth = 2;
+    //#else 
+    static const unsigned int t_FifoDepth = 1;
+    //#endif
   private:
     TimeType m_Time;
   public:
@@ -78,6 +77,9 @@ class TimeStamp
 };
 
 //////////////////////////// INSTRUCTION RESULTS ////////////////////////////
+/*
+ * InstrResArgs class provides a simple function for calculating a time interval
+ */
 class InstrResArgs {
   public:
     TimeBaseType m_StartTime, m_EndTime;
@@ -112,6 +114,13 @@ class ControlArgs {
 };
 
 //////////////////////////// GEMV ////////////////////////////
+/*
+ * Simple container class to hold GEMV parameters :
+ *  m_Aoffset, m_Boffset, m_Coffset :: Are matrix address offsets
+ *  m_M, m_K, m_Lda : Define the size of matrices
+ *  A is a m_M x m_K matrix and B and C are vectors
+ *  GEMV operation is defined as  : C = A*B +  C ;
+ */
 class GemvArgs {
   public:
     unsigned int m_Aoffset, m_Boffset, m_Coffset,
@@ -127,18 +136,27 @@ class GemvArgs {
 };
 
 //////////////////////////// SPMV ////////////////////////////
+/*
+ * Simple container class to hold SPMV parameters :
+ *  m_Aoffset, m_Boffset, m_Coffset :: Are matrix address offsets
+ *  m_M, m_K, m_Lda : Define the size of matrices
+ *  A is a m_M x m_K matrix and B and C are vectors
+ *  SPMV operation is defined as  : C = A*B +  C ;
+ */
 class SpmvArgs {
   public:
     unsigned int m_Aoffset, m_Boffset, m_Coffset,
-                 m_M, m_K, m_Nnz, m_Cblocks, m_DescPages;
+                 m_M, m_K, m_Nnz, m_Bblocks, m_Cblocks, m_DescPages;
+    bool m_Prelu;
   public:
     SpmvArgs() {}
     SpmvArgs(
         unsigned int p_Aoffset, unsigned int p_Boffset, unsigned int p_Coffset,
-        unsigned int p_M, unsigned int p_K, unsigned int p_Nnz, unsigned int p_Cblocks,
-        unsigned int p_DescPages
+        unsigned int p_M, unsigned int p_K, unsigned int p_Nnz, unsigned int p_Bblocks, unsigned int p_Cblocks,
+        unsigned int p_DescPages, bool p_pRelu
       ) : m_Aoffset(p_Aoffset), m_Boffset(p_Boffset),  m_Coffset(p_Coffset),
-          m_M(p_M), m_K(p_K), m_Nnz(p_Nnz), m_Cblocks(p_Cblocks), m_DescPages(p_DescPages)
+          m_M(p_M), m_K(p_K), m_Nnz(p_Nnz), m_Bblocks(p_Bblocks), m_Cblocks(p_Cblocks), m_DescPages(p_DescPages),
+          m_Prelu(p_pRelu)
       {}
 };
 
@@ -156,44 +174,115 @@ class SpmvArgsUram {
       {}
 };
 
+//////////////////////////// USPMV ////////////////////////////
+class UspmvArgs {
+  public:
+    unsigned int m_Aoffset, m_Boffset, m_Coffset, m_NumRuns;
+  public:
+    UspmvArgs() {}
+    UspmvArgs(
+        unsigned int p_Aoffset, 
+        unsigned int p_Boffset, 
+        unsigned int p_Coffset, 
+        unsigned int p_NumRuns
+      ) : m_Aoffset(p_Aoffset), m_Boffset(p_Boffset), m_Coffset(p_Coffset), m_NumRuns(p_NumRuns)
+      {}
+};
+
 //////////////////////////// GEMM ////////////////////////////
+/*
+ * Simple container class to hold GEMM parameters :
+ *  m_Aoffset, m_Boffset, m_Coffset :: Are matrix address offsets
+ *  m_M, m_K, m_Lda : Define the size of matrices
+ *  A  and B are of size a m_M x m_K matrix and X and C are : m_M x m_N
+ *  GEMM operation is defined as  : C = A*B+X ;
+ */
 class GemmArgs {
+
   public:
     unsigned int m_Aoffset, m_Boffset, m_Coffset, m_Xoffset,
                  m_M, m_K, m_N,
                  m_Lda, m_Ldb, m_Ldc, m_Ldx;
-		int32_t	m_postScale;
+    int32_t      m_postScale;
   public:
     GemmArgs() {}
     GemmArgs(
         unsigned int p_Aoffset, unsigned int p_Boffset, unsigned int p_Coffset, unsigned int p_Xoffset,
         unsigned int p_M, unsigned int p_K, unsigned int p_N,
         unsigned int p_Lda, unsigned int p_Ldb, unsigned int p_Ldc, unsigned int p_Ldx,
-				int32_t p_postScale
+        int32_t p_postScale
       ) : m_Aoffset(p_Aoffset), m_Boffset(p_Boffset),  m_Coffset(p_Coffset), m_Xoffset(p_Xoffset),
           m_M(p_M), m_K(p_K), m_N(p_N),
           m_Lda(p_Lda),  m_Ldb(p_Ldb),  m_Ldc(p_Ldc), m_Ldx(p_Ldx),
-					m_postScale(p_postScale) 
+          m_postScale(p_postScale) 
       {}
-	void
-	init(
+    void init(
         unsigned int p_Aoffset, unsigned int p_Boffset, unsigned int p_Coffset, unsigned int p_Xoffset,
         unsigned int p_M, unsigned int p_K, unsigned int p_N,
         unsigned int p_Lda, unsigned int p_Ldb, unsigned int p_Ldc, unsigned int p_Ldx,
-				int32_t p_postScale) {
-      m_Aoffset=p_Aoffset;
- 	  	m_Boffset=p_Boffset;
-      m_Coffset=p_Coffset;
-			m_Xoffset=p_Xoffset;
-      m_M=p_M;
-	  	m_K=p_K;
-	  	m_N=p_N;
-      m_Lda=p_Lda;
-	  	m_Ldb=p_Ldb;
-	  	m_Ldc=p_Ldc; 
-			m_Ldx=p_Ldx;
-			m_postScale = p_postScale;
-	}
+        int32_t p_postScale)
+        {
+          m_Aoffset=p_Aoffset;
+          m_Boffset=p_Boffset;
+          m_Coffset=p_Coffset;
+          m_Xoffset=p_Xoffset;
+          m_M=p_M;
+          m_K=p_K;
+          m_N=p_N;
+          m_Lda=p_Lda;
+          m_Ldb=p_Ldb;
+          m_Ldc=p_Ldc; 
+          m_Ldx=p_Ldx;
+          m_postScale = p_postScale;
+        }
+};
+
+////////////////////////////FCN////////////////////////////
+/*
+ * Simple container class to hold FCN parameters :
+ *  m_Aoffset, m_Boffset, m_Coffset,m_Xoffset :: Are matrix address offsets
+ *  m_M, m_K, m_Lda : Define the size of matrices
+ *  A  and B are of size a m_M x m_K matrix and X and C are : m_M x m_N
+ *  FCN operation is defined as  : C = A*B+X   plus scaling and ReLU
+ */
+class FcnArgs {
+  public:
+    unsigned int m_Aoffset, m_Boffset, m_Coffset, m_Xoffset,
+                 m_M, m_K, m_N,
+                 m_Lda, m_Ldb, m_Ldc, m_Ldx;
+    int32_t m_postScale;
+    int16_t m_PReluVal;
+  public:
+    FcnArgs() {}
+    FcnArgs(
+        unsigned int p_Aoffset, unsigned int p_Boffset, unsigned int p_Coffset, unsigned int p_Xoffset,
+        unsigned int p_M, unsigned int p_K, unsigned int p_N,
+        unsigned int p_Lda, unsigned int p_Ldb, unsigned int p_Ldc, unsigned int p_Ldx,
+        int32_t p_postScale, int16_t p_PReluVal
+      ) : m_Aoffset(p_Aoffset), m_Boffset(p_Boffset),  m_Coffset(p_Coffset), m_Xoffset(p_Xoffset),
+          m_M(p_M), m_K(p_K), m_N(p_N),
+          m_Lda(p_Lda),  m_Ldb(p_Ldb),  m_Ldc(p_Ldc), m_Ldx(p_Ldx),
+          m_postScale(p_postScale),m_PReluVal(p_PReluVal)
+      {}
+      void
+      init(
+        unsigned int p_Aoffset, unsigned int p_Boffset, unsigned int p_Coffset, unsigned int p_Xoffset,
+        unsigned int p_M, unsigned int p_K, unsigned int p_N,
+        unsigned int p_Lda, unsigned int p_Ldb, unsigned int p_Ldc, unsigned int p_Ldx,int32_t p_postScale, int16_t p_PReluVal) {
+          m_Aoffset=p_Aoffset;
+          m_Boffset=p_Boffset;
+          m_Coffset=p_Coffset;
+          m_Xoffset=p_Xoffset;
+          m_M=p_M;
+          m_K=p_K;
+          m_N=p_N;
+          m_Lda=p_Lda;
+          m_Ldb=p_Ldb;
+          m_Ldc=p_Ldc;
+          m_Ldx=p_Ldx;
+          m_postScale = p_postScale;
+          m_PReluVal = p_PReluVal;
+      }
 };
 
 //////////////////////////// DDR Transposer ////////////////////////////
@@ -242,6 +331,8 @@ inline std::ostream& operator<<(std::ostream& os, DdrMatrixShape& p_Val) {
   return(os);
 }
  
+
+////////////////////////////TRANSP////////////////////////////
 class TranspArgs {
   public:
     DdrMatrixShape m_Src, m_Dst;
@@ -254,7 +345,6 @@ class TranspArgs {
           m_Dst(p_Dst)
       {}
 };
-
 
  ////////////////////////////  KARGS module  ////////////////////////////
 
@@ -287,7 +377,7 @@ class Kargs
         void
         storeToDdr(
           DdrFloatType *p_Addr,
-          unsigned int p_Offset
+          unsigned 	int p_Offset
         ) {
           for(int i = 0; i < t_InstrWidth; ++i) {
             p_Addr[p_Offset+i] = reg(v[i]);
@@ -295,7 +385,7 @@ class Kargs
         }
     };
     typedef ap_uint< t_DdrWidthBits >   DdrBitType;
-    typedef enum {OpControl, OpGemv, OpGemm, OpTransp, OpSpmv, OpResult, OpFail} OpType;
+    typedef enum {OpControl, OpGemv, OpGemm, OpTransp, OpSpmv, OpUspmv, OpResult, OpFail, OpFcn} OpType;    
         
   private:
     DdrBitType m_Flat;
@@ -507,15 +597,15 @@ class Kargs
       loadVal(l_args.m_Aoffset);
       loadVal(l_args.m_Boffset);
       loadVal(l_args.m_Coffset);
-			loadVal(l_args.m_Xoffset);
+      loadVal(l_args.m_Xoffset);
       loadVal(l_args.m_M);
       loadVal(l_args.m_K);
       loadVal(l_args.m_N);
       loadVal(l_args.m_Lda);
       loadVal(l_args.m_Ldb);
       loadVal(l_args.m_Ldc);
-			loadVal(l_args.m_Ldx);
-			loadVal(l_args.m_postScale);
+      loadVal(l_args.m_Ldx);
+      loadVal(l_args.m_postScale);
       GemmArgs l_ret = hlsReg<GemmArgs, t_ArgPipeline>(l_args);
       return l_ret;
     }
@@ -527,15 +617,55 @@ class Kargs
       storeVal(p_args.m_Aoffset);
       storeVal(p_args.m_Boffset);
       storeVal(p_args.m_Coffset);
-			storeVal(p_args.m_Xoffset);
+      storeVal(p_args.m_Xoffset);
       storeVal(p_args.m_M);
       storeVal(p_args.m_K);
       storeVal(p_args.m_N);
       storeVal(p_args.m_Lda);
       storeVal(p_args.m_Ldb);
       storeVal(p_args.m_Ldc);
-			storeVal(p_args.m_Ldx);
-			storeVal(p_args.m_postScale);
+      storeVal(p_args.m_Ldx);
+      storeVal(p_args.m_postScale);
+    }
+    
+    FcnArgs
+    getFcnArgs() {
+      FcnArgs l_args;
+      assert(sizeof(l_args) <=  sizeof(m_Flat) - sizeof(OpType));
+      loadVal(l_args.m_Aoffset);
+      loadVal(l_args.m_Boffset);
+      loadVal(l_args.m_Coffset);
+      loadVal(l_args.m_Xoffset);
+      loadVal(l_args.m_M);
+      loadVal(l_args.m_K);
+      loadVal(l_args.m_N);
+      loadVal(l_args.m_Lda);
+      loadVal(l_args.m_Ldb);
+      loadVal(l_args.m_Ldc);
+      loadVal(l_args.m_Ldx);
+      loadVal(l_args.m_postScale);
+      loadVal(l_args.m_PReluVal);
+      FcnArgs l_ret = hlsReg<FcnArgs, t_ArgPipeline>(l_args);
+      return l_ret;
+    }
+    void
+    setFcnArgs(FcnArgs p_args) {
+      assert(sizeof(p_args) <=  sizeof(m_Flat) - sizeof(OpType));
+      initPos();
+      storeValConst(int(OpFcn));
+      storeVal(p_args.m_Aoffset);
+      storeVal(p_args.m_Boffset);
+      storeVal(p_args.m_Coffset);
+      storeVal(p_args.m_Xoffset);
+      storeVal(p_args.m_M);
+      storeVal(p_args.m_K);
+      storeVal(p_args.m_N);
+      storeVal(p_args.m_Lda);
+      storeVal(p_args.m_Ldb);
+      storeVal(p_args.m_Ldc);
+      storeVal(p_args.m_Ldx);
+      storeVal(p_args.m_postScale);
+      storeVal(p_args.m_PReluVal);
     }
 
     TranspArgs
@@ -586,8 +716,10 @@ class Kargs
       loadVal(l_args.m_M);
       loadVal(l_args.m_K);
       loadVal(l_args.m_Nnz);
+      loadVal(l_args.m_Bblocks);
       loadVal(l_args.m_Cblocks);
       loadVal(l_args.m_DescPages);
+                  loadVal(l_args.m_Prelu);
       SpmvArgs l_ret = hlsReg<SpmvArgs, t_ArgPipeline>(l_args);
       return l_ret;
     }
@@ -602,8 +734,31 @@ class Kargs
       storeVal(p_args.m_M);
       storeVal(p_args.m_K);
       storeVal(p_args.m_Nnz);
+      storeVal(p_args.m_Bblocks);
       storeVal(p_args.m_Cblocks);
       storeVal(p_args.m_DescPages);
+                  storeVal(p_args.m_Prelu);
+    }
+    UspmvArgs
+    getUspmvArgs() {
+      UspmvArgs l_args;
+      assert(sizeof(l_args) <=  sizeof(m_Flat) - sizeof(OpType));
+      loadVal(l_args.m_Aoffset);
+      loadVal(l_args.m_Boffset);
+      loadVal(l_args.m_Coffset);
+      loadVal(l_args.m_NumRuns);
+      UspmvArgs l_ret = hlsReg<UspmvArgs, t_ArgPipeline>(l_args);
+      return l_ret;
+    }
+    void
+    setUspmvArgs(UspmvArgs p_args) {
+      assert(sizeof(p_args) <=  sizeof(m_Flat) - sizeof(OpType));
+      initPos();
+      storeValConst(int(OpUspmv));
+      storeVal(p_args.m_Aoffset);
+      storeVal(p_args.m_Boffset);
+      storeVal(p_args.m_Coffset);
+      storeVal(p_args.m_NumRuns);
     }
     static unsigned int
     getInstrWidth() {return(t_InstrWidth);}

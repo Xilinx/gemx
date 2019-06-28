@@ -1,16 +1,20 @@
-## Copyright (c) 2017
-## Xilinx, Inc.
-## All rights reserved.
-## $Id: //Rodin/Proj/O/OPENCL_APPS_DEV/src/matrix_mult/sgemm/run-hls.tcl#5 $
-## 
-## No part of this document may be copied, transmitted or
-## disclosed in any form or fashion without the express
-## written consent of Xilinx, Inc.
-##
-##  @brief HLS TCL script to compile and synthesize GEMX testbench and kernel
-##
-##  @author Jindrich Zejda (jzejda@xilinx.com)
-##
+# Copyright 2019 Xilinx, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#  @brief HLS TCL script to compile and synthesize GEMX testbench and kernel
+#
+#
 
 # Basic usage - run synthesis, no testbench or simulation
 #   vivado_hls -f run-hls.tcl  "doCsim 0  doRTLsynth 1"
@@ -24,18 +28,18 @@
 #     vivado_hls -f run-hls.tcl  "doCsim 1  doRTLsynth 0"
 #     vivado_hls -p prj_hls_ku115_4x4 &
 #   Build 32x32
-#     vivado_hls -f run-hls.tcl "doCsim 0  doRTLsynth 1   ddrWidth 32  argInstrWidth 1  gemvVectorBlocks 32  gemmMeshRows 32  gemmMeshCols 32  gemmMeshDepth 32 transpBlocks 1"
+#     vivado_hls -f run-hls.tcl "doCsim 0  doRTLsynth 1   ddrWidth 32  argInstrWidth 1  gemvVectorBlocks 32  transpBlocks 1"
 #     vivado_hls -p prj_hls_ku115_32x32 &
 #   Build 8x8
-#     vivado_hls -f run-hls.tcl "doCsim 1  doRTLsynth 0   ddrWidth 8  argInstrWidth 4  gemvVectorBlocks 8  gemmMeshRows 8  gemmMeshCols 8  gemmMeshDepth 8 transpBlocks 1"
+#     vivado_hls -f run-hls.tcl "doCsim 1  doRTLsynth 0   ddrWidth 8  argInstrWidth 4  gemvVectorBlocks 8 transpBlocks 1"
 #     vivado_hls -p prj_hls_ku115_8x8 &
 #   Build 16x16
-#     vivado_hls -f run-hls.tcl "doCsim 1  doRTLsynth 0   ddrWidth 16  argInstrWidth 2  gemvVectorBlocks 16  gemmMeshRows 16  gemmMeshCols 16  gemmMeshDepth 16 transpBlocks 1"
+#     vivado_hls -f run-hls.tcl "doCsim 1  doRTLsynth 0   ddrWidth 16  argInstrWidth 2  gemvVectorBlocks 16 transpBlocks 1"
 #     vivado_hls -p prj_hls_ku115_16x16 &
 
 #  A simple way to build and debug a specific configuration as seen in regressions/*/run.sh
-#    make run_cpu_em ... with your options
-#    grep GEMX_dataType log-run_cpu_em.txt | grep bin/xocc | sed 's/.*TEST_SDX=1//; s/-D GEMX_/ /g; s/=/ /g; s/ -Wno.*//'
+#    make run_sw_em ... with your options
+#    grep GEMX_dataType log-run_sw_emu.txt | grep bin/xocc | sed 's/.*TEST_SDX=1//; s/-D GEMX_/ /g; s/=/ /g; s/ -Wno.*//'
 #  and paste the resulting config string:
 #    vivado_hls -f run-hls.tcl  "doCsim 1  doRTLsynth 0 ...paste here"
 #  Open GUI and run csim in debugger:
@@ -64,24 +68,32 @@ array set opt {
   runGemm         1
   runTransp       1
   runSpmv         0
+  runUspmv        0
   gemvkVectorBlocks 512
   gemvmVectorBlocks 512
   gemvmGroups      1
-  gemmMeshRows     4
-  gemmMeshCols     4
-  gemmMeshDepth    4
-  gemmMBlocks	   1
-  gemmKBlocks	   2
-  gemmNBlocks	   1
-  splitMesh	   0 
-  transpBlocks 1
-  spmvWidth            1
+  gemmMBlocks      1
+  gemmKBlocks      2
+  gemmNBlocks      1
+  splitMesh        0 
+  transpBlocks     1
+  spmvWidth           8 
   spmvkVectorBlocks  512
   spmvMacGroups        4
   spmvColAddIdxBits    0
-  spmvPadA             1
+  spmvPadA            0 
   spmvNumCblocks    1024
-  spmvFloatPerDesc     4
+  spmvFloatPerDesc    2 
+  idxType              int
+  nnzBlocks            8
+  spmvKmaxBlocks       512
+  spmvMmaxBlocks       512
+  spmvUramGroups       6
+  useURAM              0
+  uspmvStages          3
+  uspmvInterleaves     12
+  uspmvMvectorBlocks   1200
+  uspmvNnzVectorBlocks 2048
   argPipeline  2
   useURAM     0
   part        ku115
@@ -108,9 +120,9 @@ foreach o [lsort [array names opt]] {
 }
 #quit
 
-set BOOST_SRC $pwd/../boost/compute/include
-set BOOST_LIB $pwd/../boost/lib
-set CFLAGS_K "-I $pwd/src  $OPT_FLAGS -D GEMX_kernelId=0 "
+set BOOST_SRC $pwd/../boost/
+set BOOST_LIB $pwd/../boost/libs
+set CFLAGS_K "-I$pwd/src/kernel -I$pwd/src/host -I$pwd/src  $OPT_FLAGS -D GEMX_kernelId=0 "
 set CFLAGS_H "$CFLAGS_K -g -I $BOOST_SRC"
 
 
@@ -118,15 +130,19 @@ set proj_dir [format prj_hls_%s  $opt(part) ]
 open_project $proj_dir -reset
 set_top gemxKernel_0
 
-add_files src/gemx_kernel.cpp         -cflags "$CFLAGS_K"
+add_files src/kernel/gemx_kernel.cpp         -cflags "$CFLAGS_K"
 
-add_files -tb src/gemx_main.cpp        -cflags "$CFLAGS_H"
+add_files -tb src/host/gemx_main.cpp        -cflags "$CFLAGS_H"
 
 open_solution "solution1"
 config_compile -ignore_long_run_time
 #config_schedule -effort medium -verbose
 
-if {$opt(part) == "kcu1500"} {
+if {$opt(part) == "u200"} {
+  set_part {xcu200-fsgd2104-2-e} -tool vivado
+} elseif {$opt(part) == "vcu1525"} {
+  set_part {xcvu9p-fsgd2104-2-i} -tool vivado
+} elseif {$opt(part) == "kcu1500"} {
   set_part {xcku115-flvb2104-2-e} -tool vivado
 } else {
   set_part {xcvu9p-flgb2104-2-i} -tool vivado
@@ -140,9 +156,7 @@ set run_args "gemx.xclbin $pwd/out_host/app.bin $pwd/$proj_dir/app_out.bin"
 
 if {$opt(doCsim)} {
   puts "***** C SIMULATION *****"
-  csim_design -ldflags "-L$BOOST_LIB -lboost_iostreams -lz -lrt -L${GCC_PATH}/gcc-${GCC_VERSION}/lib64 \
-               -lstdc++ -Wl,--rpath=${BOOST_LIB} \
-               -Wl,--rpath=${GCC_PATH}/gcc-${GCC_VERSION}/lib64" -argv "$run_args"
+  csim_design -ldflags "-L$BOOST_LIB -lboost_iostreams -lz -lrt -L/tools/batonroot/rodin/devkits/lnx64/gcc-${GCC_VERSION}/lib64 -lstdc++ -Wl,--rpath=${BOOST_LIB}" -argv "$run_args"
 }
 
 if {$opt(doRTLsynth)} {

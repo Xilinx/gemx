@@ -1,30 +1,17 @@
 /**********
- * Copyright (c) 2017, Xilinx, Inc.
- * All rights reserved.
+ * Copyright 2019 Xilinx, Inc.
  *
- * Redistribution and use in source and binary forms, with or without modification,
- * are permitted provided that the following conditions are met:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * 1. Redistributions of source code must retain the above copyright notice,
- * this list of conditions and the following disclaimer.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its contributors
- * may be used to endorse or promote products derived from this software
- * without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
- * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * **********/
 /**
  *  @brief GEMX common datatypes for HLS kernel code.
@@ -38,7 +25,7 @@
 #include <stdint.h>
 #include <ostream>
 #include <iomanip>
-
+#include <iostream>
 #include "ap_int.h"
 #include "ap_shift_reg.h"
 
@@ -248,7 +235,7 @@ class ExitTaggedWideType {
     WideType<T, t_Width> &getVal() {return m_Val;}
     T &operator[](unsigned int p_Idx) {return(m_Val[p_Idx]);}
 
-    bool getExit() {return(m_Exit);}
+    bool &getExit() {return(m_Exit);}
     void
     print(std::ostream& os) {
         m_Val.print(os);
@@ -797,15 +784,20 @@ class BoolArr {
   private:
     bool m_Val[W];
   public:
-		BoolArr(){}
+    BoolArr(){}
     BoolArr(bool p_Init) {
+        #pragma HLS inline self
         for(unsigned int i = 0; i < W; ++i) {
           #pragma HLS UNROLL
           m_Val[i] = p_Init;
         }
-      }
-    bool & operator[](unsigned int p_Idx) {return m_Val[p_Idx];}
+    }
+    bool & operator[](unsigned int p_Idx) {
+        #pragma HLS inline self
+        return m_Val[p_Idx];
+    }
     bool And() {
+        #pragma HLS inline self
         bool l_ret = true;
         for(unsigned int i = 0; i < W; ++i) {
           #pragma HLS UNROLL
@@ -815,6 +807,7 @@ class BoolArr {
         return(l_ret);
       }
     bool Or() {
+        #pragma HLS inline self
         bool l_ret = false;
         for(unsigned int i = 0; i < W; ++i) {
           #pragma HLS UNROLL
@@ -824,6 +817,7 @@ class BoolArr {
         return(l_ret);
       }
     void Reset() {
+        #pragma HLS inline self
         for(unsigned int i = 0; i < W; ++i) {
           #pragma HLS UNROLL
           #pragma HLS ARRAY_PARTITION variable=m_Val COMPLETE
@@ -990,10 +984,15 @@ class MemDesc {
     void* m_PageSpace;
     static const unsigned int t_4k = 4096; 
   public:
-	MemDesc() {}
+    MemDesc() {}
     MemDesc(size_t p_Num4kPages, void* p_PageSpace) :
       m_Num4kPages(p_Num4kPages),
       m_PageSpace(p_PageSpace) {}
+    void
+    init(size_t p_Num4kPages, void* p_PageSpace) {
+      m_Num4kPages = p_Num4kPages;
+      m_PageSpace = p_PageSpace;
+    }
     size_t
     sizeBytes() {return m_Num4kPages * t_4k;}
     void*

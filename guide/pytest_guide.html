@@ -259,7 +259,7 @@
 <pre class="highlight literal-block"><span></span>$ python ./tests/benchmark_spmv.py --xclbin ./xclbins/u200_201830_1/spmv_float/gemx.xclbin --cfg ./xclbins/u200_201830_1/spmv_float/config_info.dat --gemxlib ./C++/lib/libgemxhost.so --matrix <span class="m">100</span> <span class="m">128</span> <span class="m">12800</span> --vectors <span class="m">300</span></pre>
 <p>The output of the above command gives the average time of runing 300 SPMV operation between a sparse matrix (100x128 with NNZs=12800) and a dense vector.</p>
 <p><strong>4. Test and benchmark the USPMV engine</strong></p>
-<pre class="highlight literal-block"><span></span>$ Python ./tests/test_uspmv.py --xclbin ./xclbins/u200_201830_1/uspmv_1stage/gemx.xclbin --cfg ./xclbins/u200_201830_1/uspmv_1stage/config_info.dat --gemxlib ./C++/lib/libgemxhost.so</pre>
+<pre class="highlight literal-block"><span></span>$ python ./tests/test_uspmv.py --xclbin ./xclbins/u200_201830_1/uspmv_1stage/gemx.xclbin --cfg ./xclbins/u200_201830_1/uspmv_1stage/config_info.dat --gemxlib ./C++/lib/libgemxhost.so</pre>
 <p>Inside test_uspmv.py’s main function, users can add or modify the cases to run different or extra tests.</p>
 <pre class="highlight literal-block"><span></span><span class="n">test_uspmv_random</span><span class="p">([</span><span class="mi">100</span><span class="p">],[</span><span class="mi">128</span><span class="p">],[</span><span class="mi">12800</span><span class="p">],</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">32764</span><span class="p">)</span></pre>
 <div class="line-block">

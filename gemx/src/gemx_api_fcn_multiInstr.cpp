@@ -167,7 +167,7 @@ int main(int argc, char **argv)
     double l_timeApiInMs = run_hw_test(l_xclbinFile, l_program);
     
     //############  Get the exact kernel time from HW cycle counters on the accelerator  ############
-    float l_boardFreqMHz = getBoardFreqMHz(0);
+    float l_boardFreqMHz = getBoardFreqMHz(l_xclbinFile);
     //unsigned long int l_Ops = 2ull * l_m * l_n * l_k * 2; //operations carried out by each kernel
     KargsType l_kargsRes[GEMX_numKernels];
     KargsOpType l_op;

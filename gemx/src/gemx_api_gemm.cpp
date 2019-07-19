@@ -104,7 +104,7 @@ int main(int argc, char **argv)
   double l_timeApiInMs = run_hw_test(l_xclbinFile, l_program);
  
   //############  Get the exact kernel time from HW cycle counters on the accelerator  ############
-  float l_boardFreqMHz = getBoardFreqMHz(0);
+  float l_boardFreqMHz = getBoardFreqMHz(l_xclbinFile);
   unsigned long int l_Ops = 2ull * l_M * l_N * l_K + l_M * l_N * 3;
   unsigned long int l_Parallel_Ops = 2ull * l_M * l_N * l_K;
   KargsType l_kargsRes[GEMX_numKernels];
@@ -137,7 +137,7 @@ int main(int argc, char **argv)
   l_effKernelPct = (100 * l_timeMsAt100pctEff / l_maxTimeKernelInMs < 100)?(100 * l_timeMsAt100pctEff / l_maxTimeKernelInMs):100;
   l_effApiPct = 100 * l_timeMsAt100pctEff / l_timeApiInMs;
   // Show time, Tops in csv format
-  std::cout << std::string("DATA_CSV:,DdrWidth,Freq,M,K,N,postScaleVal,postScaleShift,")
+  std::cout << std::string("DATA_CSV:,DdrWidth,Freq,M,K,N,")
              + "Ops,KernelCycles,"
              + "TimeKernelMs,TimeApiMs,"
              + "EffKernelPct,EffApiPct,"

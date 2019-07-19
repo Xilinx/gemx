@@ -31,8 +31,8 @@
 #include "gemx_fpga.h"
 #include "gemx_gen_bin.h"
 
-float getBoardFreqMHz(unsigned int p_BoardId) {
-  std::string l_freqCmd = "$XILINX_XRT/bin/xbsak query -d" + std::to_string(p_BoardId);;
+float getBoardFreqMHz(std::string p_xclbinFile) {
+  std::string l_freqCmd = "xclbinutil --info --input " + p_xclbinFile;;
   float l_freq = -1;
   char l_lineBuf[256];
   std::shared_ptr<FILE> l_pipe(popen(l_freqCmd.c_str(), "r"), pclose);
@@ -49,7 +49,7 @@ float getBoardFreqMHz(unsigned int p_BoardId) {
         l_freq = std::stof(l_val);
         assert(l_mhz == "MHz");
         break;
-      } else if (l_line.find("OCL Frequency:") != std::string::npos) {
+      } else if (l_line.find("Type:      DATA") != std::string::npos) {
         l_nextLine_isFreq = true;
       }
   }

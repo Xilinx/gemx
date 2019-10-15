@@ -27,6 +27,7 @@ sys.path.append("./examples/keras")
 import mlp_common
 
 #Quantization parameters to bring fp32 ranges to fit into int16; parameters are derived offline ( see quantize.py )
+#This parameters won't be used if using fp32 xclbin
 g_in_scale = 31.130533916017484
 g_wgt_scale = [159879.54672570297, 135942.35558298964, 72420.85217502648]
 g_post_scale = [[1, 17], [1, 17], [5, 24]]

@@ -49,15 +49,18 @@ class GemxRT():
       if type(bias) != list:
           bias = [bias]
       
+      assert len(wgt) == len(wgt_scale)
+      assert len(bias) == len(bias_scale)
+
       self._wshape = []
       for w in wgt:
           self._wshape.append(w.shape)
-      if xclbin_opts["GEMX_dataType"] == "short":
-          self._qw = [ np.int16(a*b) for a,b in zip(wgt, wgt_scale)]
-          self._qb = [ np.int32(a*b) for a,b in zip(bias, bias_scale)]
+      if xclbin_opts["GEMX_dataType"] == "float":
+          self._qw = wgt
+          self._qb = bias
       else:
-          self._qw = [ a*b for a,b in zip(wgt, wgt_scale)]
-          self._qb = [ a*b for a,b in zip(bias, bias_scale)]
+          self._qw = [np.int16(np.around(a*b)) for a,b in zip(wgt, wgt_scale)]
+          self._qb = [np.int32(np.around(a*b)) for a,b in zip(bias, bias_scale)]
       for i,b in enumerate(self._qw):
           b = np.transpose(b)
           self._qw[i] = self.format_for_fpga( b, self.min_m, self.min_k)
@@ -152,7 +155,7 @@ class GemxRT():
       for i,(w_i,b_i) in enumerate( zip( self._qw, self._qb) ):
           gemx.addGEMMOp( w_i , self.fpga_buf[i], self.fpga_buf[i+1], b_i, self.post_scale[i][0], self.post_scale[i][1])
             
-    def predict ( self, inp, in_scale):
+    def predict ( self, inp, in_scale, xclbin_opts):
       """
       prepare input matrix for the engine, send all the matrices and instructions to kernel and get the result prediction matrix
       
@@ -171,14 +174,12 @@ class GemxRT():
       inp=np.transpose(inp)
       self.init_fpgabuf(inp.shape)
       self.loadInstr()
-      
-      padded_arr = self.format_for_fpga(inp * in_scale, self.min_k, self.min_n)
-      
-      #print ("input shape", padded_arr.shape)
-      if self.fpga_buf[0].dtype == np.int16:
-          np.copyto(self.fpga_buf[0],  np.int16(padded_arr), casting='same_kind', where=True)
+      if xclbin_opts["GEMX_dataType"] == "float":
+        padded_arr = self.format_for_fpga(inp, self.min_k, self.min_n)
+        np.copyto(self.fpga_buf[0],  padded_arr, casting='same_kind', where=True)
       else:
-          np.copyto(self.fpga_buf[0],  padded_arr, casting='same_kind', where=True)
+        padded_arr = self.format_for_fpga(inp * in_scale, self.min_k, self.min_n)
+        np.copyto(self.fpga_buf[0],  np.int16(np.around(padded_arr)), casting='same_kind', where=True)
       gemx.sendMat(self.fpga_buf[0])
       gemx.execute()
       gemx.getMat (self.fpga_buf[-1])

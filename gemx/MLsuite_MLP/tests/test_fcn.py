@@ -23,14 +23,21 @@ def test_perf_fcn(m, k, n, xclbin_opts, post_scale=[1,0], A_range=32764, B_range
     m = test.get_padded_size(m, int(xclbin_opts["GEMX_gemmMBlocks"]) * ddrWidth)
     k = test.get_padded_size(k, int(xclbin_opts["GEMX_gemmKBlocks"]) * ddrWidth)
     n = test.get_padded_size(n, int(xclbin_opts["GEMX_gemmNBlocks"]) * ddrWidth)
-    mat_A = np.random.randint(low=-A_range, high=A_range, size=(m, k), dtype=np.int16)
-    mat_B = np.random.randint(low=-B_range, high=B_range, size=(k, n), dtype=np.int16)  
-    bias = []
-    if bias_range != 0:
-        bias = np.random.randint(low=-bias_range, high=bias_range, size=(m, n), dtype=np.int32)
+    if xclbin_opts["GEMX_dataType"] =="short":
+        mat_A = np.random.randint(low=-A_range, high=A_range, size=(m, k), dtype=np.int16)
+        mat_B = np.random.randint(low=-B_range, high=B_range, size=(k, n), dtype=np.int16)
+        bias = []
+        if bias_range != 0:
+            bias = np.random.randint(low=-bias_range, high=bias_range, size=(m, n), dtype=np.int32)
+        else:
+            bias = np.zeros ((m, n), dtype=np.int32, order='C')   
+        C_fpga = np.zeros( (m, n), dtype=np.int16)
     else:
-        bias = np.zeros ((m, n), dtype=np.int32, order='C');   
-    C_fpga = np.zeros( (m, n), dtype=np.int16)
+        mat_A = np.random.uniform(low=-128, high=128, size=(m, k)).astype(np.float32)
+        mat_B = np.random.uniform(low=-128, high=128, size=(k, n)).astype(np.float32)
+        bias = np.zeros ((m, n), dtype=np.float32, order='C') 
+        C_fpga = np.zeros( (m, n), dtype=np.float32)
+    
     start_time = time.time()
     gemx.sendMat(mat_A)
     gemx.sendMat(mat_B)
@@ -54,10 +61,18 @@ def test_multi_fcn(ins_count, m_size, k_size, n_size, post_scale=[1,0], A_range=
       m_size[i] = test.get_padded_size( m_size[i], int(xclbin_opts["GEMX_gemmMBlocks"]) * ddrWidth)
       k_size[i] = test.get_padded_size(k_size[i], int(xclbin_opts["GEMX_gemmKBlocks"]) * ddrWidth)
       n_size[i] = test.get_padded_size(n_size[i], int(xclbin_opts["GEMX_gemmNBlocks"]) * ddrWidth)
-      mat_A.append(np.random.randint(low=-A_range, high=A_range, size=(m_size[i], k_size[i]), dtype=np.int16))
-      mat_bias.append(np.zeros ((m_size[i], n_size[i]), dtype=np.int32))
-      mat_C.append(np.zeros((m_size[i], n_size[i]), dtype=np.int16, order='C'))
-    mat_B0 = np.random.randint(low=-B_range, high=B_range, size=(k_size[0], n_size[0]), dtype=np.int16) 
+      if xclbin_opts["GEMX_dataType"] =="short":
+        mat_A.append(np.random.randint(low=-A_range, high=A_range, size=(m_size[i], k_size[i]), dtype=np.int16))
+        mat_bias.append(np.zeros ((m_size[i], n_size[i]), dtype=np.int32))
+        mat_C.append(np.zeros((m_size[i], n_size[i]), dtype=np.int16, order='C'))
+      else:
+        mat_A.append(np.random.uniform(low=-128, high=128, size=(m_size[i], k_size[i]))).astype(np.float32)
+        mat_bias.append(np.zeros ((m_size[i], n_size[i]), dtype=np.float32))
+        mat_C.append(np.zeros((m_size[i], n_size[i]), dtype=np.float32, order='C'))
+    if xclbin_opts["GEMX_dataType"] =="short":
+        mat_B0 = np.random.randint(low=-B_range, high=B_range, size=(k_size[0], n_size[0]), dtype=np.int16) 
+    else:
+        mat_B0 = np.random.uniform(low=-128, high=128, size=(k_size[0], n_size[0])).astype(np.float32)
     for i in range(ins_count):
       gemx.sendMat(mat_A[i])
       gemx.sendMat(mat_C[i])
@@ -80,15 +95,23 @@ if __name__ == '__main__':
   test=FcnTest()
   args, xclbin_opts = gemx.processCommandLine()
   gemx.createFCNHandle( args, xclbin_opts)
-  for j in range (1,3):
-      for k in range(1,8):
-          for i in range (int(xclbin_opts["GEMX_numKernels"])):
-              for m,n in ( [0,0], [1,0]):
-                  test.test_basic_randint( i, xclbin_opts, [j,k], [m,n], 2048)    
-   
-  test.test_basic_size(512,512,512, xclbin_opts)   
-  
-  size=256
-  while size < 8192:
-      test_perf_fcn(size,size,size,xclbin_opts)  # run performance measurement
-      size =  size * 2
+  if xclbin_opts["GEMX_dataType"] =="short":
+      for j in range (1,3):
+          for k in range(1,8):
+              for i in range (int(xclbin_opts["GEMX_numKernels"])):
+                  for m,n in ( [0,0], [1,0]):
+                      test.test_basic_randint( i, xclbin_opts, [j,k], [m,n], 2048)    
+       
+      test.test_basic_size(512,512,512, xclbin_opts)   
+      
+      size=256
+      while size < 8192:
+          test_perf_fcn(size,size,size,xclbin_opts)  # run performance measurement
+          size =  size * 2
+  else: #float
+      for i in range (int(xclbin_opts["GEMX_numKernels"])):
+        test.test_basic_randint( i, xclbin_opts, [1,0], [0,0], 2048)    
+      size=256
+      while size < 4096:
+          test_perf_fcn(size,size,size,xclbin_opts)  # run performance measurement
+          size =  size * 2

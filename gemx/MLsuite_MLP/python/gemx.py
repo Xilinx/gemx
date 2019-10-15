@@ -35,10 +35,10 @@ class GEMXManager:
                                   np.ctypeslib.ndpointer(flags="C_CONTIGUOUS"), 
                                   np.ctypeslib.ndpointer(flags="C_CONTIGUOUS"), 
                                   c_uint, c_uint, c_uint, c_int, c_int, c_short, c_short, c_uint]
-    self._lib.AddGEMMOp.argtypes = [np.ctypeslib.ndpointer(c_short, flags="C_CONTIGUOUS"),  
-                                   np.ctypeslib.ndpointer(c_short, flags="C_CONTIGUOUS"), 
-                                   np.ctypeslib.ndpointer(c_short, flags="C_CONTIGUOUS"), 
-                                   np.ctypeslib.ndpointer(c_int, flags="C_CONTIGUOUS"), 
+    self._lib.AddGEMMOp.argtypes = [np.ctypeslib.ndpointer(flags="C_CONTIGUOUS"),  
+                                   np.ctypeslib.ndpointer(flags="C_CONTIGUOUS"), 
+                                   np.ctypeslib.ndpointer(flags="C_CONTIGUOUS"), 
+                                   np.ctypeslib.ndpointer(flags="C_CONTIGUOUS"), 
                                    c_uint, c_uint, c_uint, c_int, c_int, c_uint] 
     self._lib.AddUSPMVOp.argtypes = [c_void_p, 
                                    np.ctypeslib.ndpointer(flags="C_CONTIGUOUS"), 

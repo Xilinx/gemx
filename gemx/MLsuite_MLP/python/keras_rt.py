@@ -11,8 +11,10 @@
  # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  # See the License for the specific language governing permissions and
  # limitations under the License.
+import numpy as np
 import gemx
 from gemx_rt import GemxRT
+
         
 class KerasRT(GemxRT):
     """
@@ -42,7 +44,13 @@ class KerasRT(GemxRT):
       gemx.clearInstrBuf()
       for i,l in enumerate(self.kmodel.layers):
           act = l.get_config()['activation']
-          if act == 'relu':
-              gemx.addFCNOp( self._qw[i], self.fpga_buf[i], self.fpga_buf[i+1], self._qb[i], self.post_scale[i][0], self.post_scale[i][1], 0, 0)
+          if self._qw[0].dtype == np.float32:
+            if act == 'relu':
+              gemx.addFCNOp( self._qw[i], self.fpga_buf[i], self.fpga_buf[i+1], self._qb[i], 1, 0, 0, 0)
+            else:
+              gemx.addGEMMOp( self._qw[i], self.fpga_buf[i], self.fpga_buf[i+1], self._qb[i], 1, 0)            
           else:
+            if act == 'relu':
+              gemx.addFCNOp( self._qw[i], self.fpga_buf[i], self.fpga_buf[i+1], self._qb[i], self.post_scale[i][0], self.post_scale[i][1], 0, 0)
+            else:
               gemx.addGEMMOp( self._qw[i], self.fpga_buf[i], self.fpga_buf[i+1], self._qb[i], self.post_scale[i][0], self.post_scale[i][1])

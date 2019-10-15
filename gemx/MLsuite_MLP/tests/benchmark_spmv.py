@@ -50,7 +50,7 @@ if args.engine =='spmv':
   min_col = int(xclbin_opt["GEMX_ddrWidth"]) 
   if args.mtx =='none':
     #read matrix size from args.matrix
-    num_matrix = len(args.matrix)/3
+    num_matrix = int(len(args.matrix)/3)
     for i in range(num_matrix):
         m = args.matrix[i*3]
         k = args.matrix[i*3+1]

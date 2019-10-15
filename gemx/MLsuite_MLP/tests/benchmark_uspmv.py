@@ -69,9 +69,9 @@ if __name__ == '__main__':
     number_runs=args.vectors
     stage_size=1
     if args.mtx =='none':
-      num_matrix = len(args.matrix)/3
+      num_matrix = int(len(args.matrix)/3)
     else:
-      num_matrix = len(args.mtx)
+      num_matrix = int(len(args.mtx))
     if args.engine =='spmv':
        min_row = int(xclbin_opt["GEMX_uspmvInterleaves"]) * int(xclbin_opt["GEMX_ddrWidth"]) 
        min_col = int(xclbin_opt["GEMX_ddrWidth"]) 

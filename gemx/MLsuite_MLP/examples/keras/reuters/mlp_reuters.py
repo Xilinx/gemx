@@ -27,8 +27,10 @@ sys.path.append("./examples/keras")
 import mlp_common
 
 #Quantization parameters to bring fp32 ranges to fit into int16; parameters are derived offline ( see quantize.py)
+#This parameters won't be used if using fp32 xclbin
 g_in_scale = 1
 g_wgt_scale = [1024, 1024]
+g_bias_scale = [1024.0, 262144.0]
 g_post_scale = [[1, 2], [1, 10]] # 256/1024, 1/1024
 
 
@@ -97,7 +99,7 @@ if  __name__ == '__main__':
     cpu_out = mlp_common.predict_cpu( model, x_test)
 
     if args.engine == 'fcn':
-        fpga_out = mlp_common.predict_fpga( model, x_test, xclbin_prop, g_in_scale, g_wgt_scale, g_wgt_scale, g_post_scale)
+        fpga_out = mlp_common.predict_fpga( model, x_test, xclbin_prop, g_in_scale, g_wgt_scale, g_bias_scale, g_post_scale)
     else:
         fpga_out = mlp_common.predict_uspmv_fpga(model, x_test, xclbin_prop)
         

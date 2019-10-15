@@ -17,12 +17,13 @@ from __future__ import print_function
 import numpy as np
 import pandas as pd
 import keras
-from keras.models import Sequential, Model
+from keras.models import Sequential,load_model
 from keras.layers import Dense
 import argparse
 from keras.datasets import reuters
 from keras.datasets import mnist
 from keras.preprocessing.text import Tokenizer
+from numpy import loadtxt
 
 # Usage:
 # compute_quantize_scale(numpy array, model.get_weights()):
@@ -72,15 +73,20 @@ class Quantization():
     print ("input_range:",input_range,"input_scale:",input_scale)
     print ("output_range:",output_range,"output_scale:",output_scale)
     
+    bias_scale = np.zeros(number_of_layers)
     output_scale_new = np.zeros(number_of_layers)
     
+    bias_scale[0] = weight_scale[0]*input_scale
     output_scale_new[0] = output_scale[0]/(weight_scale[0]*input_scale)
+    
+    for i in range(1,number_of_layers):
+      bias_scale[i] = weight_scale[i]*output_scale[i-1]
     
     for i in range(1,number_of_layers-1):
       output_scale_new[i] = output_scale[i]/(weight_scale[i]*output_scale[i-1])
       
     # if using output_scale[-1]/(weight_scale[-1]*output_scale[-2]), then final result needs to be divided by output_scale[-1]
-    output_scale_new[-1] = 1/(weight_scale[-1]*output_scale[-2]) 
+    output_scale_new[-1] = 1/(weight_scale[-1]*output_scale[-2])
     
     print('output_scale_new:', output_scale_new)
     
@@ -97,15 +103,115 @@ class Quantization():
     print("======Copy the following information to mlp.py======")
     print("g_in_scale =", input_scale)
     print("g_wgt_scale =", "[" + ", ".join(str(i) for i in weight_scale)+ "]")
+    print("g_bias_scale =", "[" + ", ".join(str(i) for i in bias_scale)+ "]")
     print("g_post_scale =", g_post_scale)
     print("====================================================")
-    return input_scale, weight_scale, g_post_scale
+    return input_scale, weight_scale, bias_scale, g_post_scale
   
+  def calculate_with_scale(self, output,output_scale, output_descale):
+    
+    output_after_scale = output * output_scale
+    output_scale_descale = output_after_scale * output_descale
+    
+    return output_after_scale, output_scale_descale
+    
+  def MSE(self,x1,x2):
+    return ((x1 - x2)**2).mean()
+  
+  def get_static_scale(self,int_max,output_range,delta):
+    output_scale = int_max/(output_range-delta)
+    output_descale = (output_range-delta)/int_max
+    return output_scale, output_descale
+  
+  def find_final_scale(self,iterations,inp,weight,bia,int_max,input_scale,weight_scale):
+    inp0 = np.around(inp * input_scale)
+    weight0 = np.around(weight * weight_scale)
+    bia0 = np.around(bia * input_scale * weight_scale)
+    golden_output = ((np.matmul(inp0, weight0) + bia0)/ (input_scale * weight_scale))
+    golden_output_range = 2 * max(abs(np.min(golden_output)),abs(np.max(golden_output)))       
+    score = np.full(iterations,100,dtype=np.float32)
+    output_final_scale = 0 
+    output_final = None
+    delta = golden_output_range/200 # users should decide delta and iterations
+
+    for i in range(iterations):
+        output_static_scale, output_static_descale = self.get_static_scale(int_max,golden_output_range,delta*i)
+        output_after_scale, output_scale_descale = self.calculate_with_scale(golden_output, output_static_scale,output_static_descale)
+        score_tmp = self.MSE(golden_output,output_scale_descale)
+        if score_tmp < np.min(score):
+          output_final_scale = output_static_scale
+          golden_output[golden_output<0] = 0
+          output_final=golden_output
+        score[i] = score_tmp
+    return output_final_scale, output_final
+  
+  def compute_quantize_scale_new( self, inp, wb, int_max, iterations):
+    #assume Relu activation for each layer other than the final layer
+    print ("    Min    ","    Max    ")
+    print ("inp (", inp.min(), ",", inp.max(),")")
+    weights = wb[0::2]
+    bias=wb[1::2]
+    for i,w in enumerate(weights):
+        print ( "w", i, ": ", np.min(w), ", ", np.max(w))
+    for i,b in enumerate(bias):
+        print ( "b", i, ": ", np.min(b), ", ", np.max(b))   
+    number_of_layers = len(weights)
+    weight_range = np.array([2 * max(abs(np.min(x)),abs(np.max(x))) for x in weights])
+    weight_scale = int_max/weight_range
+
+    input_range = 2 * max(abs(inp.min()),abs(inp.max()))
+    input_scale = int_max/input_range  
+    output_final_scale0, output_final0 = self.find_final_scale(iterations,inp,weights[0],bias[0],int_max,input_scale,weight_scale[0])
+    output_final_scale=[output_final_scale0]
+    output_final=[output_final0]
+    for i in range(1,number_of_layers):
+      output_final_scale_tmp, output_final_tmp = self.find_final_scale(iterations,output_final[i-1],weights[i],bias[i],int_max,output_final_scale[i-1],weight_scale[i])
+      output_final_scale.append(output_final_scale_tmp)
+      output_final.append(output_final_tmp)      
+    print(output_final_scale)
+    
+    bias_scale = np.zeros(number_of_layers)
+    output_scale_new = np.zeros(number_of_layers)
+    
+    bias_scale[0] = weight_scale[0]*input_scale
+    output_scale_new[0] = output_final_scale[0]/(weight_scale[0]*input_scale)
+    
+    for i in range(1,number_of_layers):
+      bias_scale[i] = weight_scale[i]*output_final_scale[i-1]
+    
+    for i in range(1,number_of_layers-1):
+      output_scale_new[i] = output_final_scale[i]/(weight_scale[i]*output_final_scale[i-1])
+      
+    # if using output_final_scale[-1]/(weight_scale[-1]*output_scale[-2]), then final result needs to be divided by output_scale[-1]
+    output_scale_new[-1] = output_final_scale[-1]/(weight_scale[-1]*output_final_scale[-2])
+    
+    print('output_scale_new:', output_scale_new)       
+    my_dict = self.build_dictory()
+    my_keys  = list(my_dict.keys())
+    g_post_scale = []
+    #try to find the closet key
+    for i in range(number_of_layers):
+      difference = [abs(x-output_scale_new[i]) for x in my_keys]
+      idx = difference.index(min(difference))
+      print(my_keys[idx])
+      print(my_dict[my_keys[idx]])
+      g_post_scale.append(my_dict[my_keys[idx]])
+    print("======Copy the following information to mlp.py======")
+    print("g_in_scale =", input_scale)
+    print("g_wgt_scale =", "[" + ", ".join(str(i) for i in weight_scale)+ "]")
+    print("g_bias_scale =", "[" + ", ".join(str(i) for i in bias_scale)+ "]")
+    print("g_post_scale =", g_post_scale)
+    print("====================================================")
+    return input_scale, weight_scale, bias_scale, g_post_scale
+    
   def compute_quantize_scale_16( self, inp, wb):
     return self.compute_quantize_scale(inp, wb, pow(2,16))
+    #return self.compute_quantize_scale_new(inp, wb, pow(2,16),10)
+
   
   def compute_quantize_scale_8( self, inp, wb):
     return self.compute_quantize_scale(inp, wb, pow(2,8))
+
   
   def common_quantize( self, length, inp_scale, p_weight, p_output):
     #weights = wb[0::2]
@@ -114,9 +220,17 @@ class Quantization():
     output_scale=[]
     for i in range(number_of_layers):
       weight_scale.append(pow(2,p_weight))
-      output_scale.append(pow(2,p_output))    
+      output_scale.append(pow(2,p_output)) 
+      
+    bias_scale = np.zeros(number_of_layers)
     output_scale_new = np.zeros(number_of_layers)
+    
+    bias_scale[0] = weight_scale[0]*inp_scale
     output_scale_new[0] = output_scale[0]/(weight_scale[0]*inp_scale)
+    
+    for i in range(1,number_of_layers):
+      bias_scale[i] = weight_scale[i]*output_scale[i-1]
+      
     for i in range(1, number_of_layers-1):
       output_scale_new[i] = output_scale[i]/(weight_scale[i]*output_scale[i-1])
     output_scale_new[-1] = 1/(weight_scale[-1])
@@ -134,6 +248,7 @@ class Quantization():
     print("======Copy the following information to mlp.py======")
     print("g_in_scale =", inp_scale)
     print("g_wgt_scale =", "[" + ", ".join(str(i) for i in weight_scale)+ "]")
+    print("g_bias_scale =", "[" + ", ".join(str(i) for i in bias_scale)+ "]")
     print("g_post_scale =", g_post_scale)
     print("====================================================")
     return inp_scale, weight_scale, g_post_scale
@@ -144,7 +259,6 @@ class Quantization():
       for j in range(32,0,-1):
           my_key= i * pow(2,-j) 
           my_dict.update({my_key:[i,j]})         
-    #print (my_dict)
     return my_dict
 
 # local functions

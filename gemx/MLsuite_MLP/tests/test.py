@@ -88,30 +88,57 @@ class Test:
     pRelu_val:  (int,int)
                 (PReLUScale, PReLUAlpha) 
     """
-    m64 = np.int64(np.round(np.matmul(np.float64(A), np.float64(B))))  # intermediate accumulation to 64 bits
-    #print ("float64 compute elapsed:", time.time() - start_compute)
-    #m64 = np.matmul(np.int64(A), np.int64(B)) # intermediate accumulation to 64 bits
-    bias64 = np.int64(X)  # bias to 64 bits
-    output64 = m64 + bias64
-    o64d = output64 * post_scale[0]
-    o64m = o64d // (2 ** post_scale[1])
-    o64m = np.int16(o64m)
-    if pRelu_val != [1,0]:
-      for entry in np.nditer(o64m, op_flags=['readwrite']):
-        if entry < 0:
-            entry[...] = entry * pRelu_val[0] // (2 ** pRelu_val[1])
-    C_cpu = np.int16(o64m)  # scale down for 16 bits    
-    if np.array_equal(C, C_cpu):
-        print ("Success!\n")
+    if C.dtype==np.float32:
+        C_cpu = np.matmul(A,B,dtype=np.float32) 
+        C_cpu = C_cpu + X.astype(np.float32)
+        if pRelu_val == [0,0]:
+            C_cpu = C_cpu.clip(min=0)
+        C_cpu = C_cpu.astype(np.float32)     
     else:
-        print ("Not equal!")
-        print (C.shape, C_cpu.shape)
-        np.savetxt("cpu_out.np", C_cpu, fmt="%d")
-        np.savetxt("fpga_out.np", C, fmt="%d")
-        np.savetxt("bias.np", X, fmt="%d")
-        np.savetxt("A.np", A, fmt="%d")
-        np.savetxt("B.np", B, fmt="%d")
-        sys.exit(1)    
+        m64 = np.int64(np.round(np.matmul(np.float64(A), np.float64(B))))  # intermediate accumulation to 64 bits
+        #print ("float64 compute elapsed:", time.time() - start_compute)
+        #m64 = np.matmul(np.int64(A), np.int64(B)) # intermediate accumulation to 64 bits
+        bias64 = np.int64(X)  # bias to 64 bits
+        output64 = m64 + bias64
+        o64d = output64 * post_scale[0]
+        o64m = o64d // (2 ** post_scale[1])
+        o64m = np.int16(o64m)
+        if pRelu_val != [1,0]:
+            for entry in np.nditer(o64m, op_flags=['readwrite']):
+                if entry < 0:
+                    entry[...] = entry * pRelu_val[0] // (2 ** pRelu_val[1])
+        C_cpu = np.int16(o64m)  # scale down for 16 bits    
+    if C.dtype==np.float32:
+        if np.allclose(C, C_cpu,1e-1,1e-1):
+            print ("Success!\n")
+        else:
+            print ("Not equal!")
+            print (C.shape, C_cpu.shape)
+            diff = np.isclose(C.flatten(), C_cpu.flatten(),1e-1,1e-1)
+            countDiff = diff.shape[0] - np.count_nonzero(diff)
+            print ("not equal, number of mismatches = ", countDiff)
+            mismatch = ((diff==0).nonzero())
+            print ("mismatches are in ",mismatch[0])
+            for i in mismatch[0]:
+                print (C.flatten()[i]," is different from ",C_cpu.flatten()[i])
+            np.savetxt("cpu_out.np", C_cpu, fmt="%f")
+            np.savetxt("fpga_out.np", C, fmt="%f")
+            np.savetxt("bias.np", X, fmt="%f")
+            np.savetxt("A.np", A, fmt="%f")
+            np.savetxt("B.np", B, fmt="%f")
+            sys.exit(1)              
+    else:
+        if np.array_equal(C, C_cpu):
+            print ("Success!\n")
+        else:
+            print ("Not equal!")
+            print (C.shape, C_cpu.shape)
+            np.savetxt("cpu_out.np", C_cpu, fmt="%d")
+            np.savetxt("fpga_out.np", C, fmt="%d")
+            np.savetxt("bias.np", X, fmt="%d")
+            np.savetxt("A.np", A, fmt="%d")
+            np.savetxt("B.np", B, fmt="%d")
+            sys.exit(1)    
  
   def get_padded_size (self, size, min_size):
     size_padded = int( math.ceil( np.float32(size) / min_size ) * min_size ) 
@@ -122,9 +149,12 @@ class Test:
     return rand_dim * min_mult
   
   def gen_rand_matrix (self, dtype, row, col):
-    max_val = np.iinfo(dtype).max
-    min_val = np.iinfo(dtype).min
-    return np.random.randint(low=min_val, high=max_val, size=(row, col), dtype=dtype)
+    if dtype == np.float32:
+        return np.random.uniform(low=-128, high=128, size=(row, col)).astype(np.float32)
+    else:
+        max_val = np.iinfo(dtype).max
+        min_val = np.iinfo(dtype).min
+        return np.random.randint(low=min_val, high=max_val, size=(row, col), dtype=dtype)
       
   def test_basic_randint (self,PE, xclbin_opts, post_scale, max_dim):
     """
@@ -143,10 +173,15 @@ class Test:
     rand_m = self.gen_rand_dim ( ddrwidth * int(xclbin_opts["GEMX_gemmMBlocks"]), max_dim )
     rand_k = self.gen_rand_dim ( ddrwidth * int(xclbin_opts["GEMX_gemmKBlocks"]), max_dim )
     rand_n = self.gen_rand_dim ( ddrwidth * int(xclbin_opts["GEMX_gemmNBlocks"]), max_dim )
-    mat_A = self.gen_rand_matrix ( np.int16, rand_m, rand_k)
-    mat_B = self.gen_rand_matrix ( np.int16, rand_k, rand_n)
-    bias = self.gen_rand_matrix ( np.int32, rand_m, rand_n)
-    self.test_basic(PE,mat_A, mat_B, bias, post_scale)
+    if xclbin_opts["GEMX_dataType"]=="short":
+        mat_A = self.gen_rand_matrix ( np.int16, rand_m, rand_k)
+        mat_B = self.gen_rand_matrix ( np.int16, rand_k, rand_n)
+        bias = self.gen_rand_matrix ( np.int32, rand_m, rand_n)   
+    else: #float
+        mat_A = self.gen_rand_matrix ( np.float32, rand_m, rand_k)
+        mat_B = self.gen_rand_matrix ( np.float32, rand_k, rand_n)
+        bias = self.gen_rand_matrix ( np.float32, rand_m, rand_n)  
+    self.test_basic(PE,xclbin_opts, mat_A, mat_B, bias, post_scale)
       
   def test_basic_size(self, m, k, n, xclbin_opts, PE = 0, post_scale=[1,0]):
     """
@@ -171,12 +206,18 @@ class Test:
     padded_m = self.get_padded_size(m, int(xclbin_opts["GEMX_gemmMBlocks"]) * ddrWidth)
     padded_k = self.get_padded_size(k, int(xclbin_opts["GEMX_gemmKBlocks"]) * ddrWidth)
     padded_n = self.get_padded_size(n, int(xclbin_opts["GEMX_gemmNBlocks"]) * ddrWidth)
-    mat_A = self.gen_rand_matrix ( np.int16, padded_m, padded_k)
-    mat_B = self.gen_rand_matrix ( np.int16, padded_k, padded_n)
-    bias = self.gen_rand_matrix ( np.int32, padded_m, padded_n)
-    self.test_basic(PE, mat_A, mat_B, bias, post_scale)
+    
+    if xclbin_opts["GEMX_dataType"]=="short":
+        mat_A = self.gen_rand_matrix ( np.int16, padded_m, padded_k)
+        mat_B = self.gen_rand_matrix ( np.int16, padded_k, padded_n)
+        bias = self.gen_rand_matrix ( np.int32, padded_m, padded_n)
+    else: #float
+        mat_A = self.gen_rand_matrix ( np.float32, padded_m, padded_k)
+        mat_B = self.gen_rand_matrix ( np.float32, padded_k, padded_n)
+        bias = self.gen_rand_matrix ( np.float32, padded_m, padded_n)
+    self.test_basic(PE, xclbin_opts, mat_A, mat_B, bias, post_scale)
       
-  def test_basic(self,PE, mat_A, mat_B, bias, post_scale = [1,0]):
+  def test_basic(self,PE, xclbin_opts, mat_A, mat_B, bias, post_scale = [1,0]):
     m = mat_A.shape[0]
     k = mat_A.shape[1]
     n = mat_B.shape[1]
@@ -184,7 +225,10 @@ class Test:
     print ("A: ", np.amax(mat_A), np.amin(mat_A), np.average(mat_A))
     print ("B: ", np.amax(mat_B), np.amin(mat_B), np.average(mat_B))
     print ("bias: ", np.amax(bias), np.amin(bias), np.average(bias))
-    C_fpga = np.zeros( (m, n), dtype=np.int16)
+    if xclbin_opts["GEMX_dataType"]=="short":
+        C_fpga = np.zeros((m, n), dtype=np.int16, order='C')
+    else : #float
+        C_fpga = np.zeros((m, n), dtype=np.float32, order='C')    
     gemx.sendMat(mat_A,PE)
     gemx.sendMat(mat_B,PE)
     gemx.sendMat(C_fpga,PE)    
@@ -281,12 +325,17 @@ class FcnTest(Test):
     rand_m = self.gen_rand_dim ( ddrwidth * int(xclbin_opts["GEMX_gemmMBlocks"]), max_dim )
     rand_k = self.gen_rand_dim ( ddrwidth * int(xclbin_opts["GEMX_gemmKBlocks"]), max_dim )
     rand_n = self.gen_rand_dim ( ddrwidth * int(xclbin_opts["GEMX_gemmNBlocks"]), max_dim )
-    mat_A = self.gen_rand_matrix ( np.int16, rand_m, rand_k)
-    mat_B = self.gen_rand_matrix ( np.int16, rand_k, rand_n)
-    bias = self.gen_rand_matrix ( np.int32, rand_m, rand_n)      
-    self.test_basic(PE, mat_A, mat_B, bias, post_scale, RELU_scale)    
+    if xclbin_opts["GEMX_dataType"]=="short":
+        mat_A = self.gen_rand_matrix ( np.int16, rand_m, rand_k)
+        mat_B = self.gen_rand_matrix ( np.int16, rand_k, rand_n)
+        bias = self.gen_rand_matrix ( np.int32, rand_m, rand_n)   
+    else: #float
+        mat_A = self.gen_rand_matrix ( np.float32, rand_m, rand_k)
+        mat_B = self.gen_rand_matrix ( np.float32, rand_k, rand_n)
+        bias = self.gen_rand_matrix ( np.float32, rand_m, rand_n)  
+    self.test_basic(PE, xclbin_opts, mat_A, mat_B, bias, post_scale, RELU_scale)    
       
-  def test_basic(self,PE, mat_A, mat_B, bias, post_scale=[1, 0], RELU_scale = [1,0]):
+  def test_basic(self,PE, xclbin_opts, mat_A, mat_B, bias, post_scale=[1, 0], RELU_scale = [1,0]):
     m = mat_A.shape[0]
     k = mat_A.shape[1]
     n = mat_B.shape[1]
@@ -295,7 +344,10 @@ class FcnTest(Test):
     print ("A: ", np.amax(mat_A), np.amin(mat_A), np.average(mat_A))
     print ("B: ", np.amax(mat_B), np.amin(mat_B), np.average(mat_B))
     print ("bias: ", np.amax(bias), np.amin(bias), np.average(bias))
-    C_fpga = np.zeros((m, n), dtype=np.int16, order='C')
+    if xclbin_opts["GEMX_dataType"]=="short":
+        C_fpga = np.zeros((m, n), dtype=np.int16, order='C')
+    else : #float
+        C_fpga = np.zeros((m, n), dtype=np.float32, order='C')
     gemx.sendMat(mat_A, PE)
     gemx.sendMat(mat_B, PE)
     gemx.sendMat(C_fpga, PE)    

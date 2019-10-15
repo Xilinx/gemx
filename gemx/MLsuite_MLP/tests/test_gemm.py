@@ -59,14 +59,20 @@ def test_perf_gemm(m, k, n, xclbin_opts, post_scale=[1,0], A_range=32764, B_rang
     m = test.get_padded_size(m, int(xclbin_opts["GEMX_gemmMBlocks"]) * ddrWidth)
     k = test.get_padded_size(k, int(xclbin_opts["GEMX_gemmKBlocks"]) * ddrWidth)
     n = test.get_padded_size(n, int(xclbin_opts["GEMX_gemmNBlocks"]) * ddrWidth)
-    mat_A = np.random.randint(low=-A_range, high=A_range, size=(m, k), dtype=np.int16)
-    mat_B = np.random.randint(low=-B_range, high=B_range, size=(k, n), dtype=np.int16)  
-    bias = []
-    if bias_range != 0:
-        bias = np.random.randint(low=-bias_range, high=bias_range, size=(m, n), dtype=np.int32)
+    if xclbin_opts["GEMX_dataType"] =="short":
+        mat_A = np.random.randint(low=-A_range, high=A_range, size=(m, k), dtype=np.int16)
+        mat_B = np.random.randint(low=-B_range, high=B_range, size=(k, n), dtype=np.int16)
+        bias = []
+        if bias_range != 0:
+            bias = np.random.randint(low=-bias_range, high=bias_range, size=(m, n), dtype=np.int32)
+        else:
+            bias = np.zeros ((m, n), dtype=np.int32, order='C')   
+        C_fpga = np.zeros( (m, n), dtype=np.int16)
     else:
-        bias = np.zeros ((m, n), dtype=np.int32, order='C');   
-    C_fpga = np.zeros( (m, n), dtype=np.int16)
+        mat_A = np.random.uniform(low=-128, high=128, size=(m, k)).astype(np.float32)
+        mat_B = np.random.uniform(low=-128, high=128, size=(k, n)).astype(np.float32)
+        bias = np.zeros ((m, n), dtype=np.float32, order='C') 
+        C_fpga = np.zeros( (m, n), dtype=np.float32)
     start_time = time.time()  
     gemx.sendMat(mat_A)
     gemx.sendMat(mat_B)

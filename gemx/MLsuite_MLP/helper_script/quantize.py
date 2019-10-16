@@ -123,16 +123,18 @@ class Quantization():
     output_descale = (output_range-delta)/int_max
     return output_scale, output_descale
   
-  def find_final_scale(self,iterations,inp,weight,bia,int_max,input_scale,weight_scale):
+  def find_final_scale(self,iterations,inp,weight,bia,int_max,input_scale,weight_scale,relu=False):
     inp0 = np.around(inp * input_scale)
     weight0 = np.around(weight * weight_scale)
     bia0 = np.around(bia * input_scale * weight_scale)
     golden_output = ((np.matmul(inp0, weight0) + bia0)/ (input_scale * weight_scale))
-    golden_output_range = 2 * max(abs(np.min(golden_output)),abs(np.max(golden_output)))       
+    golden_output_range = 2 * max(abs(np.min(golden_output)),abs(np.max(golden_output))) 
+    if relu:
+        golden_output[golden_output<0] = 0
     score = np.full(iterations,100,dtype=np.float32)
     output_final_scale = 0 
     output_final = None
-    delta = golden_output_range/200 # users should decide delta and iterations
+    delta = golden_output_range/10000 # users should decide delta and iterations
 
     for i in range(iterations):
         output_static_scale, output_static_descale = self.get_static_scale(int_max,golden_output_range,delta*i)
@@ -161,11 +163,13 @@ class Quantization():
 
     input_range = 2 * max(abs(inp.min()),abs(inp.max()))
     input_scale = int_max/input_range  
-    output_final_scale0, output_final0 = self.find_final_scale(iterations,inp,weights[0],bias[0],int_max,input_scale,weight_scale[0])
+    relu_list = np.ones(number_of_layers,dtype=bool)
+    relu_list[-1] = False
+    output_final_scale0, output_final0 = self.find_final_scale(iterations,inp,weights[0],bias[0],int_max,input_scale,weight_scale[0],relu_list[0])
     output_final_scale=[output_final_scale0]
     output_final=[output_final0]
     for i in range(1,number_of_layers):
-      output_final_scale_tmp, output_final_tmp = self.find_final_scale(iterations,output_final[i-1],weights[i],bias[i],int_max,output_final_scale[i-1],weight_scale[i])
+      output_final_scale_tmp, output_final_tmp = self.find_final_scale(iterations,output_final[i-1],weights[i],bias[i],int_max,output_final_scale[i-1],weight_scale[i],relu_list[i])
       output_final_scale.append(output_final_scale_tmp)
       output_final.append(output_final_tmp)      
     print(output_final_scale)

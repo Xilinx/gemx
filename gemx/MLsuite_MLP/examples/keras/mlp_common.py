@@ -24,7 +24,7 @@ def predict_cpu (model, test_data):
 
 def predict_fpga( model, test_data, xclbin_prop, g_in_scale, g_wgt_scale, g_bias_scale, g_post_scale):
     fpga_rt = KerasRT(model, xclbin_prop, g_wgt_scale, g_bias_scale, g_post_scale)
-    result = fpga_rt.predict(test_data, g_in_scale)
+    result = fpga_rt.predict(test_data, g_in_scale, xclbin_prop)
     result = result.astype(np.float32)
     #run softmax on CPU
     for i in range(result.shape[0]):

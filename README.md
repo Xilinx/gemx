@@ -38,6 +38,13 @@ to clone the master branch of this repository
 - copy the gemx/MLsuite_MLP directory to the Nimbix machine, and navigate to the MLsuite_MLP directory
 - following [GEMX Python APIs] to setup Python environment on the Nimbix machine and run GEMX Python APIs.
 
+***Important update:***
+- .xclbin and config_info.dat files with FP32 type FCN engine has been added to the repository
+- the .xclbin and config_info.dat file can be found in gemx/MLsuite_MLP/xclbins/u200_201830_2
+- to run them on Nimbix, pleaselaunch application "Xilinx SDAccel Development 2019.1" and select "Desktop Mode with FPGA"
+- choose machine type "16 core, 128 GB RAM, Xilinx Alveo U200 FPGA (nx5u_xdma_201830_2)"
+- following [GEMX Python APIs] to setup Python environment on the Nimbix machine and run GEMX Python APIs.
+
 ## 5.BUILD GEMX-BASED EXAMPLE APPLICATIONS 
 A set of make commands are used in the verify.sh to demonstrate the GEMX engine usage with xilinx:u200:xdma:201830_2 DSA. Before compiling and building FPGA and host images, make sure SDAccel 2019.1 envioronment variales are set up properly and navigate to gemx/ directory, and enter command:
   
@@ -68,6 +75,7 @@ Oct2017|1.0|Initial Xilinx Release
 Mar2018|2.0|Updated to SDx 2017.4
 Sep2018|2.1|Updated to SDx 2018.2
 May2019|2.2|Updated to SDx 2019.1
+Oct2019|2.3|Added .xclbin with FP32 FCN engine
 
 [GEMM_API_UG]: /docs/GEMM_API_UG.md
 [GEMX_ENGINE_UG]: /docs/GEMX_ENGINE_UG.md

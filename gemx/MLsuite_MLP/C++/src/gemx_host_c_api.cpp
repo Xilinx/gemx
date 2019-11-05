@@ -261,6 +261,16 @@ void ClearInstrBuf(unsigned PE)
 #endif
 }
 
+void ClearBuf(unsigned PE)
+{
+    gemx::XTimer t;
+    GEMXHostHandle<void*>::Instance().gh_ptr[PE]->ClearBuf();
+#ifdef GEMX_PERF_DBG
+    GEMXHostProfiler::Instance().func_time["ClearBuf"] += t.elapsed();
+    GEMXHostProfiler::Instance().func_calls["ClearBuf"]++;
+#endif
+}
+
 void PrintStats()
 {
     for ( auto p : GEMXHostProfiler::Instance().func_time)

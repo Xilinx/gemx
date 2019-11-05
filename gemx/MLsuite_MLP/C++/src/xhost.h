@@ -398,6 +398,11 @@ namespace gemx
                     memset(this->_progBuf, 0, PAGE_SIZE);
                     this->_instr_offset = 0;
                 }
+                
+                void ClearBuf()
+                {
+                    this->_devHandle.clear();
+                }
             protected:
                 static const unsigned int PAGE_SIZE = 4096;
                 static const unsigned int INSTR_BUF_SIZE = PAGE_SIZE;

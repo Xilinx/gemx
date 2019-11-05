@@ -80,6 +80,7 @@ class GEMXManager:
     self._lib.GetFromFPGAFloat.restype = c_void_p
     self._lib.Wait.argtypes = [c_uint]
     self._lib.ClearInstrBuf.argtypes = [c_uint]
+    self._lib.ClearBuf.argtypes = [c_uint]
     self._lib.PrintStats.argtypes = []
     # new flow wrapper
     self._lib.MakeStrGEMMHost.argtypes = [c_char_p, c_uint]
@@ -428,7 +429,19 @@ class GEMXManager:
     """
     self._lib.ClearInstrBuf(PE)      
            
-      
+  def clearBuf(self, PE):
+    """
+    Clear the buffer in kernel. \n
+    The maximum instructions could be saved in the kernel is 16. Only call this function when previous instructions sent to kernel is > 16.
+    
+    Parameters
+    ----------  
+    PE:        int
+               index of kernel
+    
+    """
+    self._lib.ClearBuf(PE)   
+    
   def getMat(self, A, PE, sync_get = True):
     """
     Get the dense matrix from kernel to host memory
@@ -604,7 +617,11 @@ def wait(PE=0):
 
 def clearInstrBuf(PE=0):
     _gemxManager.clearInstrBuf(PE)    
-      
+
+
+def clearBuf(PE=0):
+    _gemxManager.clearBuf(PE)    
+            
 def createManager ( libFile ):
   global _gemxManager
   if not _gemxManager:

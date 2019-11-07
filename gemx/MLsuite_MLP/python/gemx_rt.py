@@ -34,7 +34,7 @@ class GemxRT():
     post_scale:  list
                  Quantization parameters multiple with output matrices    
     """
-    def __init__(self, xclbin_opts, wgt, bias, wgt_scale, bias_scale, post_scale):
+    def __init__(self, xclbin_opts, wgt, bias, wgt_scale, bias_scale, post_scale,relu_scale):
       
       #Ensuring min_m and min_n never fall below min_k is needed when chaining multiple GEMM operations
       #If min_m/min_n is less than min_k, using the output of a GEMM call where either dimension 
@@ -70,6 +70,7 @@ class GemxRT():
       self.fpga_buf = []
       self.out_dim = None
       self.post_scale = post_scale
+      self.relu_scale = relu_scale
       self.batch_sz = 0
         
     def get_padded_shape ( self, shape, min_row, min_col):

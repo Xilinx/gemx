@@ -34,10 +34,10 @@ class KerasRT(GemxRT):
     post_scale:  list
                  Quantization parameters multiple with output matrices 
     """
-    def __init__(self, keras_model, xclbin_opts, wgt_scale, bias_scale, post_scale):
+    def __init__(self, keras_model, xclbin_opts, wgt_scale, bias_scale, post_scale,relu_scale):
       keras_w = keras_model.get_weights()[0::2]
       keras_b = keras_model.get_weights()[1::2]
-      GemxRT.__init__(self, xclbin_opts, keras_w, keras_b, wgt_scale, bias_scale, post_scale)
+      GemxRT.__init__(self, xclbin_opts, keras_w, keras_b, wgt_scale, bias_scale, post_scale,relu_scale)
       self.kmodel = keras_model
        
     def loadInstr(self):
